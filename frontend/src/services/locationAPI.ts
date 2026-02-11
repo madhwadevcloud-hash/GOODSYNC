@@ -1,0 +1,1503 @@
+
+import axios from 'axios';
+
+export interface State {
+  id: number;
+  name: string;
+  code: string;
+}
+
+export interface District {
+  id: number;
+  name: string;
+  stateId: number;
+}
+
+export interface Taluka {
+  id: number;
+  name: string;
+  districtId: number;
+}
+
+// Indian States data
+const INDIAN_STATES: State[] = [
+  { id: 1, name: "Andhra Pradesh", code: "AP" },
+  { id: 2, name: "Arunachal Pradesh", code: "AR" },
+  { id: 3, name: "Assam", code: "AS" },
+  { id: 4, name: "Bihar", code: "BR" },
+  { id: 5, name: "Chhattisgarh", code: "CG" },
+  { id: 6, name: "Goa", code: "GA" },
+  { id: 7, name: "Gujarat", code: "GJ" },
+  { id: 8, name: "Haryana", code: "HR" },
+  { id: 9, name: "Himachal Pradesh", code: "HP" },
+  { id: 10, name: "Jharkhand", code: "JH" },
+  { id: 11, name: "Karnataka", code: "KA" },
+  { id: 12, name: "Kerala", code: "KL" },
+  { id: 13, name: "Madhya Pradesh", code: "MP" },
+  { id: 14, name: "Maharashtra", code: "MH" },
+  { id: 15, name: "Manipur", code: "MN" },
+  { id: 16, name: "Meghalaya", code: "ML" },
+  { id: 17, name: "Mizoram", code: "MZ" },
+  { id: 18, name: "Nagaland", code: "NL" },
+  { id: 19, name: "Odisha", code: "OR" },
+  { id: 20, name: "Punjab", code: "PB" },
+  { id: 21, name: "Rajasthan", code: "RJ" },
+  { id: 22, name: "Sikkim", code: "SK" },
+  { id: 23, name: "Tamil Nadu", code: "TN" },
+  { id: 24, name: "Telangana", code: "TG" },
+  { id: 25, name: "Tripura", code: "TR" },
+  { id: 26, name: "Uttar Pradesh", code: "UP" },
+  { id: 27, name: "Uttarakhand", code: "UK" },
+  { id: 28, name: "West Bengal", code: "WB" },
+  { id: 29, name: "Andaman and Nicobar Islands", code: "AN" },
+  { id: 30, name: "Chandigarh", code: "CH" },
+  { id: 31, name: "Dadra and Nagar Haveli and Daman and Diu", code: "DN" },
+  { id: 32, name: "Delhi", code: "DL" },
+  { id: 33, name: "Jammu and Kashmir", code: "JK" },
+  { id: 34, name: "Ladakh", code: "LA" },
+  { id: 35, name: "Lakshadweep", code: "LD" },
+  { id: 36, name: "Puducherry", code: "PY" },
+];
+
+// Districts data - All states and UTs (700+ districts)
+const DISTRICTS: District[] = [
+  // Andhra Pradesh (id: 1) - 26 districts
+  { id: 1001, name: "Anantapur", stateId: 1 },
+  { id: 1002, name: "Chittoor", stateId: 1 },
+  { id: 1003, name: "East Godavari", stateId: 1 },
+  { id: 1004, name: "Guntur", stateId: 1 },
+  { id: 1005, name: "Krishna", stateId: 1 },
+  { id: 1006, name: "Kurnool", stateId: 1 },
+  { id: 1007, name: "Nellore", stateId: 1 },
+  { id: 1008, name: "Prakasam", stateId: 1 },
+  { id: 1009, name: "Srikakulam", stateId: 1 },
+  { id: 1010, name: "Visakhapatnam", stateId: 1 },
+  { id: 1011, name: "Vizianagaram", stateId: 1 },
+  { id: 1012, name: "West Godavari", stateId: 1 },
+  { id: 1013, name: "YSR Kadapa", stateId: 1 },
+  { id: 1014, name: "Alluri Sitharama Raju", stateId: 1 },
+  { id: 1015, name: "Anakapalli", stateId: 1 },
+  { id: 1016, name: "Annamayya", stateId: 1 },
+  { id: 1017, name: "Bapatla", stateId: 1 },
+  { id: 1018, name: "Dr. B.R. Ambedkar Konaseema", stateId: 1 },
+  { id: 1019, name: "Eluru", stateId: 1 },
+  { id: 1020, name: "Kakinada", stateId: 1 },
+  { id: 1021, name: "NTR", stateId: 1 },
+  { id: 1022, name: "Nandyal", stateId: 1 },
+  { id: 1023, name: "Palnadu", stateId: 1 },
+  { id: 1024, name: "Parvathipuram Manyam", stateId: 1 },
+  { id: 1025, name: "Sri Potti Sriramulu Nellore", stateId: 1 },
+  { id: 1026, name: "Sri Sathya Sai", stateId: 1 },
+
+  // Arunachal Pradesh (id: 2) - 26 districts
+  { id: 2001, name: "Anjaw", stateId: 2 },
+  { id: 2002, name: "Changlang", stateId: 2 },
+  { id: 2003, name: "Dibang Valley", stateId: 2 },
+  { id: 2004, name: "East Kameng", stateId: 2 },
+  { id: 2005, name: "East Siang", stateId: 2 },
+  { id: 2006, name: "Kamle", stateId: 2 },
+  { id: 2007, name: "Kra Daadi", stateId: 2 },
+  { id: 2008, name: "Kurung Kumey", stateId: 2 },
+  { id: 2009, name: "Lepa Rada", stateId: 2 },
+  { id: 2010, name: "Lohit", stateId: 2 },
+  { id: 2011, name: "Longding", stateId: 2 },
+  { id: 2012, name: "Lower Dibang Valley", stateId: 2 },
+  { id: 2013, name: "Lower Siang", stateId: 2 },
+  { id: 2014, name: "Lower Subansiri", stateId: 2 },
+  { id: 2015, name: "Namsai", stateId: 2 },
+  { id: 2016, name: "Pakke Kessang", stateId: 2 },
+  { id: 2017, name: "Papum Pare", stateId: 2 },
+  { id: 2018, name: "Shi Yomi", stateId: 2 },
+  { id: 2019, name: "Siang", stateId: 2 },
+  { id: 2020, name: "Tawang", stateId: 2 },
+  { id: 2021, name: "Tirap", stateId: 2 },
+  { id: 2022, name: "Upper Siang", stateId: 2 },
+  { id: 2023, name: "Upper Subansiri", stateId: 2 },
+  { id: 2024, name: "West Kameng", stateId: 2 },
+  { id: 2025, name: "West Siang", stateId: 2 },
+  { id: 2026, name: "Itanagar Capital Complex", stateId: 2 },
+
+  // Assam (id: 3) - 35 districts
+  { id: 3001, name: "Baksa", stateId: 3 },
+  { id: 3002, name: "Barpeta", stateId: 3 },
+  { id: 3003, name: "Biswanath", stateId: 3 },
+  { id: 3004, name: "Bongaigaon", stateId: 3 },
+  { id: 3005, name: "Cachar", stateId: 3 },
+  { id: 3006, name: "Charaideo", stateId: 3 },
+  { id: 3007, name: "Chirang", stateId: 3 },
+  { id: 3008, name: "Darrang", stateId: 3 },
+  { id: 3009, name: "Dhemaji", stateId: 3 },
+  { id: 3010, name: "Dhubri", stateId: 3 },
+  { id: 3011, name: "Dibrugarh", stateId: 3 },
+  { id: 3012, name: "Dima Hasao", stateId: 3 },
+  { id: 3013, name: "Goalpara", stateId: 3 },
+  { id: 3014, name: "Golaghat", stateId: 3 },
+  { id: 3015, name: "Hailakandi", stateId: 3 },
+  { id: 3016, name: "Hojai", stateId: 3 },
+  { id: 3017, name: "Jorhat", stateId: 3 },
+  { id: 3018, name: "Kamrup", stateId: 3 },
+  { id: 3019, name: "Kamrup Metropolitan", stateId: 3 },
+  { id: 3020, name: "Karbi Anglong", stateId: 3 },
+  { id: 3021, name: "Karimganj", stateId: 3 },
+  { id: 3022, name: "Kokrajhar", stateId: 3 },
+  { id: 3023, name: "Lakhimpur", stateId: 3 },
+  { id: 3024, name: "Majuli", stateId: 3 },
+  { id: 3025, name: "Morigaon", stateId: 3 },
+  { id: 3026, name: "Nagaon", stateId: 3 },
+  { id: 3027, name: "Nalbari", stateId: 3 },
+  { id: 3028, name: "Sivasagar", stateId: 3 },
+  { id: 3029, name: "Sonitpur", stateId: 3 },
+  { id: 3030, name: "South Salmara-Mankachar", stateId: 3 },
+  { id: 3031, name: "Tinsukia", stateId: 3 },
+  { id: 3032, name: "Udalguri", stateId: 3 },
+  { id: 3033, name: "West Karbi Anglong", stateId: 3 },
+  { id: 3034, name: "Bajali", stateId: 3 },
+  { id: 3035, name: "Tamulpur", stateId: 3 },
+
+  // Bihar (id: 4) - 38 districts
+  { id: 4001, name: "Araria", stateId: 4 },
+  { id: 4002, name: "Arwal", stateId: 4 },
+  { id: 4003, name: "Aurangabad", stateId: 4 },
+  { id: 4004, name: "Banka", stateId: 4 },
+  { id: 4005, name: "Begusarai", stateId: 4 },
+  { id: 4006, name: "Bhagalpur", stateId: 4 },
+  { id: 4007, name: "Bhojpur", stateId: 4 },
+  { id: 4008, name: "Buxar", stateId: 4 },
+  { id: 4009, name: "Darbhanga", stateId: 4 },
+  { id: 4010, name: "East Champaran", stateId: 4 },
+  { id: 4011, name: "Gaya", stateId: 4 },
+  { id: 4012, name: "Gopalganj", stateId: 4 },
+  { id: 4013, name: "Jamui", stateId: 4 },
+  { id: 4014, name: "Jehanabad", stateId: 4 },
+  { id: 4015, name: "Kaimur", stateId: 4 },
+  { id: 4016, name: "Katihar", stateId: 4 },
+  { id: 4017, name: "Khagaria", stateId: 4 },
+  { id: 4018, name: "Kishanganj", stateId: 4 },
+  { id: 4019, name: "Lakhisarai", stateId: 4 },
+  { id: 4020, name: "Madhepura", stateId: 4 },
+  { id: 4021, name: "Madhubani", stateId: 4 },
+  { id: 4022, name: "Munger", stateId: 4 },
+  { id: 4023, name: "Muzaffarpur", stateId: 4 },
+  { id: 4024, name: "Nalanda", stateId: 4 },
+  { id: 4025, name: "Nawada", stateId: 4 },
+  { id: 4026, name: "Patna", stateId: 4 },
+  { id: 4027, name: "Purnia", stateId: 4 },
+  { id: 4028, name: "Rohtas", stateId: 4 },
+  { id: 4029, name: "Saharsa", stateId: 4 },
+  { id: 4030, name: "Samastipur", stateId: 4 },
+  { id: 4031, name: "Saran", stateId: 4 },
+  { id: 4032, name: "Sheikhpura", stateId: 4 },
+  { id: 4033, name: "Sheohar", stateId: 4 },
+  { id: 4034, name: "Sitamarhi", stateId: 4 },
+  { id: 4035, name: "Siwan", stateId: 4 },
+  { id: 4036, name: "Supaul", stateId: 4 },
+  { id: 4037, name: "Vaishali", stateId: 4 },
+  { id: 4038, name: "West Champaran", stateId: 4 },
+
+  // Chhattisgarh (id: 5) - 33 districts
+  { id: 5001, name: "Balod", stateId: 5 },
+  { id: 5002, name: "Baloda Bazar", stateId: 5 },
+  { id: 5003, name: "Balrampur", stateId: 5 },
+  { id: 5004, name: "Bastar", stateId: 5 },
+  { id: 5005, name: "Bemetara", stateId: 5 },
+  { id: 5006, name: "Bijapur", stateId: 5 },
+  { id: 5007, name: "Bilaspur", stateId: 5 },
+  { id: 5008, name: "Dantewada", stateId: 5 },
+  { id: 5009, name: "Dhamtari", stateId: 5 },
+  { id: 5010, name: "Durg", stateId: 5 },
+  { id: 5011, name: "Gariaband", stateId: 5 },
+  { id: 5012, name: "Gaurela Pendra Marwahi", stateId: 5 },
+  { id: 5013, name: "Janjgir Champa", stateId: 5 },
+  { id: 5014, name: "Jashpur", stateId: 5 },
+  { id: 5015, name: "Kabirdham", stateId: 5 },
+  { id: 5016, name: "Kanker", stateId: 5 },
+  { id: 5017, name: "Kondagaon", stateId: 5 },
+  { id: 5018, name: "Korba", stateId: 5 },
+  { id: 5019, name: "Koriya", stateId: 5 },
+  { id: 5020, name: "Mahasamund", stateId: 5 },
+  { id: 5021, name: "Manendragarh Chirmiri Bharatpur", stateId: 5 },
+  { id: 5022, name: "Mohla Manpur", stateId: 5 },
+  { id: 5023, name: "Mungeli", stateId: 5 },
+  { id: 5024, name: "Narayanpur", stateId: 5 },
+  { id: 5025, name: "Raigarh", stateId: 5 },
+  { id: 5026, name: "Raipur", stateId: 5 },
+  { id: 5027, name: "Rajnandgaon", stateId: 5 },
+  { id: 5028, name: "Sakti", stateId: 5 },
+  { id: 5029, name: "Sarangarh Bilaigarh", stateId: 5 },
+  { id: 5030, name: "Sukma", stateId: 5 },
+  { id: 5031, name: "Surajpur", stateId: 5 },
+  { id: 5032, name: "Surguja", stateId: 5 },
+  { id: 5033, name: "Khairagarh", stateId: 5 },
+
+  // Goa (id: 6) - 2 districts
+  { id: 6001, name: "North Goa", stateId: 6 },
+  { id: 6002, name: "South Goa", stateId: 6 },
+
+  // Gujarat (id: 7) - 33 districts
+  { id: 7001, name: "Ahmedabad", stateId: 7 },
+  { id: 7002, name: "Amreli", stateId: 7 },
+  { id: 7003, name: "Anand", stateId: 7 },
+  { id: 7004, name: "Aravalli", stateId: 7 },
+  { id: 7005, name: "Banaskantha", stateId: 7 },
+  { id: 7006, name: "Bharuch", stateId: 7 },
+  { id: 7007, name: "Bhavnagar", stateId: 7 },
+  { id: 7008, name: "Botad", stateId: 7 },
+  { id: 7009, name: "Chhota Udaipur", stateId: 7 },
+  { id: 7010, name: "Dahod", stateId: 7 },
+  { id: 7011, name: "Dang", stateId: 7 },
+  { id: 7012, name: "Devbhoomi Dwarka", stateId: 7 },
+  { id: 7013, name: "Gandhinagar", stateId: 7 },
+  { id: 7014, name: "Gir Somnath", stateId: 7 },
+  { id: 7015, name: "Jamnagar", stateId: 7 },
+  { id: 7016, name: "Junagadh", stateId: 7 },
+  { id: 7017, name: "Kheda", stateId: 7 },
+  { id: 7018, name: "Kutch", stateId: 7 },
+  { id: 7019, name: "Mahisagar", stateId: 7 },
+  { id: 7020, name: "Mehsana", stateId: 7 },
+  { id: 7021, name: "Morbi", stateId: 7 },
+  { id: 7022, name: "Narmada", stateId: 7 },
+  { id: 7023, name: "Navsari", stateId: 7 },
+  { id: 7024, name: "Panchmahal", stateId: 7 },
+  { id: 7025, name: "Patan", stateId: 7 },
+  { id: 7026, name: "Porbandar", stateId: 7 },
+  { id: 7027, name: "Rajkot", stateId: 7 },
+  { id: 7028, name: "Sabarkantha", stateId: 7 },
+  { id: 7029, name: "Surat", stateId: 7 },
+  { id: 7030, name: "Surendranagar", stateId: 7 },
+  { id: 7031, name: "Tapi", stateId: 7 },
+  { id: 7032, name: "Vadodara", stateId: 7 },
+  { id: 7033, name: "Valsad", stateId: 7 },
+
+  // Haryana (id: 8) - 22 districts
+  { id: 8001, name: "Ambala", stateId: 8 },
+  { id: 8002, name: "Bhiwani", stateId: 8 },
+  { id: 8003, name: "Charkhi Dadri", stateId: 8 },
+  { id: 8004, name: "Faridabad", stateId: 8 },
+  { id: 8005, name: "Fatehabad", stateId: 8 },
+  { id: 8006, name: "Gurugram", stateId: 8 },
+  { id: 8007, name: "Hisar", stateId: 8 },
+  { id: 8008, name: "Jhajjar", stateId: 8 },
+  { id: 8009, name: "Jind", stateId: 8 },
+  { id: 8010, name: "Kaithal", stateId: 8 },
+  { id: 8011, name: "Karnal", stateId: 8 },
+  { id: 8012, name: "Kurukshetra", stateId: 8 },
+  { id: 8013, name: "Mahendragarh", stateId: 8 },
+  { id: 8014, name: "Nuh", stateId: 8 },
+  { id: 8015, name: "Palwal", stateId: 8 },
+  { id: 8016, name: "Panchkula", stateId: 8 },
+  { id: 8017, name: "Panipat", stateId: 8 },
+  { id: 8018, name: "Rewari", stateId: 8 },
+  { id: 8019, name: "Rohtak", stateId: 8 },
+  { id: 8020, name: "Sirsa", stateId: 8 },
+  { id: 8021, name: "Sonipat", stateId: 8 },
+  { id: 8022, name: "Yamunanagar", stateId: 8 },
+
+  // Himachal Pradesh (id: 9) - 12 districts
+  { id: 9001, name: "Bilaspur", stateId: 9 },
+  { id: 9002, name: "Chamba", stateId: 9 },
+  { id: 9003, name: "Hamirpur", stateId: 9 },
+  { id: 9004, name: "Kangra", stateId: 9 },
+  { id: 9005, name: "Kinnaur", stateId: 9 },
+  { id: 9006, name: "Kullu", stateId: 9 },
+  { id: 9007, name: "Lahaul and Spiti", stateId: 9 },
+  { id: 9008, name: "Mandi", stateId: 9 },
+  { id: 9009, name: "Shimla", stateId: 9 },
+  { id: 9010, name: "Sirmaur", stateId: 9 },
+  { id: 9011, name: "Solan", stateId: 9 },
+  { id: 9012, name: "Una", stateId: 9 },
+
+  // Jharkhand (id: 10) - 24 districts
+  { id: 10001, name: "Bokaro", stateId: 10 },
+  { id: 10002, name: "Chatra", stateId: 10 },
+  { id: 10003, name: "Deoghar", stateId: 10 },
+  { id: 10004, name: "Dhanbad", stateId: 10 },
+  { id: 10005, name: "Dumka", stateId: 10 },
+  { id: 10006, name: "East Singhbhum", stateId: 10 },
+  { id: 10007, name: "Garhwa", stateId: 10 },
+  { id: 10008, name: "Giridih", stateId: 10 },
+  { id: 10009, name: "Godda", stateId: 10 },
+  { id: 10010, name: "Gumla", stateId: 10 },
+  { id: 10011, name: "Hazaribagh", stateId: 10 },
+  { id: 10012, name: "Jamtara", stateId: 10 },
+  { id: 10013, name: "Khunti", stateId: 10 },
+  { id: 10014, name: "Koderma", stateId: 10 },
+  { id: 10015, name: "Latehar", stateId: 10 },
+  { id: 10016, name: "Lohardaga", stateId: 10 },
+  { id: 10017, name: "Pakur", stateId: 10 },
+  { id: 10018, name: "Palamu", stateId: 10 },
+  { id: 10019, name: "Ramgarh", stateId: 10 },
+  { id: 10020, name: "Ranchi", stateId: 10 },
+  { id: 10021, name: "Sahebganj", stateId: 10 },
+  { id: 10022, name: "Seraikela Kharsawan", stateId: 10 },
+  { id: 10023, name: "Simdega", stateId: 10 },
+  { id: 10024, name: "West Singhbhum", stateId: 10 },
+
+  // Karnataka (id: 11) - 31 districts
+  { id: 11001, name: "Bagalkot", stateId: 11 },
+  { id: 11002, name: "Ballari", stateId: 11 },
+  { id: 11003, name: "Belagavi", stateId: 11 },
+  { id: 11004, name: "Bengaluru Rural", stateId: 11 },
+  { id: 11005, name: "Bengaluru Urban", stateId: 11 },
+  { id: 11006, name: "Bidar", stateId: 11 },
+  { id: 11007, name: "Chamarajanagar", stateId: 11 },
+  { id: 11008, name: "Chikkaballapur", stateId: 11 },
+  { id: 11009, name: "Chikkamagaluru", stateId: 11 },
+  { id: 11010, name: "Chitradurga", stateId: 11 },
+  { id: 11011, name: "Dakshina Kannada", stateId: 11 },
+  { id: 11012, name: "Davanagere", stateId: 11 },
+  { id: 11013, name: "Dharwad", stateId: 11 },
+  { id: 11014, name: "Gadag", stateId: 11 },
+  { id: 11015, name: "Hassan", stateId: 11 },
+  { id: 11016, name: "Haveri", stateId: 11 },
+  { id: 11017, name: "Kalaburagi", stateId: 11 },
+  { id: 11018, name: "Kodagu", stateId: 11 },
+  { id: 11019, name: "Kolar", stateId: 11 },
+  { id: 11020, name: "Koppal", stateId: 11 },
+  { id: 11021, name: "Mandya", stateId: 11 },
+  { id: 11022, name: "Mysuru", stateId: 11 },
+  { id: 11023, name: "Raichur", stateId: 11 },
+  { id: 11024, name: "Ramanagara", stateId: 11 },
+  { id: 11025, name: "Shivamogga", stateId: 11 },
+  { id: 11026, name: "Tumakuru", stateId: 11 },
+  { id: 11027, name: "Udupi", stateId: 11 },
+  { id: 11028, name: "Uttara Kannada", stateId: 11 },
+  { id: 11029, name: "Vijayapura", stateId: 11 },
+  { id: 11030, name: "Yadgir", stateId: 11 },
+  { id: 11031, name: "Vijayanagara", stateId: 11 },
+
+  // Kerala (id: 12) - 14 districts
+  { id: 12001, name: "Alappuzha", stateId: 12 },
+  { id: 12002, name: "Ernakulam", stateId: 12 },
+  { id: 12003, name: "Idukki", stateId: 12 },
+  { id: 12004, name: "Kannur", stateId: 12 },
+  { id: 12005, name: "Kasaragod", stateId: 12 },
+  { id: 12006, name: "Kollam", stateId: 12 },
+  { id: 12007, name: "Kottayam", stateId: 12 },
+  { id: 12008, name: "Kozhikode", stateId: 12 },
+  { id: 12009, name: "Malappuram", stateId: 12 },
+  { id: 12010, name: "Palakkad", stateId: 12 },
+  { id: 12011, name: "Pathanamthitta", stateId: 12 },
+  { id: 12012, name: "Thiruvananthapuram", stateId: 12 },
+  { id: 12013, name: "Thrissur", stateId: 12 },
+  { id: 12014, name: "Wayanad", stateId: 12 },
+
+  // Madhya Pradesh (id: 13) - 55 districts
+  { id: 13001, name: "Agar Malwa", stateId: 13 },
+  { id: 13002, name: "Alirajpur", stateId: 13 },
+  { id: 13003, name: "Anuppur", stateId: 13 },
+  { id: 13004, name: "Ashoknagar", stateId: 13 },
+  { id: 13005, name: "Balaghat", stateId: 13 },
+  { id: 13006, name: "Barwani", stateId: 13 },
+  { id: 13007, name: "Betul", stateId: 13 },
+  { id: 13008, name: "Bhind", stateId: 13 },
+  { id: 13009, name: "Bhopal", stateId: 13 },
+  { id: 13010, name: "Burhanpur", stateId: 13 },
+  { id: 13011, name: "Chachaura", stateId: 13 },
+  { id: 13012, name: "Chhatarpur", stateId: 13 },
+  { id: 13013, name: "Chhindwara", stateId: 13 },
+  { id: 13014, name: "Damoh", stateId: 13 },
+  { id: 13015, name: "Datia", stateId: 13 },
+  { id: 13016, name: "Dewas", stateId: 13 },
+  { id: 13017, name: "Dhar", stateId: 13 },
+  { id: 13018, name: "Dindori", stateId: 13 },
+  { id: 13019, name: "Guna", stateId: 13 },
+  { id: 13020, name: "Gwalior", stateId: 13 },
+  { id: 13021, name: "Harda", stateId: 13 },
+  { id: 13022, name: "Hoshangabad", stateId: 13 },
+  { id: 13023, name: "Indore", stateId: 13 },
+  { id: 13024, name: "Jabalpur", stateId: 13 },
+  { id: 13025, name: "Jhabua", stateId: 13 },
+  { id: 13026, name: "Katni", stateId: 13 },
+  { id: 13027, name: "Khandwa", stateId: 13 },
+  { id: 13028, name: "Khargone", stateId: 13 },
+  { id: 13029, name: "Maihar", stateId: 13 },
+  { id: 13030, name: "Mandla", stateId: 13 },
+  { id: 13031, name: "Mandsaur", stateId: 13 },
+  { id: 13032, name: "Morena", stateId: 13 },
+  { id: 13033, name: "Nagda", stateId: 13 },
+  { id: 13034, name: "Narsinghpur", stateId: 13 },
+  { id: 13035, name: "Neemuch", stateId: 13 },
+  { id: 13036, name: "Niwari", stateId: 13 },
+  { id: 13037, name: "Panna", stateId: 13 },
+  { id: 13038, name: "Raisen", stateId: 13 },
+  { id: 13039, name: "Rajgarh", stateId: 13 },
+  { id: 13040, name: "Ratlam", stateId: 13 },
+  { id: 13041, name: "Rewa", stateId: 13 },
+  { id: 13042, name: "Sagar", stateId: 13 },
+  { id: 13043, name: "Satna", stateId: 13 },
+  { id: 13044, name: "Sehore", stateId: 13 },
+  { id: 13045, name: "Seoni", stateId: 13 },
+  { id: 13046, name: "Shahdol", stateId: 13 },
+  { id: 13047, name: "Shajapur", stateId: 13 },
+  { id: 13048, name: "Sheopur", stateId: 13 },
+  { id: 13049, name: "Shivpuri", stateId: 13 },
+  { id: 13050, name: "Sidhi", stateId: 13 },
+  { id: 13051, name: "Singrauli", stateId: 13 },
+  { id: 13052, name: "Tikamgarh", stateId: 13 },
+  { id: 13053, name: "Ujjain", stateId: 13 },
+  { id: 13054, name: "Umaria", stateId: 13 },
+  { id: 13055, name: "Vidisha", stateId: 13 },
+
+  // Maharashtra (id: 14) - 36 districts
+  { id: 14001, name: "Ahmednagar", stateId: 14 },
+  { id: 14002, name: "Akola", stateId: 14 },
+  { id: 14003, name: "Amravati", stateId: 14 },
+  { id: 14004, name: "Aurangabad", stateId: 14 },
+  { id: 14005, name: "Beed", stateId: 14 },
+  { id: 14006, name: "Bhandara", stateId: 14 },
+  { id: 14007, name: "Buldhana", stateId: 14 },
+  { id: 14008, name: "Chandrapur", stateId: 14 },
+  { id: 14009, name: "Dhule", stateId: 14 },
+  { id: 14010, name: "Gadchiroli", stateId: 14 },
+  { id: 14011, name: "Gondia", stateId: 14 },
+  { id: 14012, name: "Hingoli", stateId: 14 },
+  { id: 14013, name: "Jalgaon", stateId: 14 },
+  { id: 14014, name: "Jalna", stateId: 14 },
+  { id: 14015, name: "Kolhapur", stateId: 14 },
+  { id: 14016, name: "Latur", stateId: 14 },
+  { id: 14017, name: "Mumbai City", stateId: 14 },
+  { id: 14018, name: "Mumbai Suburban", stateId: 14 },
+  { id: 14019, name: "Nagpur", stateId: 14 },
+  { id: 14020, name: "Nanded", stateId: 14 },
+  { id: 14021, name: "Nandurbar", stateId: 14 },
+  { id: 14022, name: "Nashik", stateId: 14 },
+  { id: 14023, name: "Osmanabad", stateId: 14 },
+  { id: 14024, name: "Palghar", stateId: 14 },
+  { id: 14025, name: "Parbhani", stateId: 14 },
+  { id: 14026, name: "Pune", stateId: 14 },
+  { id: 14027, name: "Raigad", stateId: 14 },
+  { id: 14028, name: "Ratnagiri", stateId: 14 },
+  { id: 14029, name: "Sangli", stateId: 14 },
+  { id: 14030, name: "Satara", stateId: 14 },
+  { id: 14031, name: "Sindhudurg", stateId: 14 },
+  { id: 14032, name: "Solapur", stateId: 14 },
+  { id: 14033, name: "Thane", stateId: 14 },
+  { id: 14034, name: "Wardha", stateId: 14 },
+  { id: 14035, name: "Washim", stateId: 14 },
+  { id: 14036, name: "Yavatmal", stateId: 14 },
+
+  // Manipur (id: 15) - 16 districts
+  { id: 15001, name: "Bishnupur", stateId: 15 },
+  { id: 15002, name: "Chandel", stateId: 15 },
+  { id: 15003, name: "Churachandpur", stateId: 15 },
+  { id: 15004, name: "Imphal East", stateId: 15 },
+  { id: 15005, name: "Imphal West", stateId: 15 },
+  { id: 15006, name: "Jiribam", stateId: 15 },
+  { id: 15007, name: "Kakching", stateId: 15 },
+  { id: 15008, name: "Kamjong", stateId: 15 },
+  { id: 15009, name: "Kangpokpi", stateId: 15 },
+  { id: 15010, name: "Noney", stateId: 15 },
+  { id: 15011, name: "Pherzawl", stateId: 15 },
+  { id: 15012, name: "Senapati", stateId: 15 },
+  { id: 15013, name: "Tamenglong", stateId: 15 },
+  { id: 15014, name: "Tengnoupal", stateId: 15 },
+  { id: 15015, name: "Thoubal", stateId: 15 },
+  { id: 15016, name: "Ukhrul", stateId: 15 },
+
+  // Meghalaya (id: 16) - 12 districts
+  { id: 16001, name: "East Garo Hills", stateId: 16 },
+  { id: 16002, name: "East Jaintia Hills", stateId: 16 },
+  { id: 16003, name: "East Khasi Hills", stateId: 16 },
+  { id: 16004, name: "Eastern West Khasi Hills", stateId: 16 },
+  { id: 16005, name: "North Garo Hills", stateId: 16 },
+  { id: 16006, name: "Ri Bhoi", stateId: 16 },
+  { id: 16007, name: "South Garo Hills", stateId: 16 },
+  { id: 16008, name: "South West Garo Hills", stateId: 16 },
+  { id: 16009, name: "South West Khasi Hills", stateId: 16 },
+  { id: 16010, name: "West Garo Hills", stateId: 16 },
+  { id: 16011, name: "West Jaintia Hills", stateId: 16 },
+  { id: 16012, name: "West Khasi Hills", stateId: 16 },
+
+  // Mizoram (id: 17) - 11 districts
+  { id: 17001, name: "Aizawl", stateId: 17 },
+  { id: 17002, name: "Champhai", stateId: 17 },
+  { id: 17003, name: "Hnahthial", stateId: 17 },
+  { id: 17004, name: "Khawzawl", stateId: 17 },
+  { id: 17005, name: "Kolasib", stateId: 17 },
+  { id: 17006, name: "Lawngtlai", stateId: 17 },
+  { id: 17007, name: "Lunglei", stateId: 17 },
+  { id: 17008, name: "Mamit", stateId: 17 },
+  { id: 17009, name: "Saiha", stateId: 17 },
+  { id: 17010, name: "Saitual", stateId: 17 },
+  { id: 17011, name: "Serchhip", stateId: 17 },
+
+  // Nagaland (id: 18) - 16 districts
+  { id: 18001, name: "Chumoukedima", stateId: 18 },
+  { id: 18002, name: "Dimapur", stateId: 18 },
+  { id: 18003, name: "Kiphire", stateId: 18 },
+  { id: 18004, name: "Kohima", stateId: 18 },
+  { id: 18005, name: "Longleng", stateId: 18 },
+  { id: 18006, name: "Mokokchung", stateId: 18 },
+  { id: 18007, name: "Mon", stateId: 18 },
+  { id: 18008, name: "Niuland", stateId: 18 },
+  { id: 18009, name: "Noklak", stateId: 18 },
+  { id: 18010, name: "Peren", stateId: 18 },
+  { id: 18011, name: "Phek", stateId: 18 },
+  { id: 18012, name: "Shamator", stateId: 18 },
+  { id: 18013, name: "Tseminyu", stateId: 18 },
+  { id: 18014, name: "Tuensang", stateId: 18 },
+  { id: 18015, name: "Wokha", stateId: 18 },
+  { id: 18016, name: "Zunheboto", stateId: 18 },
+
+  // Odisha (id: 19) - 30 districts
+  { id: 19001, name: "Angul", stateId: 19 },
+  { id: 19002, name: "Balangir", stateId: 19 },
+  { id: 19003, name: "Balasore", stateId: 19 },
+  { id: 19004, name: "Bargarh", stateId: 19 },
+  { id: 19005, name: "Bhadrak", stateId: 19 },
+  { id: 19006, name: "Boudh", stateId: 19 },
+  { id: 19007, name: "Cuttack", stateId: 19 },
+  { id: 19008, name: "Debagarh", stateId: 19 },
+  { id: 19009, name: "Dhenkanal", stateId: 19 },
+  { id: 19010, name: "Gajapati", stateId: 19 },
+  { id: 19011, name: "Ganjam", stateId: 19 },
+  { id: 19012, name: "Jagatsinghpur", stateId: 19 },
+  { id: 19013, name: "Jajpur", stateId: 19 },
+  { id: 19014, name: "Jharsuguda", stateId: 19 },
+  { id: 19015, name: "Kalahandi", stateId: 19 },
+  { id: 19016, name: "Kandhamal", stateId: 19 },
+  { id: 19017, name: "Kendrapara", stateId: 19 },
+  { id: 19018, name: "Kendujhar", stateId: 19 },
+  { id: 19019, name: "Khordha", stateId: 19 },
+  { id: 19020, name: "Koraput", stateId: 19 },
+  { id: 19021, name: "Malkangiri", stateId: 19 },
+  { id: 19022, name: "Mayurbhanj", stateId: 19 },
+  { id: 19023, name: "Nabarangpur", stateId: 19 },
+  { id: 19024, name: "Nayagarh", stateId: 19 },
+  { id: 19025, name: "Nuapada", stateId: 19 },
+  { id: 19026, name: "Puri", stateId: 19 },
+  { id: 19027, name: "Rayagada", stateId: 19 },
+  { id: 19028, name: "Sambalpur", stateId: 19 },
+  { id: 19029, name: "Subarnapur", stateId: 19 },
+  { id: 19030, name: "Sundargarh", stateId: 19 },
+
+  // Punjab (id: 20) - 23 districts
+  { id: 20001, name: "Amritsar", stateId: 20 },
+  { id: 20002, name: "Barnala", stateId: 20 },
+  { id: 20003, name: "Bathinda", stateId: 20 },
+  { id: 20004, name: "Faridkot", stateId: 20 },
+  { id: 20005, name: "Fatehgarh Sahib", stateId: 20 },
+  { id: 20006, name: "Fazilka", stateId: 20 },
+  { id: 20007, name: "Ferozepur", stateId: 20 },
+  { id: 20008, name: "Gurdaspur", stateId: 20 },
+  { id: 20009, name: "Hoshiarpur", stateId: 20 },
+  { id: 20010, name: "Jalandhar", stateId: 20 },
+  { id: 20011, name: "Kapurthala", stateId: 20 },
+  { id: 20012, name: "Ludhiana", stateId: 20 },
+  { id: 20013, name: "Malerkotla", stateId: 20 },
+  { id: 20014, name: "Mansa", stateId: 20 },
+  { id: 20015, name: "Moga", stateId: 20 },
+  { id: 20016, name: "Mohali", stateId: 20 },
+  { id: 20017, name: "Muktsar", stateId: 20 },
+  { id: 20018, name: "Pathankot", stateId: 20 },
+  { id: 20019, name: "Patiala", stateId: 20 },
+  { id: 20020, name: "Rupnagar", stateId: 20 },
+  { id: 20021, name: "Sangrur", stateId: 20 },
+  { id: 20022, name: "Shaheed Bhagat Singh Nagar", stateId: 20 },
+  { id: 20023, name: "Tarn Taran", stateId: 20 },
+
+  // Rajasthan (id: 21) - 50 districts
+  { id: 21001, name: "Ajmer", stateId: 21 },
+  { id: 21002, name: "Alwar", stateId: 21 },
+  { id: 21003, name: "Anupgarh", stateId: 21 },
+  { id: 21004, name: "Balotra", stateId: 21 },
+  { id: 21005, name: "Banswara", stateId: 21 },
+  { id: 21006, name: "Baran", stateId: 21 },
+  { id: 21007, name: "Barmer", stateId: 21 },
+  { id: 21008, name: "Beawar", stateId: 21 },
+  { id: 21009, name: "Bharatpur", stateId: 21 },
+  { id: 21010, name: "Bhilwara", stateId: 21 },
+  { id: 21011, name: "Bikaner", stateId: 21 },
+  { id: 21012, name: "Bundi", stateId: 21 },
+  { id: 21013, name: "Chittorgarh", stateId: 21 },
+  { id: 21014, name: "Churu", stateId: 21 },
+  { id: 21015, name: "Dausa", stateId: 21 },
+  { id: 21016, name: "Deeg", stateId: 21 },
+  { id: 21017, name: "Dholpur", stateId: 21 },
+  { id: 21018, name: "Didwana Kuchaman", stateId: 21 },
+  { id: 21019, name: "Dudu", stateId: 21 },
+  { id: 21020, name: "Dungarpur", stateId: 21 },
+  { id: 21021, name: "Ganganagar", stateId: 21 },
+  { id: 21022, name: "Gangapur City", stateId: 21 },
+  { id: 21023, name: "Hanumangarh", stateId: 21 },
+  { id: 21024, name: "Jaipur", stateId: 21 },
+  { id: 21025, name: "Jaisalmer", stateId: 21 },
+  { id: 21026, name: "Jalore", stateId: 21 },
+  { id: 21027, name: "Jhalawar", stateId: 21 },
+  { id: 21028, name: "Jhunjhunu", stateId: 21 },
+  { id: 21029, name: "Jodhpur", stateId: 21 },
+  { id: 21030, name: "Karauli", stateId: 21 },
+  { id: 21031, name: "Kekri", stateId: 21 },
+  { id: 21032, name: "Khairthal Tijara", stateId: 21 },
+  { id: 21033, name: "Kota", stateId: 21 },
+  { id: 21034, name: "Kotputli Behror", stateId: 21 },
+  { id: 21035, name: "Nagaur", stateId: 21 },
+  { id: 21036, name: "Neem Ka Thana", stateId: 21 },
+  { id: 21037, name: "Pali", stateId: 21 },
+  { id: 21038, name: "Phalodi", stateId: 21 },
+  { id: 21039, name: "Pratapgarh", stateId: 21 },
+  { id: 21040, name: "Rajsamand", stateId: 21 },
+  { id: 21041, name: "Salumbar", stateId: 21 },
+  { id: 21042, name: "Sanchore", stateId: 21 },
+  { id: 21043, name: "Sawai Madhopur", stateId: 21 },
+  { id: 21044, name: "Shahpura", stateId: 21 },
+  { id: 21045, name: "Sikar", stateId: 21 },
+  { id: 21046, name: "Sirohi", stateId: 21 },
+  { id: 21047, name: "Tonk", stateId: 21 },
+  { id: 21048, name: "Udaipur", stateId: 21 },
+  { id: 21049, name: "Jaipur Rural", stateId: 21 },
+  { id: 21050, name: "Jodhpur Rural", stateId: 21 },
+
+  // Sikkim (id: 22) - 6 districts
+  { id: 22001, name: "East Sikkim", stateId: 22 },
+  { id: 22002, name: "North Sikkim", stateId: 22 },
+  { id: 22003, name: "Pakyong", stateId: 22 },
+  { id: 22004, name: "Soreng", stateId: 22 },
+  { id: 22005, name: "South Sikkim", stateId: 22 },
+  { id: 22006, name: "West Sikkim", stateId: 22 },
+
+  // Tamil Nadu (id: 23) - 38 districts
+  { id: 23001, name: "Ariyalur", stateId: 23 },
+  { id: 23002, name: "Chengalpattu", stateId: 23 },
+  { id: 23003, name: "Chennai", stateId: 23 },
+  { id: 23004, name: "Coimbatore", stateId: 23 },
+  { id: 23005, name: "Cuddalore", stateId: 23 },
+  { id: 23006, name: "Dharmapuri", stateId: 23 },
+  { id: 23007, name: "Dindigul", stateId: 23 },
+  { id: 23008, name: "Erode", stateId: 23 },
+  { id: 23009, name: "Kallakurichi", stateId: 23 },
+  { id: 23010, name: "Kanchipuram", stateId: 23 },
+  { id: 23011, name: "Kanyakumari", stateId: 23 },
+  { id: 23012, name: "Karur", stateId: 23 },
+  { id: 23013, name: "Krishnagiri", stateId: 23 },
+  { id: 23014, name: "Madurai", stateId: 23 },
+  { id: 23015, name: "Mayiladuthurai", stateId: 23 },
+  { id: 23016, name: "Nagapattinam", stateId: 23 },
+  { id: 23017, name: "Namakkal", stateId: 23 },
+  { id: 23018, name: "Nilgiris", stateId: 23 },
+  { id: 23019, name: "Perambalur", stateId: 23 },
+  { id: 23020, name: "Pudukkottai", stateId: 23 },
+  { id: 23021, name: "Ramanathapuram", stateId: 23 },
+  { id: 23022, name: "Ranipet", stateId: 23 },
+  { id: 23023, name: "Salem", stateId: 23 },
+  { id: 23024, name: "Sivaganga", stateId: 23 },
+  { id: 23025, name: "Tenkasi", stateId: 23 },
+  { id: 23026, name: "Thanjavur", stateId: 23 },
+  { id: 23027, name: "Theni", stateId: 23 },
+  { id: 23028, name: "Thoothukudi", stateId: 23 },
+  { id: 23029, name: "Tiruchirappalli", stateId: 23 },
+  { id: 23030, name: "Tirunelveli", stateId: 23 },
+  { id: 23031, name: "Tirupathur", stateId: 23 },
+  { id: 23032, name: "Tiruppur", stateId: 23 },
+  { id: 23033, name: "Tiruvallur", stateId: 23 },
+  { id: 23034, name: "Tiruvannamalai", stateId: 23 },
+  { id: 23035, name: "Tiruvarur", stateId: 23 },
+  { id: 23036, name: "Vellore", stateId: 23 },
+  { id: 23037, name: "Viluppuram", stateId: 23 },
+  { id: 23038, name: "Virudhunagar", stateId: 23 },
+
+  // Telangana (id: 24) - 33 districts
+  { id: 24001, name: "Adilabad", stateId: 24 },
+  { id: 24002, name: "Bhadradri Kothagudem", stateId: 24 },
+  { id: 24003, name: "Hanamkonda", stateId: 24 },
+  { id: 24004, name: "Hyderabad", stateId: 24 },
+  { id: 24005, name: "Jagtial", stateId: 24 },
+  { id: 24006, name: "Jangaon", stateId: 24 },
+  { id: 24007, name: "Jayashankar Bhupalpally", stateId: 24 },
+  { id: 24008, name: "Jogulamba Gadwal", stateId: 24 },
+  { id: 24009, name: "Kamareddy", stateId: 24 },
+  { id: 24010, name: "Karimnagar", stateId: 24 },
+  { id: 24011, name: "Khammam", stateId: 24 },
+  { id: 24012, name: "Komaram Bheem", stateId: 24 },
+  { id: 24013, name: "Mahabubabad", stateId: 24 },
+  { id: 24014, name: "Mahabubnagar", stateId: 24 },
+  { id: 24015, name: "Mancherial", stateId: 24 },
+  { id: 24016, name: "Medak", stateId: 24 },
+  { id: 24017, name: "Medchal Malkajgiri", stateId: 24 },
+  { id: 24018, name: "Mulugu", stateId: 24 },
+  { id: 24019, name: "Nagarkurnool", stateId: 24 },
+  { id: 24020, name: "Nalgonda", stateId: 24 },
+  { id: 24021, name: "Narayanpet", stateId: 24 },
+  { id: 24022, name: "Nirmal", stateId: 24 },
+  { id: 24023, name: "Nizamabad", stateId: 24 },
+  { id: 24024, name: "Peddapalli", stateId: 24 },
+  { id: 24025, name: "Rajanna Sircilla", stateId: 24 },
+  { id: 24026, name: "Rangareddy", stateId: 24 },
+  { id: 24027, name: "Sangareddy", stateId: 24 },
+  { id: 24028, name: "Siddipet", stateId: 24 },
+  { id: 24029, name: "Suryapet", stateId: 24 },
+  { id: 24030, name: "Vikarabad", stateId: 24 },
+  { id: 24031, name: "Wanaparthy", stateId: 24 },
+  { id: 24032, name: "Warangal", stateId: 24 },
+  { id: 24033, name: "Yadadri Bhuvanagiri", stateId: 24 },
+
+  // Tripura (id: 25) - 8 districts
+  { id: 25001, name: "Dhalai", stateId: 25 },
+  { id: 25002, name: "Gomati", stateId: 25 },
+  { id: 25003, name: "Khowai", stateId: 25 },
+  { id: 25004, name: "North Tripura", stateId: 25 },
+  { id: 25005, name: "Sepahijala", stateId: 25 },
+  { id: 25006, name: "South Tripura", stateId: 25 },
+  { id: 25007, name: "Unakoti", stateId: 25 },
+  { id: 25008, name: "West Tripura", stateId: 25 },
+
+  // Uttar Pradesh (id: 26) - 75 districts
+  { id: 26001, name: "Agra", stateId: 26 },
+  { id: 26002, name: "Aligarh", stateId: 26 },
+  { id: 26003, name: "Ambedkar Nagar", stateId: 26 },
+  { id: 26004, name: "Amethi", stateId: 26 },
+  { id: 26005, name: "Amroha", stateId: 26 },
+  { id: 26006, name: "Auraiya", stateId: 26 },
+  { id: 26007, name: "Ayodhya", stateId: 26 },
+  { id: 26008, name: "Azamgarh", stateId: 26 },
+  { id: 26009, name: "Baghpat", stateId: 26 },
+  { id: 26010, name: "Bahraich", stateId: 26 },
+  { id: 26011, name: "Ballia", stateId: 26 },
+  { id: 26012, name: "Balrampur", stateId: 26 },
+  { id: 26013, name: "Banda", stateId: 26 },
+  { id: 26014, name: "Barabanki", stateId: 26 },
+  { id: 26015, name: "Bareilly", stateId: 26 },
+  { id: 26016, name: "Basti", stateId: 26 },
+  { id: 26017, name: "Bhadohi", stateId: 26 },
+  { id: 26018, name: "Bijnor", stateId: 26 },
+  { id: 26019, name: "Budaun", stateId: 26 },
+  { id: 26020, name: "Bulandshahr", stateId: 26 },
+  { id: 26021, name: "Chandauli", stateId: 26 },
+  { id: 26022, name: "Chitrakoot", stateId: 26 },
+  { id: 26023, name: "Deoria", stateId: 26 },
+  { id: 26024, name: "Etah", stateId: 26 },
+  { id: 26025, name: "Etawah", stateId: 26 },
+  { id: 26026, name: "Farrukhabad", stateId: 26 },
+  { id: 26027, name: "Fatehpur", stateId: 26 },
+  { id: 26028, name: "Firozabad", stateId: 26 },
+  { id: 26029, name: "Gautam Buddha Nagar", stateId: 26 },
+  { id: 26030, name: "Ghaziabad", stateId: 26 },
+  { id: 26031, name: "Ghazipur", stateId: 26 },
+  { id: 26032, name: "Gonda", stateId: 26 },
+  { id: 26033, name: "Gorakhpur", stateId: 26 },
+  { id: 26034, name: "Hamirpur", stateId: 26 },
+  { id: 26035, name: "Hapur", stateId: 26 },
+  { id: 26036, name: "Hardoi", stateId: 26 },
+  { id: 26037, name: "Hathras", stateId: 26 },
+  { id: 26038, name: "Jalaun", stateId: 26 },
+  { id: 26039, name: "Jaunpur", stateId: 26 },
+  { id: 26040, name: "Jhansi", stateId: 26 },
+  { id: 26041, name: "Kannauj", stateId: 26 },
+  { id: 26042, name: "Kanpur Dehat", stateId: 26 },
+  { id: 26043, name: "Kanpur Nagar", stateId: 26 },
+  { id: 26044, name: "Kasganj", stateId: 26 },
+  { id: 26045, name: "Kaushambi", stateId: 26 },
+  { id: 26046, name: "Kushinagar", stateId: 26 },
+  { id: 26047, name: "Lakhimpur Kheri", stateId: 26 },
+  { id: 26048, name: "Lalitpur", stateId: 26 },
+  { id: 26049, name: "Lucknow", stateId: 26 },
+  { id: 26050, name: "Maharajganj", stateId: 26 },
+  { id: 26051, name: "Mahoba", stateId: 26 },
+  { id: 26052, name: "Mainpuri", stateId: 26 },
+  { id: 26053, name: "Mathura", stateId: 26 },
+  { id: 26054, name: "Mau", stateId: 26 },
+  { id: 26055, name: "Meerut", stateId: 26 },
+  { id: 26056, name: "Mirzapur", stateId: 26 },
+  { id: 26057, name: "Moradabad", stateId: 26 },
+  { id: 26058, name: "Muzaffarnagar", stateId: 26 },
+  { id: 26059, name: "Pilibhit", stateId: 26 },
+  { id: 26060, name: "Pratapgarh", stateId: 26 },
+  { id: 26061, name: "Prayagraj", stateId: 26 },
+  { id: 26062, name: "Raebareli", stateId: 26 },
+  { id: 26063, name: "Rampur", stateId: 26 },
+  { id: 26064, name: "Saharanpur", stateId: 26 },
+  { id: 26065, name: "Sambhal", stateId: 26 },
+  { id: 26066, name: "Sant Kabir Nagar", stateId: 26 },
+  { id: 26067, name: "Shahjahanpur", stateId: 26 },
+  { id: 26068, name: "Shamli", stateId: 26 },
+  { id: 26069, name: "Shravasti", stateId: 26 },
+  { id: 26070, name: "Siddharthnagar", stateId: 26 },
+  { id: 26071, name: "Sitapur", stateId: 26 },
+  { id: 26072, name: "Sonbhadra", stateId: 26 },
+  { id: 26073, name: "Sultanpur", stateId: 26 },
+  { id: 26074, name: "Unnao", stateId: 26 },
+  { id: 26075, name: "Varanasi", stateId: 26 },
+
+  // Uttarakhand (id: 27) - 13 districts
+  { id: 27001, name: "Almora", stateId: 27 },
+  { id: 27002, name: "Bageshwar", stateId: 27 },
+  { id: 27003, name: "Chamoli", stateId: 27 },
+  { id: 27004, name: "Champawat", stateId: 27 },
+  { id: 27005, name: "Dehradun", stateId: 27 },
+  { id: 27006, name: "Haridwar", stateId: 27 },
+  { id: 27007, name: "Nainital", stateId: 27 },
+  { id: 27008, name: "Pauri Garhwal", stateId: 27 },
+  { id: 27009, name: "Pithoragarh", stateId: 27 },
+  { id: 27010, name: "Rudraprayag", stateId: 27 },
+  { id: 27011, name: "Tehri Garhwal", stateId: 27 },
+  { id: 27012, name: "Udham Singh Nagar", stateId: 27 },
+  { id: 27013, name: "Uttarkashi", stateId: 27 },
+
+  // West Bengal (id: 28) - 23 districts
+  { id: 28001, name: "Alipurduar", stateId: 28 },
+  { id: 28002, name: "Bankura", stateId: 28 },
+  { id: 28003, name: "Birbhum", stateId: 28 },
+  { id: 28004, name: "Cooch Behar", stateId: 28 },
+  { id: 28005, name: "Dakshin Dinajpur", stateId: 28 },
+  { id: 28006, name: "Darjeeling", stateId: 28 },
+  { id: 28007, name: "Hooghly", stateId: 28 },
+  { id: 28008, name: "Howrah", stateId: 28 },
+  { id: 28009, name: "Jalpaiguri", stateId: 28 },
+  { id: 28010, name: "Jhargram", stateId: 28 },
+  { id: 28011, name: "Kalimpong", stateId: 28 },
+  { id: 28012, name: "Kolkata", stateId: 28 },
+  { id: 28013, name: "Malda", stateId: 28 },
+  { id: 28014, name: "Murshidabad", stateId: 28 },
+  { id: 28015, name: "Nadia", stateId: 28 },
+  { id: 28016, name: "North 24 Parganas", stateId: 28 },
+  { id: 28017, name: "Paschim Bardhaman", stateId: 28 },
+  { id: 28018, name: "Paschim Medinipur", stateId: 28 },
+  { id: 28019, name: "Purba Bardhaman", stateId: 28 },
+  { id: 28020, name: "Purba Medinipur", stateId: 28 },
+  { id: 28021, name: "Purulia", stateId: 28 },
+  { id: 28022, name: "South 24 Parganas", stateId: 28 },
+  { id: 28023, name: "Uttar Dinajpur", stateId: 28 },
+
+  // Andaman and Nicobar Islands (id: 29) - 3 districts
+  { id: 29001, name: "Nicobar", stateId: 29 },
+  { id: 29002, name: "North and Middle Andaman", stateId: 29 },
+  { id: 29003, name: "South Andaman", stateId: 29 },
+
+  // Chandigarh (id: 30) - 1 district
+  { id: 30001, name: "Chandigarh", stateId: 30 },
+
+  // Dadra and Nagar Haveli and Daman and Diu (id: 31) - 3 districts
+  { id: 31001, name: "Dadra and Nagar Haveli", stateId: 31 },
+  { id: 31002, name: "Daman", stateId: 31 },
+  { id: 31003, name: "Diu", stateId: 31 },
+
+  // Delhi (id: 32) - 11 districts
+  { id: 32001, name: "Central Delhi", stateId: 32 },
+  { id: 32002, name: "East Delhi", stateId: 32 },
+  { id: 32003, name: "New Delhi", stateId: 32 },
+  { id: 32004, name: "North Delhi", stateId: 32 },
+  { id: 32005, name: "North East Delhi", stateId: 32 },
+  { id: 32006, name: "North West Delhi", stateId: 32 },
+  { id: 32007, name: "Shahdara", stateId: 32 },
+  { id: 32008, name: "South Delhi", stateId: 32 },
+  { id: 32009, name: "South East Delhi", stateId: 32 },
+  { id: 32010, name: "South West Delhi", stateId: 32 },
+  { id: 32011, name: "West Delhi", stateId: 32 },
+
+  // Jammu and Kashmir (id: 33) - 20 districts
+  { id: 33001, name: "Anantnag", stateId: 33 },
+  { id: 33002, name: "Bandipora", stateId: 33 },
+  { id: 33003, name: "Baramulla", stateId: 33 },
+  { id: 33004, name: "Budgam", stateId: 33 },
+  { id: 33005, name: "Doda", stateId: 33 },
+  { id: 33006, name: "Ganderbal", stateId: 33 },
+  { id: 33007, name: "Jammu", stateId: 33 },
+  { id: 33008, name: "Kathua", stateId: 33 },
+  { id: 33009, name: "Kishtwar", stateId: 33 },
+  { id: 33010, name: "Kulgam", stateId: 33 },
+  { id: 33011, name: "Kupwara", stateId: 33 },
+  { id: 33012, name: "Poonch", stateId: 33 },
+  { id: 33013, name: "Pulwama", stateId: 33 },
+  { id: 33014, name: "Rajouri", stateId: 33 },
+  { id: 33015, name: "Ramban", stateId: 33 },
+  { id: 33016, name: "Reasi", stateId: 33 },
+  { id: 33017, name: "Samba", stateId: 33 },
+  { id: 33018, name: "Shopian", stateId: 33 },
+  { id: 33019, name: "Srinagar", stateId: 33 },
+  { id: 33020, name: "Udhampur", stateId: 33 },
+
+  // Ladakh (id: 34) - 2 districts
+  { id: 34001, name: "Kargil", stateId: 34 },
+  { id: 34002, name: "Leh", stateId: 34 },
+
+  // Lakshadweep (id: 35) - 1 district
+  { id: 35001, name: "Lakshadweep", stateId: 35 },
+
+  // Puducherry (id: 36) - 4 districts
+  { id: 36001, name: "Karaikal", stateId: 36 },
+  { id: 36002, name: "Mahe", stateId: 36 },
+  { id: 36003, name: "Puducherry", stateId: 36 },
+  { id: 36004, name: "Yanam", stateId: 36 },
+];
+// Talukas data - Comprehensive for Karnataka districts
+const TALUKAS: Taluka[] = [
+  // Bagalkot (id: 11)
+
+  { id: 1100101, name: "Badami", districtId: 11001 },
+  { id: 1100102, name: "Bagalkot", districtId: 11001 },
+  { id: 1100103, name: "Bilagi", districtId: 11001 },
+  { id: 1100104, name: "Hunagund", districtId: 11001 },
+  { id: 1100105, name: "Jamkhandi", districtId: 11001 },
+  { id: 1100106, name: "Mudhol", districtId: 11001 },
+  
+  // Ballari (11002)
+  { id: 1100201, name: "Ballari", districtId: 11002 },
+  { id: 1100202, name: "Hadagalli", districtId: 11002 },
+  { id: 1100203, name: "Hagaribommanahalli", districtId: 11002 },
+  { id: 1100204, name: "Hospet", districtId: 11002 },
+  { id: 1100205, name: "Kudligi", districtId: 11002 },
+  { id: 1100206, name: "Sandur", districtId: 11002 },
+  { id: 1100207, name: "Siruguppa", districtId: 11002 },
+  
+  // Belagavi (11003)
+  { id: 1100301, name: "Athani", districtId: 11003 },
+  { id: 1100302, name: "Bailhongal", districtId: 11003 },
+  { id: 1100303, name: "Belagavi", districtId: 11003 },
+  { id: 1100304, name: "Chikodi", districtId: 11003 },
+  { id: 1100305, name: "Gokak", districtId: 11003 },
+  { id: 1100306, name: "Hukkeri", districtId: 11003 },
+  { id: 1100307, name: "Khanapur", districtId: 11003 },
+  { id: 1100308, name: "Raibag", districtId: 11003 },
+  { id: 1100309, name: "Ramadurg", districtId: 11003 },
+  { id: 1100310, name: "Soundatti", districtId: 11003 },
+  
+  // Bengaluru Rural (11004)
+  { id: 1100401, name: "Devanahalli", districtId: 11004 },
+  { id: 1100402, name: "Doddaballapur", districtId: 11004 },
+  { id: 1100403, name: "Hosakote", districtId: 11004 },
+  { id: 1100404, name: "Nelamangala", districtId: 11004 },
+  
+  // Bengaluru Urban (11005)
+  { id: 1100501, name: "Anekal", districtId: 11005 },
+  { id: 1100502, name: "Bengaluru East", districtId: 11005 },
+  { id: 1100503, name: "Bengaluru North", districtId: 11005 },
+  { id: 1100504, name: "Bengaluru South", districtId: 11005 },
+  
+  // Bidar (11006)
+  { id: 1100601, name: "Aurad", districtId: 11006 },
+  { id: 1100602, name: "Basavakalyan", districtId: 11006 },
+  { id: 1100603, name: "Bidar", districtId: 11006 },
+  { id: 1100604, name: "Bhalki", districtId: 11006 },
+  { id: 1100605, name: "Homnabad", districtId: 11006 },
+  
+  // Chamarajanagar (11007)
+  { id: 1100701, name: "Chamarajanagar", districtId: 11007 },
+  { id: 1100702, name: "Gundlupet", districtId: 11007 },
+  { id: 1100703, name: "Kollegal", districtId: 11007 },
+  { id: 1100704, name: "Yelandur", districtId: 11007 },
+  
+  // Chikkaballapur (11008)
+  { id: 1100801, name: "Bagepalli", districtId: 11008 },
+  { id: 1100802, name: "Chikkaballapur", districtId: 11008 },
+  { id: 1100803, name: "Chintamani", districtId: 11008 },
+  { id: 1100804, name: "Gauribidanur", districtId: 11008 },
+  { id: 1100805, name: "Gudibande", districtId: 11008 },
+  { id: 1100806, name: "Sidlaghatta", districtId: 11008 },
+  
+  // Chikkamagaluru (11009)
+  { id: 1100901, name: "Ajjampura", districtId: 11009 },
+  { id: 1100902, name: "Chikkamagaluru", districtId: 11009 },
+  { id: 1100903, name: "Kadur", districtId: 11009 },
+  { id: 1100904, name: "Kalasa", districtId: 11009 },
+  { id: 1100905, name: "Koppa", districtId: 11009 },
+  { id: 1100906, name: "Mudigere", districtId: 11009 },
+  { id: 1100907, name: "Narasimharajapura", districtId: 11009 },
+  { id: 1100908, name: "Sringeri", districtId: 11009 },
+  { id: 1100909, name: "Tarikere", districtId: 11009 },
+  
+  // Chitradurga (11010)
+  { id: 1101001, name: "Challakere", districtId: 11010 },
+  { id: 1101002, name: "Chitradurga", districtId: 11010 },
+  { id: 1101003, name: "Hiriyur", districtId: 11010 },
+  { id: 1101004, name: "Holalkere", districtId: 11010 },
+  { id: 1101005, name: "Hosadurga", districtId: 11010 },
+  { id: 1101006, name: "Molakalmuru", districtId: 11010 },
+  
+  // Dakshina Kannada (11011)
+  { id: 1101101, name: "Bantwal", districtId: 11011 },
+  { id: 1101102, name: "Belthangady", districtId: 11011 },
+  { id: 1101103, name: "Mangaluru", districtId: 11011 },
+  { id: 1101104, name: "Puttur", districtId: 11011 },
+  { id: 1101105, name: "Sullia", districtId: 11011 },
+  
+  // Davanagere (11012)
+  { id: 1101201, name: "Channagiri", districtId: 11012 },
+  { id: 1101202, name: "Davanagere", districtId: 11012 },
+  { id: 1101203, name: "Harapanahalli", districtId: 11012 },
+  { id: 1101204, name: "Harihar", districtId: 11012 },
+  { id: 1101205, name: "Jagalur", districtId: 11012 },
+  { id: 1101206, name: "Nyamati", districtId: 11012 },
+  
+  // Dharwad (11013)
+  { id: 1101301, name: "Dharwad", districtId: 11013 },
+  { id: 1101302, name: "Hubli", districtId: 11013 },
+  { id: 1101303, name: "Kalghatgi", districtId: 11013 },
+  { id: 1101304, name: "Kundgol", districtId: 11013 },
+  { id: 1101305, name: "Navalgund", districtId: 11013 },
+  
+  // Gadag (11014)
+  { id: 1101401, name: "Gadag", districtId: 11014 },
+  { id: 1101402, name: "Lakshmeshwar", districtId: 11014 },
+  { id: 1101403, name: "Mundargi", districtId: 11014 },
+  { id: 1101404, name: "Nargund", districtId: 11014 },
+  { id: 1101405, name: "Ron", districtId: 11014 },
+  { id: 1101406, name: "Shirhatti", districtId: 11014 },
+  
+  // Hassan (11015)
+  { id: 1101501, name: "Alur", districtId: 11015 },
+  { id: 1101502, name: "Arkalgud", districtId: 11015 },
+  { id: 1101503, name: "Arsikere", districtId: 11015 },
+  { id: 1101504, name: "Belur", districtId: 11015 },
+  { id: 1101505, name: "Channarayapatna", districtId: 11015 },
+  { id: 1101506, name: "Hassan", districtId: 11015 },
+  { id: 1101507, name: "Holenarasipur", districtId: 11015 },
+  { id: 1101508, name: "Sakleshpur", districtId: 11015 },
+  
+  // Haveri (11016)
+  { id: 1101601, name: "Byadgi", districtId: 11016 },
+  { id: 1101602, name: "Hangal", districtId: 11016 },
+  { id: 1101603, name: "Haveri", districtId: 11016 },
+  { id: 1101604, name: "Hirekerur", districtId: 11016 },
+  { id: 1101605, name: "Ranebennuru", districtId: 11016 },
+  { id: 1101606, name: "Rattihalli", districtId: 11016 },
+  { id: 1101607, name: "Savanur", districtId: 11016 },
+  { id: 1101608, name: "Shiggaon", districtId: 11016 },
+  
+  // Kalaburagi (11017)
+  { id: 1101701, name: "Afzalpur", districtId: 11017 },
+  { id: 1101702, name: "Aland", districtId: 11017 },
+  { id: 1101703, name: "Chincholi", districtId: 11017 },
+  { id: 1101704, name: "Chitapur", districtId: 11017 },
+  { id: 1101705, name: "Gulbarga", districtId: 11017 },
+  { id: 1101706, name: "Jewargi", districtId: 11017 },
+  { id: 1101707, name: "Kalaburagi", districtId: 11017 },
+  { id: 1101708, name: "Sedam", districtId: 11017 },
+  
+  // Kodagu (11018)
+  { id: 1101801, name: "Madikeri", districtId: 11018 },
+  { id: 1101802, name: "Somwarpet", districtId: 11018 },
+  { id: 1101803, name: "Virajpet", districtId: 11018 },
+  
+  // Kolar (11019)
+  { id: 1101901, name: "Bangarpet", districtId: 11019 },
+  { id: 1101902, name: "Kolar", districtId: 11019 },
+  { id: 1101903, name: "Kolar Gold Fields", districtId: 11019 },
+  { id: 1101904, name: "Malur", districtId: 11019 },
+  { id: 1101905, name: "Mulbagal", districtId: 11019 },
+  { id: 1101906, name: "Srinivaspur", districtId: 11019 },
+  
+  // Koppal (11020)
+  { id: 1102001, name: "Gangavathi", districtId: 11020 },
+  { id: 1102002, name: "Koppal", districtId: 11020 },
+  { id: 1102003, name: "Kushtagi", districtId: 11020 },
+  { id: 1102004, name: "Yelburga", districtId: 11020 },
+  
+  // Mandya (11021)
+  { id: 1102101, name: "Krishnarajpet", districtId: 11021 },
+  { id: 1102102, name: "Maddur", districtId: 11021 },
+  { id: 1102103, name: "Malavalli", districtId: 11021 },
+  { id: 1102104, name: "Mandya", districtId: 11021 },
+  { id: 1102105, name: "Nagamangala", districtId: 11021 },
+  { id: 1102106, name: "Pandavapura", districtId: 11021 },
+  { id: 1102107, name: "Shrirangapattana", districtId: 11021 },
+  
+  // Mysuru (11022)
+  { id: 1102201, name: "Hunsur", districtId: 11022 },
+  { id: 1102202, name: "Krishnarajanagara", districtId: 11022 },
+  { id: 1102203, name: "Mysuru", districtId: 11022 },
+  { id: 1102204, name: "Nanjangud", districtId: 11022 },
+  { id: 1102205, name: "Periyapatna", districtId: 11022 },
+  { id: 1102206, name: "Saragur", districtId: 11022 },
+  { id: 1102207, name: "Tirumakudalu Narsipur", districtId: 11022 },
+  
+  // Raichur (11023)
+  { id: 1102301, name: "Devadurga", districtId: 11023 },
+  { id: 1102302, name: "Lingsugur", districtId: 11023 },
+  { id: 1102303, name: "Manvi", districtId: 11023 },
+  { id: 1102304, name: "Raichur", districtId: 11023 },
+  { id: 1102305, name: "Sindhnur", districtId: 11023 },
+  
+  // Ramanagara (11024)
+  { id: 1102401, name: "Channapatna", districtId: 11024 },
+  { id: 1102402, name: "Kanakapura", districtId: 11024 },
+  { id: 1102403, name: "Magadi", districtId: 11024 },
+  { id: 1102404, name: "Ramanagara", districtId: 11024 },
+  
+  // Shivamogga (11025)
+  { id: 1102501, name: "Bhadravati", districtId: 11025 },
+  { id: 1102502, name: "Hosanagar", districtId: 11025 },
+  { id: 1102503, name: "Sagar", districtId: 11025 },
+  { id: 1102504, name: "Shikaripur", districtId: 11025 },
+  { id: 1102505, name: "Shimoga", districtId: 11025 },
+  { id: 1102506, name: "Sorab", districtId: 11025 },
+  { id: 1102507, name: "Thirthahalli", districtId: 11025 },
+  
+  // Tumakuru (11026)
+  { id: 1102601, name: "Chikkanayakanahalli", districtId: 11026 },
+  { id: 1102602, name: "Gubbi", districtId: 11026 },
+  { id: 1102603, name: "Koratagere", districtId: 11026 },
+  { id: 1102604, name: "Kunigal", districtId: 11026 },
+  { id: 1102605, name: "Madhugiri", districtId: 11026 },
+  { id: 1102606, name: "Pavagada", districtId: 11026 },
+  { id: 1102607, name: "Sira", districtId: 11026 },
+  { id: 1102608, name: "Tiptur", districtId: 11026 },
+  { id: 1102609, name: "Tumakuru", districtId: 11026 },
+  { id: 1102610, name: "Turuvekere", districtId: 11026 },
+  
+  // Udupi (11027)
+  { id: 1102701, name: "Byndoor", districtId: 11027 },
+  { id: 1102702, name: "Karkala", districtId: 11027 },
+  { id: 1102703, name: "Kundapura", districtId: 11027 },
+  { id: 1102704, name: "Udupi", districtId: 11027 },
+  
+  // Uttara Kannada (11028)
+  { id: 1102801, name: "Ankola", districtId: 11028 },
+  { id: 1102802, name: "Bhatkal", districtId: 11028 },
+  { id: 1102803, name: "Haliyal", districtId: 11028 },
+  { id: 1102804, name: "Honnavar", districtId: 11028 },
+  { id: 1102805, name: "Joida", districtId: 11028 },
+  { id: 1102806, name: "Karwar", districtId: 11028 },
+  { id: 1102807, name: "Kumta", districtId: 11028 },
+  { id: 1102808, name: "Mundgod", districtId: 11028 },
+  { id: 1102809, name: "Siddapur", districtId: 11028 },
+  { id: 1102810, name: "Sirsi", districtId: 11028 },
+  { id: 1102811, name: "Yellapur", districtId: 11028 },
+  
+  // Vijayapura (11029)
+  { id: 1102901, name: "Basavana Bagewadi", districtId: 11029 },
+  { id: 1102902, name: "Bijapur", districtId: 11029 },
+  { id: 1102903, name: "Chadachan", districtId: 11029 },
+  { id: 1102904, name: "Indi", districtId: 11029 },
+  { id: 1102905, name: "Muddebihal", districtId: 11029 },
+  { id: 1102906, name: "Sindagi", districtId: 11029 },
+  { id: 1102907, name: "Vijayapura", districtId: 11029 },
+  
+  // Yadgir (11030)
+  { id: 1103001, name: "Gurmitkal", districtId: 11030 },
+  { id: 1103002, name: "Shahapur", districtId: 11030 },
+  { id: 1103003, name: "Shorapur", districtId: 11030 },
+  { id: 1103004, name: "Surpur", districtId: 11030 },
+  { id: 1103005, name: "Yadgir", districtId: 11030 },
+
+
+  
+  { id: 1001, name: "Badami", districtId: 11 },
+  { id: 1002, name: "Bagalkot", districtId: 11 },
+  { id: 1003, name: "Bilagi", districtId: 11 },
+  { id: 1004, name: "Hunagund", districtId: 11 },
+  { id: 1005, name: "Jamkhandi", districtId: 11 },
+  { id: 1006, name: "Mudhol", districtId: 11 },
+  
+  // Ballari (id: 12)
+  { id: 1101, name: "Ballari", districtId: 12 },
+  { id: 1102, name: "Hadagalli", districtId: 12 },
+  { id: 1103, name: "Hagaribommanahalli", districtId: 12 },
+  { id: 1104, name: "Hospet", districtId: 12 },
+  { id: 1105, name: "Kudligi", districtId: 12 },
+  { id: 1106, name: "Sandur", districtId: 12 },
+  { id: 1107, name: "Siruguppa", districtId: 12 },
+  
+  // Belagavi (id: 13)
+  { id: 1201, name: "Athani", districtId: 13 },
+  { id: 1202, name: "Bailhongal", districtId: 13 },
+  { id: 1203, name: "Belagavi", districtId: 13 },
+  { id: 1204, name: "Chikodi", districtId: 13 },
+  { id: 1205, name: "Gokak", districtId: 13 },
+  { id: 1206, name: "Hukkeri", districtId: 13 },
+  { id: 1207, name: "Khanapur", districtId: 13 },
+  { id: 1208, name: "Raibag", districtId: 13 },
+  { id: 1209, name: "Ramadurg", districtId: 13 },
+  { id: 1210, name: "Soundatti", districtId: 13 },
+  
+  // Bengaluru Rural (id: 14)
+  { id: 1301, name: "Devanahalli", districtId: 14 },
+  { id: 1302, name: "Doddaballapur", districtId: 14 },
+  { id: 1303, name: "Hosakote", districtId: 14 },
+  { id: 1304, name: "Nelamangala", districtId: 14 },
+  
+  // Bengaluru Urban (id: 15)
+  { id: 1401, name: "Anekal", districtId: 15 },
+  { id: 1402, name: "Bengaluru East", districtId: 15 },
+  { id: 1403, name: "Bengaluru North", districtId: 15 },
+  { id: 1404, name: "Bengaluru South", districtId: 15 },
+  
+  // Bidar (id: 16)
+  { id: 1501, name: "Aurad", districtId: 16 },
+  { id: 1502, name: "Basavakalyan", districtId: 16 },
+  { id: 1503, name: "Bidar", districtId: 16 },
+  { id: 1504, name: "Bhalki", districtId: 16 },
+  { id: 1505, name: "Homnabad", districtId: 16 },
+  
+  // Chamarajanagar (id: 17)
+  { id: 1601, name: "Chamarajanagar", districtId: 17 },
+  { id: 1602, name: "Gundlupet", districtId: 17 },
+  { id: 1603, name: "Kollegal", districtId: 17 },
+  { id: 1604, name: "Yelandur", districtId: 17 },
+  
+  // Chikkaballapur (id: 18)
+  { id: 1701, name: "Bagepalli", districtId: 18 },
+  { id: 1702, name: "Chikkaballapur", districtId: 18 },
+  { id: 1703, name: "Chintamani", districtId: 18 },
+  { id: 1704, name: "Gauribidanur", districtId: 18 },
+  { id: 1705, name: "Gudibande", districtId: 18 },
+  { id: 1706, name: "Sidlaghatta", districtId: 18 },
+  
+  // Chikkamagaluru (id: 19)
+  { id: 1801, name: "Ajjampura", districtId: 19 },
+  { id: 1802, name: "Chikkamagaluru", districtId: 19 },
+  { id: 1803, name: "Kadur", districtId: 19 },
+  { id: 1804, name: "Kalasa", districtId: 19 },
+  { id: 1805, name: "Koppa", districtId: 19 },
+  { id: 1806, name: "Mudigere", districtId: 19 },
+  { id: 1807, name: "Narasimharajapura", districtId: 19 },
+  { id: 1808, name: "Sringeri", districtId: 19 },
+  { id: 1809, name: "Tarikere", districtId: 19 },
+  
+  // Chitradurga (id: 20)
+  { id: 1901, name: "Challakere", districtId: 20 },
+  { id: 1902, name: "Chitradurga", districtId: 20 },
+  { id: 1903, name: "Hiriyur", districtId: 20 },
+  { id: 1904, name: "Holalkere", districtId: 20 },
+  { id: 1905, name: "Hosadurga", districtId: 20 },
+  { id: 1906, name: "Molakalmuru", districtId: 20 },
+  
+  // Dakshina Kannada (id: 21)
+  { id: 2001, name: "Bantwal", districtId: 21 },
+  { id: 2002, name: "Belthangady", districtId: 21 },
+  { id: 2003, name: "Mangaluru", districtId: 21 },
+  { id: 2004, name: "Puttur", districtId: 21 },
+  { id: 2005, name: "Sullia", districtId: 21 },
+  
+  // Davanagere (id: 22)
+  { id: 2101, name: "Channagiri", districtId: 22 },
+  { id: 2102, name: "Davanagere", districtId: 22 },
+  { id: 2103, name: "Harapanahalli", districtId: 22 },
+  { id: 2104, name: "Harihar", districtId: 22 },
+  { id: 2105, name: "Jagalur", districtId: 22 },
+  { id: 2106, name: "Nyamati", districtId: 22 },
+  
+  // Dharwad (id: 23)
+  { id: 2201, name: "Dharwad", districtId: 23 },
+  { id: 2202, name: "Hubli", districtId: 23 },
+  { id: 2203, name: "Kalghatgi", districtId: 23 },
+  { id: 2204, name: "Kundgol", districtId: 23 },
+  { id: 2205, name: "Navalgund", districtId: 23 },
+  
+  // Gadag (id: 24)
+  { id: 2301, name: "Gadag", districtId: 24 },
+  { id: 2302, name: "Lakshmeshwar", districtId: 24 },
+  { id: 2303, name: "Mundargi", districtId: 24 },
+  { id: 2304, name: "Nargund", districtId: 24 },
+  { id: 2305, name: "Ron", districtId: 24 },
+  { id: 2306, name: "Shirhatti", districtId: 24 },
+  
+  // Hassan (id: 25)
+  { id: 2401, name: "Alur", districtId: 25 },
+  { id: 2402, name: "Arkalgud", districtId: 25 },
+  { id: 2403, name: "Arsikere", districtId: 25 },
+  { id: 2404, name: "Belur", districtId: 25 },
+  { id: 2405, name: "Channarayapatna", districtId: 25 },
+  { id: 2406, name: "Hassan", districtId: 25 },
+  { id: 2407, name: "Holenarasipur", districtId: 25 },
+  { id: 2408, name: "Sakleshpur", districtId: 25 },
+  
+  // Haveri (id: 26)
+  { id: 2501, name: "Byadgi", districtId: 26 },
+  { id: 2502, name: "Hangal", districtId: 26 },
+  { id: 2503, name: "Haveri", districtId: 26 },
+  { id: 2504, name: "Hirekerur", districtId: 26 },
+  { id: 2505, name: "Ranebennuru", districtId: 26 },
+  { id: 2506, name: "Rattihalli", districtId: 26 },
+  { id: 2507, name: "Savanur", districtId: 26 },
+  { id: 2508, name: "Shiggaon", districtId: 26 },
+  
+  // Kalaburagi (id: 27)
+  { id: 2601, name: "Afzalpur", districtId: 27 },
+  { id: 2602, name: "Aland", districtId: 27 },
+  { id: 2603, name: "Chincholi", districtId: 27 },
+  { id: 2604, name: "Chitapur", districtId: 27 },
+  { id: 2605, name: "Gulbarga", districtId: 27 },
+  { id: 2606, name: "Jewargi", districtId: 27 },
+  { id: 2607, name: "Kalaburagi", districtId: 27 },
+  { id: 2608, name: "Sedam", districtId: 27 },
+  
+  // Kodagu (id: 28)
+  { id: 2701, name: "Madikeri", districtId: 28 },
+  { id: 2702, name: "Somwarpet", districtId: 28 },
+  { id: 2703, name: "Virajpet", districtId: 28 },
+  
+  // Kolar (id: 29)
+  { id: 2801, name: "Bangarpet", districtId: 29 },
+  { id: 2802, name: "Kolar", districtId: 29 },
+  { id: 2803, name: "Kolar Gold Fields", districtId: 29 },
+  { id: 2804, name: "Malur", districtId: 29 },
+  { id: 2805, name: "Mulbagal", districtId: 29 },
+  { id: 2806, name: "Srinivaspur", districtId: 29 },
+  
+  // Koppal (id: 30)
+  { id: 2901, name: "Gangavathi", districtId: 30 },
+  { id: 2902, name: "Koppal", districtId: 30 },
+  { id: 2903, name: "Kushtagi", districtId: 30 },
+  { id: 2904, name: "Yelburga", districtId: 30 },
+  
+  // Mandya (id: 31)
+  { id: 3001, name: "Krishnarajpet", districtId: 31 },
+  { id: 3002, name: "Maddur", districtId: 31 },
+  { id: 3003, name: "Malavalli", districtId: 31 },
+  { id: 3004, name: "Mandya", districtId: 31 },
+  { id: 3005, name: "Nagamangala", districtId: 31 },
+  { id: 3006, name: "Pandavapura", districtId: 31 },
+  { id: 3007, name: "Shrirangapattana", districtId: 31 },
+  
+  // Mysuru (id: 32)
+  { id: 3101, name: "Hunsur", districtId: 32 },
+  { id: 3102, name: "Krishnarajanagara", districtId: 32 },
+  { id: 3103, name: "Mysuru", districtId: 32 },
+  { id: 3104, name: "Nanjangud", districtId: 32 },
+  { id: 3105, name: "Periyapatna", districtId: 32 },
+  { id: 3106, name: "Saragur", districtId: 32 },
+  { id: 3107, name: "Tirumakudalu Narsipur", districtId: 32 },
+  
+  // Raichur (id: 33)
+  { id: 3201, name: "Devadurga", districtId: 33 },
+  { id: 3202, name: "Lingsugur", districtId: 33 },
+  { id: 3203, name: "Manvi", districtId: 33 },
+  { id: 3204, name: "Raichur", districtId: 33 },
+  { id: 3205, name: "Sindhnur", districtId: 33 },
+  
+  // Ramanagara (id: 34)
+  { id: 3301, name: "Channapatna", districtId: 34 },
+  { id: 3302, name: "Kanakapura", districtId: 34 },
+  { id: 3303, name: "Magadi", districtId: 34 },
+  { id: 3304, name: "Ramanagara", districtId: 34 },
+  
+  // Shivamogga (id: 35)
+  { id: 3401, name: "Bhadravati", districtId: 35 },
+  { id: 3402, name: "Hosanagar", districtId: 35 },
+  { id: 3403, name: "Sagar", districtId: 35 },
+  { id: 3404, name: "Shikaripur", districtId: 35 },
+  { id: 3405, name: "Shimoga", districtId: 35 },
+  { id: 3406, name: "Sorab", districtId: 35 },
+  { id: 3407, name: "Thirthahalli", districtId: 35 },
+  
+  // Tumakuru (id: 36)
+  { id: 3501, name: "Chikkanayakanahalli", districtId: 36 },
+  { id: 3502, name: "Gubbi", districtId: 36 },
+  { id: 3503, name: "Koratagere", districtId: 36 },
+  { id: 3504, name: "Kunigal", districtId: 36 },
+  { id: 3505, name: "Madhugiri", districtId: 36 },
+  { id: 3506, name: "Pavagada", districtId: 36 },
+  { id: 3507, name: "Sira", districtId: 36 },
+  { id: 3508, name: "Tiptur", districtId: 36 },
+  { id: 3509, name: "Tumakuru", districtId: 36 },
+  { id: 3510, name: "Turuvekere", districtId: 36 },
+  
+  // Udupi (id: 37)
+  { id: 3601, name: "Byndoor", districtId: 37 },
+  { id: 3602, name: "Karkala", districtId: 37 },
+  { id: 3603, name: "Kundapura", districtId: 37 },
+  { id: 3604, name: "Udupi", districtId: 37 },
+  
+  // Uttara Kannada (id: 38)
+  { id: 3701, name: "Ankola", districtId: 38 },
+  { id: 3702, name: "Bhatkal", districtId: 38 },
+  { id: 3703, name: "Haliyal", districtId: 38 },
+  { id: 3704, name: "Honnavar", districtId: 38 },
+  { id: 3705, name: "Joida", districtId: 38 },
+  { id: 3706, name: "Karwar", districtId: 38 },
+  { id: 3707, name: "Kumta", districtId: 38 },
+  { id: 3708, name: "Mundgod", districtId: 38 },
+  { id: 3709, name: "Siddapur", districtId: 38 },
+  { id: 3710, name: "Sirsi", districtId: 38 },
+  { id: 3711, name: "Yellapur", districtId: 38 },
+  
+  // Vijayapura (id: 39)
+  { id: 3801, name: "Basavana Bagewadi", districtId: 39 },
+  { id: 3802, name: "Bijapur", districtId: 39 },
+  { id: 3803, name: "Chadachan", districtId: 39 },
+  { id: 3804, name: "Indi", districtId: 39 },
+  { id: 3805, name: "Muddebihal", districtId: 39 },
+  { id: 3806, name: "Sindagi", districtId: 39 },
+  { id: 3807, name: "Vijayapura", districtId: 39 },
+  
+  // Yadgir (id: 40)
+  { id: 3901, name: "Gurmitkal", districtId: 40 },
+  { id: 3902, name: "Shahapur", districtId: 40 },
+  { id: 3903, name: "Shorapur", districtId: 40 },
+  { id: 3904, name: "Surpur", districtId: 40 },
+  { id: 3905, name: "Yadgir", districtId: 40 },
+  
+  // Vijayanagara (id: 41)
+  { id: 4001, name: "Hagaribommanahalli", districtId: 41 },
+  { id: 4002, name: "Hospet", districtId: 41 },
+  { id: 4003, name: "Kottur", districtId: 41 },
+  { id: 4004, name: "Kudligi", districtId: 41 },
+  
+  // Sample talukas for other states (when manually entered)
+  // Mumbai City
+  { id: 10001, name: "Mumbai City", districtId: 101 },
+  { id: 10002, name: "Colaba", districtId: 101 },
+  
+  // Chennai
+  { id: 20001, name: "Chennai North", districtId: 201 },
+  { id: 20002, name: "Chennai South", districtId: 201 },
+];
+
+class LocationAPIService {
+  // Get all states
+  async getStates(): Promise<State[]> {
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 200));
+    return INDIAN_STATES;
+  }
+
+  // Get districts by state ID
+  async getDistrictsByState(stateId: number): Promise<District[]> {
+    await new Promise(resolve => setTimeout(resolve, 200));
+    return DISTRICTS.filter(district => district.stateId === stateId);
+  }
+
+  // Get talukas by district ID
+  async getTalukasByDistrict(districtId: number): Promise<Taluka[]> {
+    await new Promise(resolve => setTimeout(resolve, 200));
+    return TALUKAS.filter(taluka => taluka.districtId === districtId);
+  }
+
+  // Get state by ID
+  async getStateById(id: number): Promise<State | null> {
+    return INDIAN_STATES.find(state => state.id === id) || null;
+  }
+
+  // Get district by ID
+  async getDistrictById(id: number): Promise<District | null> {
+    return DISTRICTS.find(district => district.id === id) || null;
+  }
+
+  // Get taluka by ID
+  async getTalukaById(id: number): Promise<Taluka | null> {
+    return TALUKAS.find(taluka => taluka.id === id) || null;
+  }
+
+  // Search states by name
+  async searchStates(query: string): Promise<State[]> {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    const lowerQuery = query.toLowerCase();
+    return INDIAN_STATES.filter(state => 
+      state.name.toLowerCase().includes(lowerQuery) ||
+      state.code.toLowerCase().includes(lowerQuery)
+    );
+  }
+
+  // Search districts by name within a state
+  async searchDistricts(stateId: number, query: string): Promise<District[]> {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    const lowerQuery = query.toLowerCase();
+    return DISTRICTS.filter(district => 
+      district.stateId === stateId &&
+      district.name.toLowerCase().includes(lowerQuery)
+    );
+  }
+
+  // Search talukas by name within a district
+  async searchTalukas(districtId: number, query: string): Promise<Taluka[]> {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    const lowerQuery = query.toLowerCase();
+    return TALUKAS.filter(taluka => 
+      taluka.districtId === districtId &&
+      taluka.name.toLowerCase().includes(lowerQuery)
+    );
+  }
+}
+
+export const locationAPI = new LocationAPIService();
+export default locationAPI;

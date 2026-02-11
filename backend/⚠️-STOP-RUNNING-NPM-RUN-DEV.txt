@@ -1,0 +1,93 @@
+
+╔═══════════════════════════════════════════════════════════════════════════╗
+║                                                                           ║
+║   ⚠️  ⚠️  ⚠️  ⚠️  ⚠️  ⚠️  ⚠️  ⚠️  ⚠️  ⚠️  ⚠️  ⚠️  ⚠️  ⚠️  ⚠️  ⚠️  ⚠️  ⚠️   ║
+║                                                                           ║
+║                    🛑 STOP RUNNING "npm run dev" 🛑                       ║
+║                                                                           ║
+║   ⚠️  ⚠️  ⚠️  ⚠️  ⚠️  ⚠️  ⚠️  ⚠️  ⚠️  ⚠️  ⚠️  ⚠️  ⚠️  ⚠️  ⚠️  ⚠️  ⚠️  ⚠️   ║
+║                                                                           ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+
+THE SERVER IS ALREADY RUNNING!
+═════════════════════════════════
+
+✅ Current Status:
+   - Port 5050: LISTENING
+   - Health Check: OK
+   - Server: RUNNING
+
+❌ DO NOT RUN:
+   npm run dev
+
+✅ INSTEAD USE:
+   .\check-server.ps1    (to check status)
+   .\start-server.ps1    (to start safely)
+   .\stop-server.ps1     (to stop)
+
+
+WHY YOU KEEP GETTING THE ERROR:
+═════════════════════════════════
+
+You run:  npm run dev  ← Server starts on port 5050 ✅
+You run:  npm run dev  ← ERROR! Port already in use ❌
+You run:  npm run dev  ← ERROR! Port already in use ❌
+You run:  npm run dev  ← ERROR! Port already in use ❌
+
+
+THE SOLUTION:
+═════════════════════════════════
+
+1. Check if running:
+   .\check-server.ps1
+
+2. If it says "Server is responding" → DON'T START IT AGAIN!
+
+3. If you need to restart:
+   .\stop-server.ps1
+   Start-Sleep -Seconds 3
+   .\start-server.ps1
+
+
+NODEMON AUTO-RESTARTS:
+═════════════════════════════════
+
+When you save a file, nodemon automatically restarts the server.
+You DON'T need to manually restart it!
+
+Just:
+1. Start the server ONCE
+2. Edit your code
+3. Save the file
+4. Nodemon restarts automatically
+
+
+REMEMBER:
+═════════════════════════════════
+
+🔴 ONE server instance
+🔴 ONE terminal
+🔴 ONE time running npm run dev
+
+NOT:
+❌ Multiple terminals
+❌ Multiple npm run dev commands
+❌ Running it again when it's already running
+
+
+READ THE FULL GUIDE:
+═════════════════════════════════
+
+Open: PLEASE-READ-THIS.md
+Or:   SERVER-SCRIPTS-README.md
+
+
+═════════════════════════════════════════════════════════════════════════════
+
+Current Time: 2025-11-08 18:59 UTC
+Server Status: ✅ RUNNING
+Port 5050: ✅ IN USE
+Your Action: ❌ STOP TRYING TO START IT AGAIN!
+
+═════════════════════════════════════════════════════════════════════════════

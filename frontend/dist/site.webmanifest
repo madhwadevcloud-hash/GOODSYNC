@@ -1,0 +1,16 @@
+{
+  "name": "EduLogix - Institute Management System",
+  "short_name": "EduLogix",
+  "description": "Complete School Management System for Admins, Teachers, and Students",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "any",
+      "type": "image/png"
+    }
+  ],
+  "theme_color": "#6366f1",
+  "background_color": "#ffffff",
+  "display": "standalone",
+  "start_url": "/"
+}
