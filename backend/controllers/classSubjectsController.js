@@ -1,6 +1,6 @@
 const ClassSubjectsSimple = require('../models/ClassSubjectsSimple');
 const { gradeSystem } = require('../utils/gradeSystem');
-const DatabaseManager = require('../utils/databaseManager');
+const SchoolDatabaseManager = require('../utils/schoolDatabaseManager');
 
 // Simple Class-based Subject Controller
 
@@ -67,7 +67,7 @@ const addSubjectToClass = async (req, res) => {
 
       try {
         // Get the per-school mongoose connection and bind the model to it
-        const schoolConn = await DatabaseManager.getSchoolConnection(schoolCode);
+        const schoolConn = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
 
         if (!schoolConn) {
           console.error(`[ADD SUBJECT] Failed to get school connection for: ${schoolCode}`);
@@ -226,7 +226,7 @@ const removeSubjectFromClass = async (req, res) => {
 
     // Find the class
     // Use per-school model to find class
-    const schoolConn = await DatabaseManager.getSchoolConnection(schoolCode);
+    const schoolConn = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
     const SchoolClassSubjects = ClassSubjectsSimple.getModelForConnection(schoolConn);
 
     const classSubjects = await SchoolClassSubjects.findOne({
@@ -304,7 +304,7 @@ const getAllClassesWithSubjects = async (req, res) => {
 
     try {
       // Get classes from the school's DB
-      const schoolConn = await DatabaseManager.getSchoolConnection(schoolCode);
+      const schoolConn = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
 
       if (!schoolConn) {
         console.error(`[GET ALL CLASSES] Failed to get school connection for: ${schoolCode}`);
@@ -438,7 +438,7 @@ const getSubjectsForClass = async (req, res) => {
 
     // Try school-specific database as fallback
     try {
-      const schoolConn = await DatabaseManager.getSchoolConnection(schoolCode);
+      const schoolConn = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
 
       if (schoolConn) {
         try {
@@ -504,7 +504,7 @@ const getSubjectsByGradeSection = async (req, res) => {
     const schoolCode = req.user.schoolCode;
     const { academicYear = '2024-25' } = req.query;
 
-    const schoolConn = await DatabaseManager.getSchoolConnection(schoolCode);
+    const schoolConn = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
     const SchoolClassSubjects = ClassSubjectsSimple.getModelForConnection(schoolConn);
 
     const classSubjects = await SchoolClassSubjects.findByGradeSection(
@@ -563,7 +563,7 @@ const updateSubjectInClass = async (req, res) => {
     }
 
     // Find the class
-    const schoolConn = await DatabaseManager.getSchoolConnection(schoolCode);
+    const schoolConn = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
     const SchoolClassSubjects = ClassSubjectsSimple.getModelForConnection(schoolConn);
 
     const classSubjects = await SchoolClassSubjects.findOne({
@@ -769,7 +769,7 @@ const initializeBasicSubjects = async (req, res) => {
       }
 
       const schoolId = school._id;
-      const schoolConn = await DatabaseManager.getSchoolConnection(schoolCode);
+      const schoolConn = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
       const SchoolClassSubjects = ClassSubjectsSimple.getModelForConnection(schoolConn);
 
       // Check if class already has subjects

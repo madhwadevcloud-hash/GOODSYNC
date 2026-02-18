@@ -1,11 +1,11 @@
 const School = require('../models/School');
 const { ObjectId } = require('mongodb');
-const DatabaseManager = require('../utils/databaseManager');
+const SchoolDatabaseManager = require('../utils/schoolDatabaseManager');
 
-// Get school database connection
+// Get school database connection with fallback creation
 async function getSchoolConnectionWithFallback(schoolCode) {
   try {
-    return await DatabaseManager.getSchoolConnection(schoolCode);
+    return await SchoolDatabaseManager.getSchoolConnection(schoolCode);
   } catch (error) {
     console.error(`Error connecting to school database ${schoolCode}:`, error);
     throw error;
