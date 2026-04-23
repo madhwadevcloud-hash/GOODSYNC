@@ -101,7 +101,7 @@ export default function LoginScreen() {
                 style={styles.logoImage}
                 resizeMode="contain"
               />
-              <Text style={styles.logoTitle}>EduLogix</Text>
+              <Text style={styles.logoTitle}>GOODSYNK ERP</Text>
               <Text style={styles.logoSubtitle}>EMPOWERING TECHNOLOGIES</Text>
             </View>
           </View>

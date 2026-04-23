@@ -1069,7 +1069,7 @@ const AcademicDetails: React.FC = () => {
       let templateSettings = {
         schoolName: user?.schoolName || 'School Name',
         schoolCode: user?.schoolCode || 'SCH001',
-        website: 'www.edulogix.com',
+        website: 'www.goodsynk.com',
         logoUrl: '',
         headerColor: '#1f2937',
         accentColor: '#3b82f6',
@@ -1147,7 +1147,7 @@ const AcademicDetails: React.FC = () => {
             }
 
             // Format website URL to be more concise (EXACT same as UniversalTemplate)
-            let formattedWebsite = data.contact?.website || data.website || 'www.edulogix.com';
+            let formattedWebsite = data.contact?.website || data.website || 'www.goodsynk.com';
             if (formattedWebsite.length > 25) {
               // Remove protocol and www if present, then truncate
               formattedWebsite = formattedWebsite

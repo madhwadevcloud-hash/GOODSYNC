@@ -417,7 +417,7 @@ const FeePaymentsTab: React.FC = () => {
         address: '123 School Street, City, State 12345',
         phone: '+91-XXXXXXXXXX',
         email: 'info@school.com',
-        website: 'www.edulogix.com',
+        website: 'www.goodsynk.com',
         hasSchoolLogo: false,
         schoolLogo: ''
       };

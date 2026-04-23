@@ -115,7 +115,7 @@ export default function HomeScreen() {
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{school?.schoolName || 'Welcome'}</Text>
-              <Text style={styles.modalSubtitle}>Hi {userName}, welcome to EduLogix!</Text>
+              <Text style={styles.modalSubtitle}>Hi {userName}, welcome to GOODSYNK ERP!</Text>
             </View>
             <TouchableOpacity style={styles.modalButton} onPress={handleWelcomeClose}>
               <Text style={styles.modalButtonText}>Continue</Text>

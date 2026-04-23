@@ -191,7 +191,7 @@ const ChalanPage: React.FC = () => {
               </div>
             </div>
             <div class="payment-status">PAYMENT STATUS: ${chalan.status?.toUpperCase() || 'UNPAID'}</div>
-            <div class="branding">EduLogix - Institute Management System</div>
+            <div class="branding">GOODSYNK ERP - Institute Management System</div>
           </div>
 
           <!-- OFFICE COPY -->
@@ -234,7 +234,7 @@ const ChalanPage: React.FC = () => {
               </div>
             </div>
             <div class="payment-status">PAYMENT STATUS: ${chalan.status?.toUpperCase() || 'UNPAID'}</div>
-            <div class="branding">EduLogix - Institute Management System</div>
+            <div class="branding">GOODSYNK ERP - Institute Management System</div>
           </div>
 
           <!-- ADMIN COPY -->
@@ -277,7 +277,7 @@ const ChalanPage: React.FC = () => {
               </div>
             </div>
             <div class="payment-status">PAYMENT STATUS: ${chalan.status?.toUpperCase() || 'UNPAID'}</div>
-            <div class="branding">EduLogix - Institute Management System</div>
+            <div class="branding">GOODSYNK ERP - Institute Management System</div>
           </div>
         </div>
       </body>
@@ -553,7 +553,7 @@ const ChalanPage: React.FC = () => {
                 </div>
 
                 <div class="payment-status">PAYMENT STATUS: ${chalan.status?.toUpperCase() || 'UNPAID'}</div>
-                <div class="branding">EduLogix - Institute Management System</div>
+                <div class="branding">GOODSYNK ERP - Institute Management System</div>
             </div>
 
             <!-- OFFICE COPY -->
@@ -638,7 +638,7 @@ const ChalanPage: React.FC = () => {
                 </div>
 
                 <div class="payment-status">PAYMENT STATUS: ${chalan.status?.toUpperCase() || 'UNPAID'}</div>
-                <div class="branding">EduLogix - Institute Management System</div>
+                <div class="branding">GOODSYNK ERP - Institute Management System</div>
             </div>
 
             <!-- ADMIN COPY -->
@@ -723,7 +723,7 @@ const ChalanPage: React.FC = () => {
                 </div>
 
                 <div class="payment-status">PAYMENT STATUS: ${chalan.status?.toUpperCase() || 'UNPAID'}</div>
-                <div class="branding">EduLogix - Institute Management System</div>
+                <div class="branding">GOODSYNK ERP - Institute Management System</div>
             </div>
         </div>
     </body>

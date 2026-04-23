@@ -293,17 +293,18 @@ const NewIDCardTemplate: React.FC<IDCardTemplateProps> = ({
       {/* Logo */}
       <div style={{
         position: 'absolute',
-        bottom: '4mm',
-        right: '6mm',
-        textAlign: 'right'
+        bottom: '3mm',
+        right: '4mm',
+        textAlign: 'right',
+        zIndex: 3
       }}>
         <img
           src="/logo.png"
-          alt="EduLogix"
-          style={{ width: '8mm', height: '6mm', objectFit: 'contain' }}
+          alt="GOODSYNK ERP"
+          style={{ width: '14mm', height: '10mm', objectFit: 'contain' }}
           onError={(e) => {
             (e.target as HTMLImageElement).style.display = 'none';
-            (e.target as HTMLImageElement).parentElement!.innerHTML = '<div style="fontSize: 4mm; color: #000;">📘</div>';
+            (e.target as HTMLImageElement).parentElement!.innerHTML = '<div style="fontSize: 4mm; color: #000;">GOODSYNK ERP</div>';
           }}
         />
       </div>
@@ -523,17 +524,18 @@ const NewIDCardTemplate: React.FC<IDCardTemplateProps> = ({
       {/* Logo */}
       <div style={{
         position: 'absolute',
-        bottom: '5mm',
-        right: '6mm',
-        textAlign: 'right'
+        bottom: '3mm',
+        right: '4mm',
+        textAlign: 'right',
+        zIndex: 3
       }}>
         <img
           src="/logo.png"
-          alt="EduLogix"
-          style={{ width: '8mm', height: '6mm', objectFit: 'contain' }}
+          alt="GOODSYNK ERP"
+          style={{ width: '14mm', height: '10mm', objectFit: 'contain' }}
           onError={(e) => {
             (e.target as HTMLImageElement).style.display = 'none';
-            (e.target as HTMLImageElement).parentElement!.innerHTML = '<div style="fontSize: 4mm; color: #000; marginBottom: 1mm;">📘</div><div style="fontSize: 3mm;">EduLogiX</div>';
+            (e.target as HTMLImageElement).parentElement!.innerHTML = '<div style="fontSize: 4mm; color: #000;">GOODSYNK ERP</div>';
           }}
         />
       </div>

@@ -34,9 +34,9 @@ const io = new Server(server, {
       'http://localhost:5173',
       'https://erp-host-1.web.app',
       'https://erp-host-1.firebaseapp.com',
-      'https://erpedulogix.web.app',
-      'https://jayesh-erp.web.app',
-      'https://erpedulogix.firebaseapp.com',
+      'https://goodsync-f91a7.web.app',
+      'https://goodsync-f91a7.web.app',
+      'https://goodsync-f91a7.firebaseapp.com',
       'https://erp-backend-1jtx.onrender.com',
       // Expo mobile app origins
       'exp://localhost:8081',
@@ -274,9 +274,9 @@ app.use(cors({
       'http://localhost:8081', // Expo web development server
       'https://erp-host-1.web.app',
       'https://erp-host-1.firebaseapp.com',
-      'https://erpedulogix.web.app',
-      'https://jayesh-erp.web.app',
-      'https://erpedulogix.firebaseapp.com',
+      'https://goodsync-f91a7.web.app',
+      'https://goodsync-f91a7.web.app',
+      'https://goodsync-f91a7.firebaseapp.com',
       'https://erp-backend-1jtx.onrender.com',// Add the production backend URL
       'http://localhost:5173',
       // Expo mobile app origins

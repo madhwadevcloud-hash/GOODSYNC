@@ -161,7 +161,7 @@ const PrintableChallan: React.FC<PrintableChallanProps> = ({
         <div className="payment-status">
           {paymentDetails.status ? paymentDetails.status.toUpperCase() : 'PENDING'}
         </div>
-        <div className="branding">EduLogix - Institute Management System</div>
+        <div className="branding">GOODSYNK ERP - Institute Management System</div>
       </div>
     );
   };

@@ -146,12 +146,12 @@ export default function Login() {
           <div className="grid md:grid-cols-2 gap-6 sm:gap-10 items-center">
             {/* Left: Brand / Greeting */}
             <div className="space-y-3 sm:space-y-4 flex flex-col items-center text-center">
-              <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-2xl sm:rounded-3xl bg-violet-100 flex items-center justify-center overflow-hidden shadow-lg">
-                <img src="/logo.png" alt="School Logo" className="w-28 h-28 sm:w-36 sm:h-36 object-contain" />
+              <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-2xl flex items-center justify-center overflow-hidden shadow-lg bg-black/90">
+                <img src="/logo.png" alt="School Logo" className="w-[120%] h-[120%] object-contain" />
               </div>
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold">
                 <span className="bg-gradient-to-r from-fuchsia-500 via-violet-500 to-blue-500 bg-clip-text text-transparent">
-                  EduLogix
+                  GOODSYNK ERP
                 </span>
               </h1>
               <p className="text-slate-500 text-lg sm:text-xl md:text-2xl font-semibold">Welcome back, superstar! ✨</p>

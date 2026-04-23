@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "EduLogix",
+    "name": "GOODSYNK ERP",
     "slug": "expoApp",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -10,13 +10,13 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.edulogix.app"
+      "bundleIdentifier": "com.goodsynk.erp"
     },
     "android": {
-      "package": "com.edulogix.app",
+      "package": "com.goodsynk.erp",
       "versionCode": 1,
-      "name": "EduLogix",
-      "label": "EduLogix",
+      "name": "GOODSYNK ERP",
+      "label": "GOODSYNK ERP",
       "icon": "./assets/images/logo.png",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",

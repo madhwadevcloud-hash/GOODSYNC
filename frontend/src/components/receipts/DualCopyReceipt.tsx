@@ -446,7 +446,7 @@ const DualCopyReceipt: React.FC<DualCopyReceiptProps> = ({
             
             <div class="receipt-footer">
                 <div class="footer-line footer-bold">Thank you for your payment!</div>
-                <div class="footer-line">Powered by <span class="footer-blue">EduLogix</span></div>
+                <div class="footer-line">Powered by <span class="footer-blue">GOODSYNK ERP</span></div>
                 <div class="footer-line">This is a computer generated receipt.</div>
             </div>
         </div>
@@ -544,7 +544,7 @@ const DualCopyReceipt: React.FC<DualCopyReceiptProps> = ({
             
             <div class="receipt-footer">
                 <div class="footer-line footer-bold">Thank you for your payment!</div>
-                <div class="footer-line">Powered by <span class="footer-blue">EduLogix</span></div>
+                <div class="footer-line">Powered by <span class="footer-blue">GOODSYNK ERP</span></div>
                 <div class="footer-line">This is a computer generated receipt.</div>
             </div>
         </div>
@@ -941,7 +941,7 @@ const DualCopyReceipt: React.FC<DualCopyReceiptProps> = ({
           <div className="px-4 py-3 bg-gray-50 text-center text-xs text-gray-600 border-t border-gray-200">
             <div className="font-semibold">This is a computer generated copy.</div>
             <div className="mt-1">
-              Powered by <span className="font-semibold text-blue-600">EduLogix</span>
+              Powered by <span className="font-semibold text-blue-600">GOODSYNK ERP</span>
             </div>
             <div className="mt-1">
               Thank you for your payment! • {schoolData.website}
@@ -1154,7 +1154,7 @@ const DualCopyReceipt: React.FC<DualCopyReceiptProps> = ({
           <div className="px-4 py-3 bg-gray-50 text-center text-xs text-gray-600 border-t border-gray-200">
             <div className="font-semibold">This is a computer generated copy.</div>
             <div className="mt-1">
-              Powered by <span className="font-semibold text-blue-600">EduLogix</span>
+              Powered by <span className="font-semibold text-blue-600">GOODSYNK ERP</span>
             </div>
             <div className="mt-1">
               Thank you for your payment! • {schoolData.website}

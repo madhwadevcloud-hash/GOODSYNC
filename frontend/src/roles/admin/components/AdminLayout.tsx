@@ -53,8 +53,9 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     <div className="flex min-h-screen bg-gray-50">
       {/* Sidebar */}
       <div className="w-64 bg-white shadow-lg hidden lg:flex flex-col">
-        <div className="h-16 px-6 flex items-center bg-blue-600">
-          <h1 className="text-xl font-bold text-white">ERP Admin Portal</h1>
+        <div className="h-16 px-6 flex items-center bg-blue-600 gap-3">
+          <img src="/logo.png" alt="Logo" className="h-8 w-8 object-contain" />
+          <h1 className="text-xl font-bold text-white">GOODSYNK ERP Admin</h1>
         </div>
         <nav className="mt-8 px-4 space-y-2">
           {navigation.map((item) => (
@@ -62,8 +63,8 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               key={item.name}
               to={item.href}
               className={`flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors ${isActive(item.href) || location.pathname.startsWith(item.href + '/')
-                  ? 'bg-blue-100 text-blue-700'
-                  : 'text-gray-700 hover:bg-gray-100'
+                ? 'bg-blue-100 text-blue-700'
+                : 'text-gray-700 hover:bg-gray-100'
                 }`}
             >
               <item.icon className="mr-3 h-5 w-5" />
@@ -82,7 +83,10 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           }`}
       >
         <div className="h-16 px-6 flex items-center justify-between bg-blue-600">
-          <h1 className="text-xl font-bold text-white">ERP Admin Portal</h1>
+          <div className="flex items-center gap-2">
+            <img src="/logo.png" alt="Logo" className="h-8 w-8 object-contain" />
+            <h1 className="text-xl font-bold text-white">GOODSYNK ERP Admin</h1>
+          </div>
           <button
             onClick={() => setSidebarOpen(false)}
             className="text-white hover:bg-blue-700 p-1 rounded"
@@ -97,8 +101,8 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               to={item.href}
               onClick={() => setSidebarOpen(false)}
               className={`flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors ${isActive(item.href) || location.pathname.startsWith(item.href + '/')
-                  ? 'bg-blue-100 text-blue-700'
-                  : 'text-gray-700 hover:bg-gray-100'
+                ? 'bg-blue-100 text-blue-700'
+                : 'text-gray-700 hover:bg-gray-100'
                 }`}
             >
               <item.icon className="mr-3 h-5 w-5" />

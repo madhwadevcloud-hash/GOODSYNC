@@ -17,7 +17,7 @@ const UniversalTemplate: React.FC = () => {
   const [templateSettings, setTemplateSettings] = useState<TemplateSettings>({
     schoolName: user?.schoolName || 'School Name',
     schoolCode: user?.schoolCode || 'SCH001',
-    website: 'www.edulogix.com',
+    website: 'www.goodsynk.com',
     logoUrl: '',
     headerColor: '#1f2937',
     accentColor: '#3b82f6',

@@ -904,7 +904,7 @@ const ViewChalan: React.FC<ViewChalanProps> = ({ isOpen, onClose, chalan: initia
                 <div class=\"info-row\"><span class=\"info-label\">Due Date:</span><span class=\"info-value\">${dueDate}</span></div>
               </div>
             </div>
-            <div class=\"branding\">EduLogix - Institute Management System</div>
+            <div class=\"branding\">GOODSYNK ERP - Institute Management System</div>
           </div>
 
           <!-- OFFICE COPY -->
@@ -949,7 +949,7 @@ const ViewChalan: React.FC<ViewChalanProps> = ({ isOpen, onClose, chalan: initia
                 <div class=\"info-row\"><span class=\"info-label\">Due Date:</span><span class=\"info-value\">${dueDate}</span></div>
               </div>
             </div>
-            <div class=\"branding\">EduLogix - Institute Management System</div>
+            <div class=\"branding\">GOODSYNK ERP - Institute Management System</div>
           </div>
 
           <!-- ADMIN COPY -->
@@ -994,7 +994,7 @@ const ViewChalan: React.FC<ViewChalanProps> = ({ isOpen, onClose, chalan: initia
                 <div class=\"info-row\"><span class=\"info-label\">Due Date:</span><span class=\"info-value\">${dueDate}</span></div>
               </div>
             </div>
-            <div class=\"branding\">EduLogix - Institute Management System</div>
+            <div class=\"branding\">GOODSYNK ERP - Institute Management System</div>
           </div>
         </div>
       </body>

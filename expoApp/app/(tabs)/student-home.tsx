@@ -333,7 +333,7 @@ export default function StudentHomeScreen() {
               style={styles.logoIcon}
               resizeMode="contain"
             />
-            <Text style={styles.logoText}>EduLogix</Text>
+            <Text style={styles.logoText}>GOODSYNK ERP</Text>
           </View>
           <TouchableOpacity style={styles.settingsButton} onPress={() => router.push('/menu')}>
             <Text style={styles.settingsIcon}>☰</Text>

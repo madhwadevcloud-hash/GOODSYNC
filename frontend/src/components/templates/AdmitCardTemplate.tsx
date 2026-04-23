@@ -591,7 +591,7 @@ const AdmitCardTemplate: React.FC<AdmitCardTemplateProps> = ({
             >
               <span>Powered by</span>
               <strong className={mode === 'print' ? '' : 'ml-1'} style={mode === 'print' ? { marginLeft: '4px' } : {}}>
-                EduLogix
+                GOODSYNK ERP
               </strong>
             </div>
           </div>
