@@ -484,3 +484,5 @@ Institute ERP Team - Building the future of educational administration
 ---
 
 **Note**: This is an active development project. Features and documentation are continuously updated.
+#   G O O D S Y N C  
+ 
