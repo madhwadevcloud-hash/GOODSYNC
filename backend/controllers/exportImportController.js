@@ -155,7 +155,54 @@ exports.importUsers = async (req, res) => {
   } catch (yearError) {
     console.error(`Error fetching academic year from school_info for ${upperSchoolCode}:`, yearError.message);
   }
-  // --- END OF MODIFICATION ---
+  // --- Fetch all school classes once for robust matching ---
+  let schoolClasses = [];
+  try {
+    const classesCollection = db.collection('classes');
+    schoolClasses = await classesCollection.find({
+      $or: [
+        { schoolCode: upperSchoolCode },
+        { schoolId: school._id.toString() },
+        { schoolId: school._id }
+      ],
+      isActive: true
+    }).toArray();
+    console.log(`Fetched ${schoolClasses.length} active classes for robust matching.`);
+  } catch (classFetchError) {
+    console.error(`Error fetching classes for matching:`, classFetchError.message);
+  }
+
+  // Helper for robust class matching
+  const findMatchingClass = (inputName) => {
+    if (!inputName) return null;
+    const cleanInput = inputName.toString().trim().toLowerCase();
+
+    // Exact match or lowercase match
+    let found = schoolClasses.find(c => c.className.toLowerCase() === cleanInput || c.className === inputName);
+    if (found) return found;
+
+    // Normalize variations: "1st" -> "1", "2nd" -> "2", etc.
+    const normalizedInput = cleanInput.replace(/(st|nd|rd|th)$/, '');
+    found = schoolClasses.find(c => c.className.toLowerCase().replace(/(st|nd|rd|th)$/, '') === normalizedInput);
+    if (found) return found;
+
+    // Roman Numerals handling
+    const romanMap = { 'i': '1', 'ii': '2', 'iii': '3', 'iv': '4', 'v': '5', 'vi': '6', 'vii': '7', 'viii': '8', 'ix': '9', 'x': '10', 'xi': '11', 'xii': '12' };
+    if (romanMap[cleanInput]) {
+      const numeric = romanMap[cleanInput];
+      found = schoolClasses.find(c => c.className.toLowerCase() === numeric);
+      if (found) return found;
+    }
+
+    // Vice versa: input is "1", DB has "1st"
+    found = schoolClasses.find(c => {
+      const dbName = c.className.toLowerCase();
+      return dbName === `${cleanInput}st` || dbName === `${cleanInput}nd` || dbName === `${cleanInput}rd` || dbName === `${cleanInput}th`;
+    });
+
+    return found;
+  };
+  // --- END OF CLASS MATCHING PREP ---
 
   // --- CSV Header Mappings (Combined) ---
   const headerMappings = {
@@ -340,27 +387,38 @@ exports.importUsers = async (req, res) => {
       if (userRole === 'student') {
         validationErrors = validateStudentRowRobust(row, rowNumber);
 
-        // Additional validation: Check if class and section exist
+        // Additional validation: Check if class and section exist using pre-fetched classes
         if (validationErrors.length === 0) {
-          const currentClass = row['currentclass'];
-          const currentSection = row['currentsection'];
+          const currentClassInput = row['currentclass']?.toString().trim();
+          const currentSectionInput = row['currentsection']?.toString().trim();
 
-          if (currentClass && currentSection) {
-            const classesCollection = db.collection('classes');
-            const classExists = await classesCollection.findOne({
-              schoolId: school._id.toString(),
-              className: currentClass,
-              sections: currentSection,
-              isActive: true
-            });
+          if (currentClassInput) {
+            const matchedClass = findMatchingClass(currentClassInput);
 
-            if (!classExists) {
+            if (!matchedClass) {
               validationErrors.push({
                 row: rowNumber,
-                field: 'currentclass/currentsection',
-                error: `Class "${currentClass}" with Section "${currentSection}" does not exist. Please add this class/section in SuperAdmin before importing students.`
+                field: 'currentclass',
+                error: `Class "${currentClassInput}" does not exist in SuperAdmin. Please add this class exactly as it appears in the SuperAdmin dashboard.`
               });
-              console.warn(`⚠️ Row ${rowNumber}: Class ${currentClass} Section ${currentSection} not found. Skipping student.`);
+            } else {
+              // Standardize the class name and section from the DB values
+              row['currentclass'] = matchedClass.className;
+
+              if (currentSectionInput) {
+                const sections = matchedClass.sections || [];
+                const matchedSection = sections.find(s => s.toString().trim().toLowerCase() === currentSectionInput.toLowerCase());
+
+                if (!matchedSection) {
+                  validationErrors.push({
+                    row: rowNumber,
+                    field: 'currentsection',
+                    error: `Section "${currentSectionInput}" does not exist in Class "${matchedClass.className}". Available sections: ${sections.join(', ') || 'None'}`
+                  });
+                } else {
+                  row['currentsection'] = matchedSection; // Use exact case from DB
+                }
+              }
             }
           }
         }
@@ -1116,6 +1174,24 @@ async function createTeacherFromRow(normalizedRow, schoolIdAsObjectId, userId, s
   return newTeacher;
 }
 
+
+// --- Robust helper to fix scientific notation for numbers like 2.345E+11 ---
+function normalizeNumericValue(val) {
+  if (val === undefined || val === null) return '';
+  let str = String(val).trim();
+  if (!str) return '';
+
+  if (/e\+/i.test(str)) {
+    try {
+      // BigInt gives exact precision for 12+ digit numbers
+      return BigInt(Number(str)).toString();
+    } catch (e) {
+      return str.replace(/\D/g, ''); // Fallback: just remove non-digits
+    }
+  }
+  return str.replace(/\D/g, '');
+}
+
 function validateStudentRowRobust(normalizedRow, rowNumber) {
   const errors = [];
 
@@ -1136,29 +1212,26 @@ function validateStudentRowRobust(normalizedRow, rowNumber) {
 
   // Basic format validations
   if (normalizedRow['email'] && !/\S+@\S+\.\S+/.test(normalizedRow['email'])) { errors.push({ row: rowNumber, error: `Invalid format`, field: 'email' }); }
-  const pincode = normalizedRow['permanentpincode']; if (pincode && pincode.trim() !== '' && !/^\d{6}$/.test(pincode)) { errors.push({ row: rowNumber, error: `Invalid format (must be 6 digits if provided)`, field: 'permanentpincode' }); }
-  const currentPincode = normalizedRow['currentpincode']; if (currentPincode && currentPincode.trim() !== '' && !/^\d{6}$/.test(currentPincode)) { errors.push({ row: rowNumber, error: `Invalid format (must be 6 digits if provided)`, field: 'currentpincode' }); }
-  const gender = normalizedRow['gender']?.toLowerCase(); if (gender && gender.trim() !== '' && !['male', 'female', 'other'].includes(gender)) { errors.push({ row: rowNumber, error: `Invalid value (must be 'male', 'female', or 'other' if provided)`, field: 'gender' }); }
-  const phone = normalizedRow['primaryphone']; if (phone && phone.trim() !== '' && !/^\d{7,15}$/.test(phone.replace(/\D/g, ''))) { errors.push({ row: rowNumber, error: `Invalid format (must be 7-15 digits if provided)`, field: 'primaryphone' }); }
 
-  // --- MODIFIED AADHAAR VALIDATION (HANDLES SCIENTIFIC NOTATION) ---
+  const pincode = normalizeNumericValue(normalizedRow['permanentpincode']);
+  if (pincode && pincode.length !== 6) { errors.push({ row: rowNumber, error: `Invalid format (must be 6 digits)`, field: 'permanentpincode' }); }
+
+  const currentPincode = normalizeNumericValue(normalizedRow['currentpincode']);
+  if (currentPincode && currentPincode !== '' && currentPincode.length !== 6) { errors.push({ row: rowNumber, error: `Invalid format (must be 6 digits)`, field: 'currentpincode' }); }
+
+  const gender = normalizedRow['gender']?.toLowerCase();
+  if (gender && !['male', 'female', 'other'].includes(gender)) { errors.push({ row: rowNumber, error: `Invalid value`, field: 'gender' }); }
+
+  const phone = normalizeNumericValue(normalizedRow['primaryphone']);
+  if (phone && (phone.length < 7 || phone.length > 15)) { errors.push({ row: rowNumber, error: `Invalid length`, field: 'primaryphone' }); }
+
+  // Aadhaar
   if (normalizedRow['aadharnumber'] && String(normalizedRow['aadharnumber']).trim() !== '') {
-    let aadhaar = (normalizedRow['aadharnumber'] || '').toString().trim();
-    if (/e\+/i.test(aadhaar)) { // Check for scientific notation like 2.345E+11
-      try {
-        aadhaar = BigInt(Number(aadhaar)).toString();
-      } catch (e) {
-        aadhaar = ''; // Failed conversion
-      }
-    } else { // Not scientific, just clean non-digits
-      aadhaar = aadhaar.replace(/\D/g, '');
-    }
-
+    const aadhaar = normalizeNumericValue(normalizedRow['aadharnumber']);
     if (aadhaar.length !== 12) {
-      errors.push({ row: rowNumber, error: `Invalid Aadhaar (must be 12 digits). Value received: "${normalizedRow['aadharnumber']}"`, field: 'aadharnumber' });
+      errors.push({ row: rowNumber, error: `Invalid Aadhaar (must be 12 digits). Received: "${normalizedRow['aadharnumber']}"`, field: 'aadharnumber' });
     }
   }
-  // --- END OF MODIFICATION ---
 
   // IFSC validation
   const ifsc = (normalizedRow['bankifsc'] || '').toString().trim();
@@ -1183,9 +1256,6 @@ async function createStudentFromRowRobust(normalizedRow, schoolIdAsObjectId, use
   const email = normalizedRow['email'];
   const dateOfBirthString = normalizedRow['dateofbirth'];
   const finalDateOfBirth = parseFlexibleDate(dateOfBirthString, 'Date of Birth');
-  if (!finalDateOfBirth) {
-    throw new Error(`Date of Birth is required and could not be parsed (row ${normalizedRow.originalRowNumber}).`);
-  }
 
   const finalAdmissionDate = parseFlexibleDate(normalizedRow['admissiondate'], 'Admission Date') || new Date();
 
@@ -1193,7 +1263,6 @@ async function createStudentFromRowRobust(normalizedRow, schoolIdAsObjectId, use
   try {
     temporaryPassword = generateStudentPasswordFromDOB(dateOfBirthString);
   } catch (e) {
-    console.warn(`Could not generate password from DOB "${dateOfBirthString}" for row ${normalizedRow.originalRowNumber}. Generating random password.`);
     temporaryPassword = generateRandomPassword(8);
   }
 
@@ -1212,42 +1281,18 @@ async function createStudentFromRowRobust(normalizedRow, schoolIdAsObjectId, use
   const isRTECandidateValue = normalizedRow['isrtcandidate']?.toLowerCase();
   const isRTECandidate = isRTECandidateValue === 'yes' ? 'Yes' : 'No';
 
-  // --- Clean all scientific notation and formatting ---
+  // --- Normalizing numeric fields (handles scientific notation) ---
+  const cleanedAadhaar = normalizeNumericValue(normalizedRow['aadharnumber']);
+  const cleanedBankAccountNo = normalizeNumericValue(normalizedRow['bankaccountno']);
+  const cleanedPrimaryPhone = normalizeNumericValue(normalizedRow['primaryphone']);
+  const cleanedSecondaryPhone = normalizeNumericValue(normalizedRow['secondaryphone']);
+  const cleanedWhatsappPhone = normalizeNumericValue(normalizedRow['whatsappnumber']);
+  const cleanedPermanentPincode = normalizeNumericValue(normalizedRow['permanentpincode']);
+  const cleanedCurrentPincode = normalizeNumericValue(normalizedRow['currentpincode']);
+  const cleanedFatherPhone = normalizeNumericValue(normalizedRow['fatherphone']);
+  const cleanedMotherPhone = normalizeNumericValue(normalizedRow['motherphone']);
 
-  // 1. Clean Aadhar Number
-  let cleanedAadhaar = (normalizedRow['aadharnumber'] || '').toString().trim();
-  if (/e\+/i.test(cleanedAadhaar)) { // Check for scientific notation
-    try {
-      cleanedAadhaar = BigInt(Number(cleanedAadhaar)).toString();
-    } catch (e) {
-      console.warn(`Row ${normalizedRow.originalRowNumber}: Failed to convert scientific notation for Aadhaar. Saving as empty.`);
-      cleanedAadhaar = '';
-    }
-  } else { // Not scientific, just clean non-digits
-    cleanedAadhaar = cleanedAadhaar.replace(/\D/g, '');
-  }
-
-  // 2. Clean Bank Account Number
-  let cleanedBankAccountNo = (normalizedRow['bankaccountno'] || '').toString().trim();
-  if (/e\+/i.test(cleanedBankAccountNo)) { // Check for scientific notation
-    try {
-      cleanedBankAccountNo = BigInt(Number(cleanedBankAccountNo)).toString();
-    } catch (e) {
-      console.warn(`Row ${normalizedRow.originalRowNumber}: Failed to convert scientific notation for Bank Account No. Saving as empty.`);
-      cleanedBankAccountNo = '';
-    }
-  } else { // Not scientific, just clean non-digits
-    cleanedBankAccountNo = cleanedBankAccountNo.replace(/\D/g, '');
-  }
-
-  // 3. Clean other fields
   const cleanedBankIFSC = (normalizedRow['bankifsc'] || '').toString().toUpperCase().replace(/[^A-Z0-9]/g, '');
-  let permanentPincode = (normalizedRow['permanentpincode'] || '').toString().replace(/\D/g, '');
-  if (permanentPincode && permanentPincode.length !== 6) {
-    permanentPincode = '';
-  }
-
-  // --- End of Cleaning ---
 
   let concessionPercentage = parseInt(normalizedRow['concessionpercentage'] || '0');
   if (isNaN(concessionPercentage) || concessionPercentage < 0 || concessionPercentage > 100) {
@@ -1256,32 +1301,6 @@ async function createStudentFromRowRobust(normalizedRow, schoolIdAsObjectId, use
 
   const firstName = normalizedRow['firstname'] || '';
   const lastName = normalizedRow['lastname'] || '';
-
-  // Handle profile image upload
-  let profileImagePath = '';
-  if (normalizedRow['profileimage'] && normalizedRow['profileimage'].trim() !== '') {
-    let cleanImagePath = normalizedRow['profileimage'].trim();
-    if (cleanImagePath.startsWith('?')) {
-      cleanImagePath = cleanImagePath.substring(1);
-    }
-
-    if (cleanImagePath.startsWith('data:')) {
-      console.log(`⚠️ Skipping base64 data URL for student ${userId} (not supported yet)`);
-      profileImagePath = '';
-    } else {
-      console.log(`📸 Processing profile image for student ${userId}: ${cleanImagePath}`);
-      try {
-        profileImagePath = await copyProfilePicture(cleanImagePath, userId, schoolCode);
-        console.log(`✅ Student profile image uploaded successfully: ${profileImagePath}`);
-        if (!profileImagePath || profileImagePath.trim() === '') {
-          console.error(`❌ copyProfilePicture returned empty path for student ${userId}`);
-        }
-      } catch (imageError) {
-        console.error(`❌ Failed to upload student profile image: ${imageError.message}`);
-        profileImagePath = '';
-      }
-    }
-  }
 
   // --- Main Student Object ---
   const newStudent = {
@@ -1301,18 +1320,18 @@ async function createStudentFromRowRobust(normalizedRow, schoolIdAsObjectId, use
     passwordChangeRequired: true,
     role: 'student',
     contact: {
-      primaryPhone: (normalizedRow['primaryphone'] || '').toString().replace(/\D/g, ''),
-      secondaryPhone: (normalizedRow['secondaryphone'] || '').toString().replace(/\D/g, ''),
-      whatsappNumber: (normalizedRow['whatsappnumber'] || '').toString().replace(/\D/g, ''),
+      primaryPhone: cleanedPrimaryPhone,
+      secondaryPhone: cleanedSecondaryPhone,
+      whatsappNumber: cleanedWhatsappPhone,
     },
-    address: { // This is the correct schema-defined address
+    address: {
       permanent: {
         street: normalizedRow['permanentstreet'] || '',
         area: normalizedRow['permanentarea'] || '',
         city: normalizedRow['permanentcity'] || '',
         state: normalizedRow['permanentstate'] || '',
         country: normalizedRow['permanentcountry'] || 'India',
-        pincode: permanentPincode,
+        pincode: cleanedPermanentPincode,
         landmark: normalizedRow['permanentlandmark'] || ''
       },
       current: undefined,
@@ -1322,7 +1341,7 @@ async function createStudentFromRowRobust(normalizedRow, schoolIdAsObjectId, use
       aadharNumber: cleanedAadhaar || '',
       panNumber: normalizedRow['pannumber'] || ''
     },
-    profileImage: profileImagePath || null,
+    profileImage: null,
     isActive: isActive,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -1336,30 +1355,19 @@ async function createStudentFromRowRobust(normalizedRow, schoolIdAsObjectId, use
       createdBy: creatingUserIdAsObjectId,
       createdAt: new Date()
     },
-
-    // --- 1. CORRECT NESTED studentDetails OBJECT ---
     studentDetails: {
       studentId: userId,
       admissionNumber: normalizedRow['admissionnumber'] || '',
       rollNumber: normalizedRow['rollnumber'] || '',
-
       academic: {
         currentClass: normalizedRow['currentclass'] || '',
         currentSection: normalizedRow['currentsection'] || '',
-        academicYear: currentAcademicYear, // <-- Use the year from school_info
+        academicYear: currentAcademicYear,
         admissionDate: finalAdmissionDate,
         admissionClass: normalizedRow['admissionclass'] || '',
         enrollmentNo: normalizedRow['admissionnumber'] || '',
-        tcNo: normalizedRow['tcnumber'] || '',
-        previousSchool: {
-          name: normalizedRow['previousschoolname'] || '',
-          board: normalizedRow['previousboard'] || '',
-          lastClass: normalizedRow['lastclass'] || '',
-          tcNumber: normalizedRow['tcnumber'] || '',
-          reasonForTransfer: normalizedRow['reasonfortransfer'] || ''
-        }
+        tcNo: normalizedRow['tcnumber'] || ''
       },
-
       personal: {
         dateOfBirth: finalDateOfBirth,
         placeOfBirth: normalizedRow['placeofbirth'] || '',
@@ -1367,97 +1375,33 @@ async function createStudentFromRowRobust(normalizedRow, schoolIdAsObjectId, use
         bloodGroup: normalizedRow['bloodgroup'] || '',
         nationality: normalizedRow['nationality'] || 'Indian',
         religion: normalizedRow['religion'] || '',
-        religionOther: '',
         caste: normalizedRow['caste'] || '',
-        casteOther: '',
         category: normalizedRow['category'] || '',
-        categoryOther: '',
         motherTongue: normalizedRow['mothertongue'] || '',
-        motherTongueOther: '',
-        studentNameKannada: '',
-        ageYears: 0,
-        ageMonths: 0,
-        socialCategory: '',
-        socialCategoryOther: '',
-        studentCaste: '',
-        studentCasteOther: '',
         studentAadhaar: cleanedAadhaar || '',
         studentCasteCertNo: normalizedRow['studentcastecertno'] || '',
-        specialCategory: '',
-        specialCategoryOther: '',
         belongingToBPL: (normalizedRow['belongingtobpl']?.toLowerCase() === 'yes') ? 'Yes' : 'No',
         bplCardNo: normalizedRow['bplcardno'] || '',
-        bhagyalakshmiBondNo: normalizedRow['bhagyalakshmibondno'] || '',
         disability: normalizedRow['disability'] || 'Not Applicable',
-        disabilityOther: '',
         isRTECandidate: isRTECandidate
       },
-
-      medical: {
-        allergies: (normalizedRow['allergies'] || '').split(',').map(s => s.trim()).filter(Boolean),
-        chronicConditions: (normalizedRow['medicalconditions'] || '').split(',').map(s => s.trim()).filter(Boolean),
-        medications: (normalizedRow['medications'] || '').split(',').map(s => s.trim()).filter(Boolean),
-        emergencyMedicalContact: {
-          doctorName: normalizedRow['doctorname'] || '',
-          hospitalName: normalizedRow['hospitalname'] || '',
-          phone: (normalizedRow['doctorphone'] || '').toString().replace(/\D/g, '')
-        },
-        lastMedicalCheckup: normalizedRow['lastmedicalcheckup'] ? new Date(normalizedRow['lastmedicalcheckup']) : undefined
-      },
-
       family: {
         father: {
           name: normalizedRow['fathername'] || '',
-          nameKannada: '',
-          occupation: normalizedRow['fatheroccupation'] || '',
-          qualification: normalizedRow['fatherqualification'] || '',
-          phone: (normalizedRow['fatherphone'] || '').toString().replace(/\D/g, ''),
+          phone: cleanedFatherPhone,
           email: normalizedRow['fatheremail']?.toLowerCase() || '',
           aadhaar: normalizedRow['fatheraadhaar'] || '',
-          caste: normalizedRow['fathercaste'] || '',
-          casteOther: '',
-          casteCertNo: normalizedRow['fathercastecertno'] || '',
-          workAddress: normalizedRow['fatherworkaddress'] || '',
-          annualIncome: 0
+          occupation: normalizedRow['fatheroccupation'] || ''
         },
         mother: {
           name: normalizedRow['mothername'] || '',
-          nameKannada: '',
-          occupation: normalizedRow['motheroccupation'] || '',
-          qualification: normalizedRow['motherqualification'] || '',
-          phone: (normalizedRow['motherphone'] || '').toString().replace(/\D/g, ''),
+          phone: cleanedMotherPhone,
           email: normalizedRow['motheremail']?.toLowerCase() || '',
           aadhaar: normalizedRow['motheraadhaar'] || '',
-          caste: normalizedRow['mothercaste'] || '',
-          casteOther: '',
-          casteCertNo: normalizedRow['mothercastecertno'] || '',
-          workAddress: normalizedRow['motherworkaddress'] || '',
-          annualIncome: 0
-        },
-        guardian: {
-          name: normalizedRow['guardianname'] || '',
-          relationship: normalizedRow['guardianrelationship'] || '',
-          phone: (normalizedRow['guardianphone'] || '').toString().replace(/\D/g, ''),
-          email: normalizedRow['guardianemail']?.toLowerCase() || '',
-          address: normalizedRow['guardianaddress'] || '',
-          isEmergencyContact: false
-        },
-        siblings: []
+          occupation: normalizedRow['motheroccupation'] || ''
+        }
       },
-
-      transport: {
-        mode: normalizedRow['transportmode'] || '',
-        busRoute: normalizedRow['busroute'] || '',
-        pickupPoint: normalizedRow['pickuppoint'] || '',
-        dropPoint: normalizedRow['droppoint'] || '',
-        pickupTime: normalizedRow['pickuptime'] || '',
-        dropTime: normalizedRow['droptime'] || ''
-      },
-
       financial: {
-        feeCategory: normalizedRow['feecategory'] || '',
-        concessionType: normalizedRow['concessiontype'] || '',
-        concessionPercentage: concessionPercentage,
         bankDetails: {
           bankName: normalizedRow['bankname'] || '',
           accountNumber: cleanedBankAccountNo,

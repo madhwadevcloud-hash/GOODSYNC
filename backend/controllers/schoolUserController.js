@@ -616,20 +616,43 @@ exports.getAccessMatrix = async (req, res) => {
     const { schoolCode } = req.params;
 
     const connection = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
-    const accessCollection = connection.collection('access_matrix');
 
-    const accessMatrix = await accessCollection.findOne({ _id: 'school_permissions' });
+    // Check both plural and singular collection names for robustness
+    let accessCollection = connection.collection('access_matrix');
+    let accessMatrix = await accessCollection.findOne({
+      $or: [{ _id: 'school_permissions' }, { schoolCode: schoolCode.toUpperCase() }]
+    });
 
     if (!accessMatrix) {
-      return res.status(404).json({
-        success: false,
-        message: 'Access matrix not found for this school'
+      // Try finding one if only one exists
+      accessMatrix = await accessCollection.findOne({});
+    }
+
+    if (!accessMatrix) {
+      // Try plural collection
+      const pluralColl = connection.collection('access_matrices');
+      accessMatrix = await pluralColl.findOne({ schoolCode: schoolCode.toUpperCase() }) || await pluralColl.findOne({});
+    }
+
+    if (!accessMatrix) {
+      console.log(`⚠️ No access matrix found in DB for ${schoolCode}, returning defaults`);
+      const defaultMatrix = {
+        admin: { manageUsers: true, manageSchoolSettings: true, viewAttendance: true, viewResults: true, messageStudentsParents: true, viewTimetable: true, markAttendance: true, viewAcademicDetails: true, viewAssignments: true, viewLeaves: true, viewFees: true, viewReports: true },
+        teacher: { manageUsers: false, manageSchoolSettings: false, viewAttendance: true, viewResults: true, messageStudentsParents: true, viewTimetable: true, markAttendance: true, viewAcademicDetails: false, viewAssignments: true, viewLeaves: 'own', viewFees: false, viewReports: false },
+        student: { manageUsers: false, manageSchoolSettings: false, viewAttendance: true, viewResults: true, messageStudentsParents: false, viewTimetable: true, markAttendance: true, viewAcademicDetails: false, viewAssignments: false, viewLeaves: false, viewFees: false, viewReports: false },
+        parent: { manageUsers: false, manageSchoolSettings: false, viewAttendance: true, viewResults: true, messageStudentsParents: false, viewTimetable: true, markAttendance: false, viewAcademicDetails: false, viewAssignments: false, viewLeaves: false, viewFees: false, viewReports: false }
+      };
+
+      return res.json({
+        success: true,
+        data: defaultMatrix,
+        isDefault: true
       });
     }
 
     res.json({
       success: true,
-      data: accessMatrix.matrix
+      data: accessMatrix.matrix || accessMatrix.accessMatrix || accessMatrix
     });
 
   } catch (error) {
@@ -660,12 +683,13 @@ exports.updateAccessMatrix = async (req, res) => {
     const accessCollection = connection.collection('access_matrix');
 
     const result = await accessCollection.updateOne(
-      { _id: 'school_permissions' },
+      { schoolCode: schoolCode.toUpperCase() },
       {
         $set: {
           matrix,
+          schoolCode: schoolCode.toUpperCase(),
           updatedAt: new Date(),
-          updatedBy: req.user._id
+          updatedBy: req.user?._id || 'admin'
         }
       },
       { upsert: true }

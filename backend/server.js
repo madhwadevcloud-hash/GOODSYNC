@@ -279,6 +279,7 @@ app.use(cors({
       'https://goodsync-f91a7.firebaseapp.com',
       'https://erp-backend-1jtx.onrender.com',// Add the production backend URL
       'http://localhost:5173',
+      'http://localhost:5174',
       // Expo mobile app origins
       'exp://localhost:8081',
       'capacitor://localhost',

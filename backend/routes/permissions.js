@@ -50,24 +50,33 @@ router.get('/my-permissions', auth, async (req, res) => {
     // Get school's access matrix
     let accessMatrix = null;
     let source = 'default';
-    
+
     // Try to get access matrix from school database if schoolCode is available
     if (req.user.schoolCode) {
       try {
         const schoolConn = await DatabaseManager.getSchoolConnection(req.user.schoolCode);
-        
-        // Try to get access matrix from the access_matrices collection
-        const accessMatrixCollection = schoolConn.collection('access_matrices');
-        const matrixDoc = await accessMatrixCollection.findOne({ schoolCode: req.user.schoolCode });
-        
+
+        // Check both plural and singular collection names for robustness
+        let accessMatrixCollection = schoolConn.collection('access_matrix');
+        let matrixDoc = await accessMatrixCollection.findOne({
+          $or: [{ _id: 'school_permissions' }, { schoolCode: req.user.schoolCode.toUpperCase() }]
+        });
+
+        if (!matrixDoc) {
+          // Try singular with simple findOne
+          matrixDoc = await accessMatrixCollection.findOne({});
+        }
+
+        if (!matrixDoc) {
+          // Try plural collection
+          const pluralColl = schoolConn.collection('access_matrices');
+          matrixDoc = await pluralColl.findOne({ schoolCode: req.user.schoolCode.toUpperCase() }) || await pluralColl.findOne({});
+        }
+
         console.log(`[PERMISSIONS API] School DB lookup for ${req.user.schoolCode}:`, matrixDoc ? 'Found' : 'Not found');
-        
-        if (matrixDoc && matrixDoc.accessMatrix) {
-          accessMatrix = matrixDoc.accessMatrix;
-          source = 'school_database';
-        } else if (matrixDoc && matrixDoc.matrix) {
-          // Alternative structure: matrix instead of accessMatrix
-          accessMatrix = matrixDoc.matrix;
+
+        if (matrixDoc) {
+          accessMatrix = matrixDoc.matrix || matrixDoc.accessMatrix || matrixDoc;
           source = 'school_database';
         }
       } catch (error) {
@@ -93,7 +102,7 @@ router.get('/my-permissions', auth, async (req, res) => {
     if (!accessMatrix) {
       console.log(`[PERMISSIONS API] No access matrix found for ${req.user.role}, using default permissions`);
       const defaultPermissions = getDefaultPermissions(req.user.role);
-      
+
       return res.json({
         success: true,
         permissions: defaultPermissions,
@@ -104,16 +113,16 @@ router.get('/my-permissions', auth, async (req, res) => {
 
     // Get user's role permissions from access matrix
     const rolePermissions = accessMatrix[req.user.role];
-    
+
     console.log(`[PERMISSIONS API] Found access matrix permissions for role '${req.user.role}'`);
     console.log(`[PERMISSIONS API] Role permissions:`, rolePermissions ? Object.keys(rolePermissions).filter(k => rolePermissions[k]) : 'None');
-    
+
     // Special case: If student role has no permissions or all false in access matrix,
     // fall back to default permissions
     if (req.user.role === 'student' && (!rolePermissions || Object.keys(rolePermissions).length === 0 || !Object.values(rolePermissions).some(v => v === true))) {
       console.log('[PERMISSIONS API] Student has no/false permissions in access matrix, using default permissions');
       const defaultPermissions = getDefaultPermissions('student');
-      
+
       return res.json({
         success: true,
         permissions: defaultPermissions,

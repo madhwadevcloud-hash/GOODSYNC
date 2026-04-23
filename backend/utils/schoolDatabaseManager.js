@@ -2,11 +2,11 @@ const mongoose = require('mongoose');
 
 class SchoolDatabaseManager {
   static connections = new Map();
-  
+
   // Get or create connection to a school's database
   static async getSchoolConnection(schoolCode) {
     const dbName = `school_${schoolCode.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
-    
+
     if (this.connections.has(dbName)) {
       const existingConnection = this.connections.get(dbName);
       if (existingConnection.readyState === 1) {
@@ -16,18 +16,40 @@ class SchoolDatabaseManager {
         this.connections.delete(dbName);
       }
     }
-    
+
     // Only log new connections, not every request
     console.log(`🔗 Connecting to: ${dbName}`);
-    const connectionUri = `mongodb+srv://nitopunk04o:IOilWo4osDam0vmN@erp.ua5qems.mongodb.net/${dbName}?retryWrites=true&w=majority&appName=erp`;
-    
+    // Use environment variable for the connection string
+    const baseUri = process.env.MONGODB_URI || 'mongodb://localhost:27017';
+    let connectionUri;
+
+    if (baseUri.includes('mongodb+srv://')) {
+      // Atlas connection - replace database name in the connection string
+      // Matches the part between / and ? (if exists) or just after /
+      connectionUri = baseUri.replace(/\/([^/?]*)\?/, `/${dbName}?`);
+      if (connectionUri === baseUri && !baseUri.includes(`/${dbName}`)) {
+        // If no database specified in string, insert before the ? or at the end
+        if (baseUri.includes('?')) {
+          connectionUri = baseUri.replace('?', `/${dbName}?`);
+        } else {
+          connectionUri = `${baseUri}/${dbName}`;
+        }
+      }
+    } else {
+      // Local MongoDB - append database name to base URI
+      const cleanBase = baseUri.endsWith('/') ? baseUri.slice(0, -1) : baseUri;
+      connectionUri = `${cleanBase}/${dbName}`;
+    }
+
+    console.log(`🔗 Connecting to: ${dbName} using URI from environment.`);
+
     const connection = mongoose.createConnection(connectionUri, {
       maxPoolSize: 10,
       serverSelectionTimeoutMS: 10000,
       socketTimeoutMS: 45000,
       bufferCommands: false
     });
-    
+
     try {
       await new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
@@ -38,7 +60,7 @@ class SchoolDatabaseManager {
           clearTimeout(timeout);
           resolve();
         });
-        
+
         connection.once('error', (error) => {
           clearTimeout(timeout);
           reject(error);
@@ -99,14 +121,14 @@ class SchoolDatabaseManager {
       throw new Error(`Failed to connect to school database: ${error.message}`);
     }
   }
-  
+
   // Create models for a specific school database
   static createSchoolModels(connection) {
     // Import schemas
     const userSchema = require('./User').schema;
     const classSchema = require('./Class').schema;
     const subjectSchema = require('./Subject').schema;
-    
+
     return {
       User: connection.model('User', userSchema),
       Class: connection.model('Class', classSchema),
@@ -114,18 +136,18 @@ class SchoolDatabaseManager {
       // Add more models as needed
     };
   }
-  
+
   // Generate unique user ID for a school
   static async generateUserId(schoolCode, role = 'user') {
     const connection = await this.getSchoolConnection(schoolCode);
     const collection = connection.collection('id_sequences');
-    
+
     const sequenceDoc = await collection.findOneAndUpdate(
       { _id: `${role}_sequence` },
       { $inc: { sequence_value: 1 } },
       { returnDocument: 'after' }
     );
-    
+
     if (!sequenceDoc.value) {
       // Create new sequence if it doesn't exist
       await collection.insertOne({
@@ -135,14 +157,14 @@ class SchoolDatabaseManager {
       });
       return `${schoolCode.toUpperCase()}${role.toUpperCase()}1001`;
     }
-    
+
     return `${schoolCode.toUpperCase()}${role.toUpperCase()}${sequenceDoc.value.sequence_value}`;
   }
-  
+
   // Close a specific school database connection
   static async closeSchoolConnection(schoolCode) {
     const dbName = this.getDatabaseName(schoolCode);
-    
+
     if (this.connections.has(dbName)) {
       const connection = this.connections.get(dbName);
       await connection.close();
@@ -150,7 +172,7 @@ class SchoolDatabaseManager {
       console.log(`🔌 Closed connection to: ${dbName}`);
       return true;
     }
-    
+
     console.log(`🔍 No connection found for: ${dbName}`);
     return false;
   }
@@ -163,12 +185,12 @@ class SchoolDatabaseManager {
     }
     this.connections.clear();
   }
-  
+
   // Get database name for a school
   static getDatabaseName(schoolCode) {
     return `school_${schoolCode.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
   }
-  
+
   // Check if school database exists
   static async databaseExists(schoolCode) {
     try {
@@ -183,17 +205,17 @@ class SchoolDatabaseManager {
   // Create school database with required collections
   static async createSchoolDatabase(schoolCode) {
     const dbName = this.getDatabaseName(schoolCode);
-    
+
     try {
       console.log(`🏗️ Creating school database: ${dbName}`);
-      
+
       // Get connection
       const connection = await this.getSchoolConnection(schoolCode);
-      
+
       // Create required collections
       const collections = [
         'classes',
-        'subjects', 
+        'subjects',
         'users',
         'students',
         'teachers',
@@ -208,7 +230,7 @@ class SchoolDatabaseManager {
         'audit_logs',
         'id_sequences'
       ];
-      
+
       for (const collectionName of collections) {
         try {
           await connection.db.createCollection(collectionName);
@@ -219,7 +241,7 @@ class SchoolDatabaseManager {
           }
         }
       }
-      
+
       // Initialize ID sequences
       const idSequences = connection.collection('id_sequences');
       await idSequences.insertOne({
@@ -227,10 +249,10 @@ class SchoolDatabaseManager {
         sequence_value: 1001,
         schoolCode: schoolCode
       });
-      
+
       console.log(`✅ School database ${dbName} created successfully`);
       return true;
-      
+
     } catch (error) {
       console.error(`❌ Error creating school database ${dbName}:`, error);
       throw error;

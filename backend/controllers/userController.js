@@ -105,11 +105,12 @@ const generateSequentialUserId = async (schoolCode, role) => {
     );
 
     // --- Handle First-Time Upsert (Initialize to 1) ---
-    if (result && result.value && result.value.sequence_value === 1) {
+    const doc = result?.value || result;
+    if (doc && doc.sequence_value === 1) {
       // First user gets ID ending in 0001, so we keep sequence at 1
       nextSequenceValue = 1;
-    } else if (result && result.value && typeof result.value.sequence_value === 'number') {
-      nextSequenceValue = result.value.sequence_value;
+    } else if (doc && typeof doc.sequence_value === 'number') {
+      nextSequenceValue = doc.sequence_value;
     } else {
       // Fallback: If findOneAndUpdate didn't return expected value after upsert
       console.warn(`Initial findOneAndUpdate for ${sequenceId} did not return expected value. Refetching.`);
@@ -253,70 +254,7 @@ exports.getNextUserId = async (req, res) => {
     });
   }
 };
-// Get next available user ID for preview
-exports.getNextUserId = async (req, res) => {
-  try {
-    const { role } = req.params;
-
-    console.log(`🔍 Getting next user ID for role: ${role}`);
-    console.log(`👤 Request user:`, { id: req.user.id, role: req.user.role });
-
-    // Validate caller
-    if (!['admin', 'superadmin'].includes(req.user.role)) {
-      console.log(`❌ Access denied for role: ${req.user.role}`);
-      return res.status(403).json({ message: 'Access denied' });
-    }
-
-    // Validate role
-    if (!['admin', 'teacher', 'student', 'parent'].includes(role)) {
-      console.log(`❌ Invalid role requested: ${role}`);
-      return res.status(400).json({ message: 'Invalid role' });
-    }
-
-    // Resolve target school - use middleware-provided school context
-    let schoolCode;
-
-    if (req.school && req.schoolCode) {
-      schoolCode = req.schoolCode;
-      console.log(`🏫 Using school code from middleware: ${schoolCode}`);
-    } else {
-      console.log(`🔄 Falling back to user's school ID: ${req.user.schoolId}`);
-      // Fallback to user's school
-      const school = await School.findById(req.user.schoolId);
-      if (!school) {
-        console.log(`❌ School not found for ID: ${req.user.schoolId}`);
-        return res.status(404).json({ message: 'School not found' });
-      }
-      schoolCode = school.code;
-      console.log(`🏫 Retrieved school code: ${schoolCode}`);
-    }
-
-    console.log(`🏫 Using school code: ${schoolCode} for role: ${role}`);
-
-    // Generate the next sequential user ID
-    const nextUserId = await generateSequentialUserId(schoolCode, role);
-
-    console.log(`✅ Generated next user ID: ${nextUserId}`);
-
-    res.json({
-      success: true,
-      nextUserId,
-      role,
-      schoolCode: schoolCode.toUpperCase(),
-      message: `Next available ID for ${role} role`
-    });
-
-  } catch (error) {
-    console.error('❌ Error getting next user ID:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error getting next user ID',
-      error: error.message
-    });
-  }
-};
-
-// Validation helper
+// --- Validation helper (moved down) ---
 const validateFormData = (data, fieldDefinitions) => {
   const errors = {};
 
