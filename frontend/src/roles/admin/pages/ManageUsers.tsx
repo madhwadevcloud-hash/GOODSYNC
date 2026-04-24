@@ -3115,19 +3115,11 @@ const ManageUsers: React.FC = () => {
       middleName: userData.name?.middleName || userData.middleName || sDetails.middleName || '',
       lastName: userData.name?.lastName || parsedLastName || userData.lastName || sDetails.lastName || '',
 
-<<<<<<< HEAD
-      // FIX 2: Read DOB from personal object first (Student or Teacher)
-      dateOfBirth: formatDateForInput(sPersonal.dateOfBirth || tPersonal.dateOfBirth || userData.dateOfBirth || ''),
-
-      ageYears: sPersonal.ageYears || userData.ageYears || 0,
-      ageMonths: sPersonal.ageMonths || userData.ageMonths || 0,
-=======
       // FIX 2: Read DOB from personal object first or teacher personal object
       dateOfBirth: formatDateForInput(sPersonal.dateOfBirth || tPersonal.dateOfBirth || userData.dateOfBirth || ''),
 
       ageYears: sPersonal.ageYears || tPersonal.ageYears || userData.ageYears || 0,
       ageMonths: sPersonal.ageMonths || tPersonal.ageMonths || userData.ageMonths || 0,
->>>>>>> 7adf01c7adef3d1f1880f558f4aaf122b2195229
       gender: sPersonal.gender || tPersonal.gender || userData.gender || 'male',
 
       // Family Details - FIX: Read from nested family object
@@ -3289,14 +3281,9 @@ const ManageUsers: React.FC = () => {
       employeeId: userData.teacherDetails?.employeeId || '',
       department: userData.teacherDetails?.department || '',
       joiningDate: formatDateForInput(userData.teacherDetails?.joiningDate || ''),
-<<<<<<< HEAD
-      // Teacher personal data handled above in FIX 2
-      // Teacher address
-=======
       // Teacher personal data has been merged above
       // Teacher address
 
->>>>>>> 7adf01c7adef3d1f1880f558f4aaf122b2195229
       currentAddress: userData.address?.current?.street || userData.currentAddress || '',
       permanentAddress: userData.address?.permanent?.street || userData.permanentAddress || '',
 
@@ -10629,3 +10616,4 @@ const ManageUsers: React.FC = () => {
 };
 
 export default ManageUsers;
+
