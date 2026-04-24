@@ -962,7 +962,7 @@ const ManageUsers: React.FC = () => {
     skippedSummary?: { byClass: any, bySection: any, alreadyExistsCount: number }
   } | null>(null);
 
-  const [formData, setFormData] = useState<AddUserFormData>({
+  const [formData, setFormData] = useState<any>({
     // Core Fields
     role: 'student',
 
@@ -2062,7 +2062,7 @@ const ManageUsers: React.FC = () => {
         console.log('🔍 ========== END DEBUG ==========');
         console.log('Full response object:', JSON.stringify(response, null, 2));
 
-        const allUsers: User[] = [];
+        const allUsers: any[] = [];
 
         // Extract users from the response
         // Backend response: { success: true, data: [...users array], totalCount, breakdown }
@@ -2088,7 +2088,7 @@ const ManageUsers: React.FC = () => {
         if (usersArray && Array.isArray(usersArray) && usersArray.length > 0) {
           usersArray.forEach((userData: any) => {
             // Initialize processedUser with potential studentDetails structure
-            const processedUser: User = {
+            const processedUser: any = {
               _id: userData._id || userData.userId,
               userId: userData.userId,
               name: userData.name?.displayName ||
@@ -2165,7 +2165,7 @@ const ManageUsers: React.FC = () => {
             if (response[roleKey] && Array.isArray(response[roleKey])) {
               response[roleKey].forEach((userData: any) => {
                 const role = roleKey.slice(0, -1) as 'student' | 'teacher' | 'admin'; // Remove 's' from plural
-                const processedUser: User = {
+                const processedUser: any = {
                   _id: userData._id || userData.userId,
                   userId: userData.userId, // Add the userId field
                   name: userData.name?.displayName ||
@@ -2237,7 +2237,7 @@ const ManageUsers: React.FC = () => {
           temporaryPassword: t.temporaryPassword,
           tempPassword: t.tempPassword
         })));
-        setUsers(allUsers);
+        setUsers(allUsers as unknown as DisplayUser[]);
 
       } catch (apiError) {
         console.error('API Error:', apiError);
@@ -2344,7 +2344,7 @@ const ManageUsers: React.FC = () => {
         return {
           exists: true,
           role: existingUser.role,
-          name: existingUser.name
+          name: (existingUser.name as any)?.displayName || (existingUser.name as any)?.firstName || String(existingUser.name)
         };
       }
 
@@ -3043,7 +3043,7 @@ const ManageUsers: React.FC = () => {
     console.log('=== EDITING USER ===');
     console.log('User:', user);
     // Set editingUser - the useEffect will handle populating formData
-    setEditingUser(user as User);
+    setEditingUser(user as DisplayUser);
     setShowEditModal(true);
   };
 
@@ -4134,15 +4134,15 @@ const ManageUsers: React.FC = () => {
     const matchesRole = user.role === activeTab;
     // Get class from multiple possible locations, prioritizing academicInfo (handles both old and new data formats)
     const studentClass = (user as any).academicInfo?.class ||
-      user.studentDetails?.academic?.currentClass ||
+      (user.studentDetails as any)?.academic?.currentClass ||
       user.studentDetails?.currentClass ||
-      user.studentDetails?.class ||
+      (user.studentDetails as any)?.class ||
       (user as any).class;
     // Get section from multiple possible locations, prioritizing academicInfo (handles both old and new data formats)
     const studentSection = (user as any).academicInfo?.section ||
-      user.studentDetails?.academic?.currentSection ||
+      (user.studentDetails as any)?.academic?.currentSection ||
       user.studentDetails?.currentSection ||
-      user.studentDetails?.section ||
+      (user.studentDetails as any)?.section ||
       (user as any).section;
     const matchesGrade = activeTab !== 'student' || selectedGrade === 'all' || String(studentClass).trim() === String(selectedGrade).trim();
     const matchesSection = activeTab !== 'student' || selectedSection === 'all' || String(studentSection).trim().toUpperCase() === String(selectedSection).trim().toUpperCase();
@@ -4159,8 +4159,8 @@ const ManageUsers: React.FC = () => {
     };
 
     // Filter students by viewing academic year - check multiple possible locations
-    const studentAcademicYear = user.studentDetails?.academic?.academicYear ||
-      user.studentDetails?.academicYear ||
+    const studentAcademicYear = (user.studentDetails as any)?.academic?.academicYear ||
+      (user.studentDetails as any)?.academicYear ||
       (user as any).academicYear ||
       (user as any).academicInfo?.academicYear;
     // If academic year is not set, don't filter it out (allow it through)
@@ -4175,7 +4175,7 @@ const ManageUsers: React.FC = () => {
         matchesAcademicYear,
         matchesGrade,
         matchesSection,
-        currentClass: user.studentDetails?.academic?.currentClass || user.studentDetails?.currentClass,
+        currentClass: (user.studentDetails as any)?.academic?.currentClass || user.studentDetails?.currentClass,
         selectedGrade
       });
     }
@@ -4184,8 +4184,8 @@ const ManageUsers: React.FC = () => {
   }).sort((a, b) => {
     // Sort students by Class, then Section, then Student ID
     if (a.role === 'student' && b.role === 'student') {
-      const classA = String(a.studentDetails?.currentClass || a.studentDetails?.class || (a as any).academicInfo?.class || '').trim();
-      const classB = String(b.studentDetails?.currentClass || b.studentDetails?.class || (b as any).academicInfo?.class || '').trim();
+      const classA = String(a.studentDetails?.currentClass || (a.studentDetails as any)?.class || (a as any).academicInfo?.class || '').trim();
+      const classB = String(b.studentDetails?.currentClass || (b.studentDetails as any)?.class || (b as any).academicInfo?.class || '').trim();
 
       const classOrder = ['LKG', 'UKG', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
       const indexA = classOrder.indexOf(classA);
@@ -4206,8 +4206,8 @@ const ManageUsers: React.FC = () => {
       }
 
       // If classes are identical, sort alphabetically by section
-      const sectionA = String(a.studentDetails?.currentSection || a.studentDetails?.section || (a as any).academicInfo?.section || '').trim().toUpperCase();
-      const sectionB = String(b.studentDetails?.currentSection || b.studentDetails?.section || (b as any).academicInfo?.section || '').trim().toUpperCase();
+      const sectionA = String(a.studentDetails?.currentSection || (a.studentDetails as any)?.section || (a as any).academicInfo?.section || '').trim().toUpperCase();
+      const sectionB = String(b.studentDetails?.currentSection || (b.studentDetails as any)?.section || (b as any).academicInfo?.section || '').trim().toUpperCase();
       
       const secComp = sectionA.localeCompare(sectionB);
       if (secComp !== 0) return secComp;
@@ -4577,7 +4577,7 @@ const ManageUsers: React.FC = () => {
           name.middleName || '',
           name.lastName || '',
           user.email || '',
-          contact.primaryPhone || contact.phone || user.phone || '',
+          contact.primaryPhone || contact.phone || (user as any).phone || '',
 
           // Student Academic Details
           studentDetails.studentId || userData.userId || '',
@@ -4680,7 +4680,7 @@ const ManageUsers: React.FC = () => {
           guardian.phone || '',
           guardian.email || '',
           guardian.address || '',
-          (guardian.isEmergencyContact === true ? 'TRUE' : 'FALSE') || '',
+          guardian.isEmergencyContact === true ? 'TRUE' : 'FALSE',
 
           // Siblings Information (up to 3 siblings)
           siblings[0]?.name || '',
@@ -4817,7 +4817,7 @@ const ManageUsers: React.FC = () => {
           name.firstName || '',
           name.lastName || '',
           user.email || '',
-          contact.primaryPhone || contact.phone || user.phone || '',
+          contact.primaryPhone || contact.phone || (user as any).phone || '',
           teacherDetails.dateOfBirth ? new Date(teacherDetails.dateOfBirth).toISOString().split('T')[0] : '',
           teacherDetails.gender || '',
 
@@ -4934,17 +4934,17 @@ const ManageUsers: React.FC = () => {
           name.middleName || '',
           name.lastName || '',
           user.email || '',
-          contact.primaryPhone || contact.phone || user.phone || '',
+          contact.primaryPhone || contact.phone || (user as any).phone || '',
 
           // Personal Information (using top-level user fields or nested adminDetails for consistency)
           adminDetails.dateOfBirth ? new Date(adminDetails.dateOfBirth).toISOString().split('T')[0] : '',
           personalInfo.placeOfBirth || '',
-          user.gender || adminDetails.gender || '',
-          user.bloodGroup || adminDetails.bloodGroup || '',
-          user.nationality || 'Indian',
-          user.religion || adminDetails.religion || '',
-          user.caste || adminDetails.caste || '',
-          user.category || adminDetails.category || '',
+          (user as any).gender || adminDetails.gender || '',
+          (user as any).bloodGroup || adminDetails.bloodGroup || '',
+          (user as any).nationality || 'Indian',
+          (user as any).religion || adminDetails.religion || '',
+          (user as any).caste || adminDetails.caste || '',
+          (user as any).category || adminDetails.category || '',
           personalInfo.motherTongue || '',
           Array.isArray(personalInfo.languagesKnown) ? personalInfo.languagesKnown.join(', ') : '',
           personalInfo.maritalStatus || '',
@@ -5077,13 +5077,7 @@ const ManageUsers: React.FC = () => {
     // Create CSV content
     const csvContent = "data:text/csv;charset=utf-8," +
       headers.join(',') + '\n' +
-      csvRows.map(row => row.map(cell => {
-        const strCell = String(cell ?? '');
-        if (strCell.includes('"') || strCell.includes(',') || strCell.includes('\n') || strCell.includes('\r')) {
-          return `"${strCell.replace(/"/g, '""')}"`;
-        }
-        return strCell;
-      }).join(',')).join('\n');
+      csvRows.join('\n');
 
     // Create and trigger download
     const link = document.createElement("a");
@@ -5413,7 +5407,7 @@ const ManageUsers: React.FC = () => {
         skippedSummary: results.skippedSummary
       };
 
-      setImportResults(importResultData);
+      setImportResults(importResultData as any);
 
       if (actualInserted > 0) {
         toast.success(`Successfully imported ${actualInserted} students`);
@@ -5452,13 +5446,13 @@ const ManageUsers: React.FC = () => {
           success: partialResults.successData || partialResults.success || [],
           errors: partialResults.errors || [],
           skipped: partialResults.skipped || []
-        });
+        } as any);
       } else {
         setImportResults({
           success: [],
-          errors: [{ row: 'N/A', error: errorMessage, data: {} }],
+          errors: [{ row: 0, error: errorMessage, data: {} }],
           skipped: []
-        });
+        } as any);
       }
     } finally {
       setIsImporting(false);
@@ -5482,8 +5476,9 @@ const ManageUsers: React.FC = () => {
       if (validationErrors.length > 0) {
         setImportResults({
           success: [],
-          errors: validationErrors
-        });
+          errors: validationErrors,
+          skipped: []
+        } as any);
         setIsImporting(false);
         return;
       }
@@ -5941,7 +5936,10 @@ const ManageUsers: React.FC = () => {
           }
 
           // Create user via API
-          const response = await schoolUserAPI.createUser(userData);
+          const authData = localStorage.getItem('erp.auth');
+          const token = authData ? JSON.parse(authData).token : '';
+          const userSchoolCode = user?.schoolCode || 'NPS';
+          const response = await schoolUserAPI.addUser(userSchoolCode, userData, token);
 
           successResults.push({
             userId: userId,
@@ -5962,8 +5960,9 @@ const ManageUsers: React.FC = () => {
 
       setImportResults({
         success: successResults,
-        errors: errorResults
-      });
+        errors: errorResults,
+        skipped: []
+      } as any);
 
       if (successResults.length > 0) {
         toast.success(`Successfully imported ${successResults.length} users!`);
@@ -6020,7 +6019,7 @@ const ManageUsers: React.FC = () => {
   // Helper function to organize students hierarchically
   const organizeStudentsByClass = () => {
     const students = filteredUsers.filter(user => user.role === 'student');
-    const organized: { [key: string]: { [key: string]: User[] } } = {};
+    const organized: { [key: string]: { [key: string]: DisplayUser[] } } = {};
 
     // Define class order
     const classOrder = ['LKG', 'UKG', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
@@ -6028,15 +6027,15 @@ const ManageUsers: React.FC = () => {
     students.forEach(student => {
       // Check all possible locations for class and section, prioritizing academicInfo
       const className = (student as any).academicInfo?.class ||
-        student.studentDetails?.academic?.currentClass ||
-        student.studentDetails?.currentClass ||
-        student.studentDetails?.class ||
+        (student.studentDetails as any)?.academic?.currentClass ||
+        (student.studentDetails as any)?.currentClass ||
+        (student.studentDetails as any)?.class ||
         (student as any).class ||
         'Unassigned';
       const section = (student as any).academicInfo?.section ||
-        student.studentDetails?.academic?.currentSection ||
-        student.studentDetails?.currentSection ||
-        student.studentDetails?.section ||
+        (student.studentDetails as any)?.academic?.currentSection ||
+        (student.studentDetails as any)?.currentSection ||
+        (student.studentDetails as any)?.section ||
         (student as any).section ||
         'A';
 
@@ -6060,11 +6059,11 @@ const ManageUsers: React.FC = () => {
       return indexA - indexB;
     });
 
-    const result: { [key: string]: { [key: string]: User[] } } = {};
+    const result: { [key: string]: { [key: string]: DisplayUser[] } } = {};
     sortedClasses.forEach(className => {
       result[className] = organized[className];
       // Sort sections within each class
-      const sortedSections: { [key: string]: User[] } = {};
+      const sortedSections: { [key: string]: DisplayUser[] } = {};
       Object.keys(organized[className]).sort().forEach(section => {
         // Sort students by userId (Student ID) in ascending order
         sortedSections[section] = organized[className][section].sort((a, b) => {
@@ -6112,7 +6111,7 @@ const ManageUsers: React.FC = () => {
     // Update available sections based on selected class
     handleClassSelection(grade);
   };
-  const userData = user as DisplayUser;
+  const userData = user as unknown as DisplayUser;
 
   // Add error boundary state
   const [hasRenderError, setHasRenderError] = React.useState(false);
@@ -6463,15 +6462,15 @@ const ManageUsers: React.FC = () => {
                                       <div className="flex-shrink-0">
                                         <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
                                           <span className="text-sm font-medium text-blue-600">
-                                            {student.name.charAt(0)}
+                                            {(student.name as any)?.displayName?.charAt(0) || (student.name as any)?.firstName?.charAt(0) || 'U'}
                                           </span>
                                         </div>
                                       </div>
                                       <div className="flex-1 min-w-0">
-                                        <div className="text-sm font-medium text-gray-900 break-words">{student.name}</div>
+                                        <div className="text-sm font-medium text-gray-900 break-words">{(student.name as any)?.displayName || (student.name as any)?.firstName || 'Unknown'}</div>
                                         <div className="text-sm text-gray-500 break-words">{student.email}</div>
-                                        {student.studentDetails?.studentId && (
-                                          <div className="text-xs text-gray-400 truncate">ID: {student.studentDetails.studentId}</div>
+                                        {((student as any).userId || student._id) && (
+                                          <div className="text-xs text-gray-400 truncate">ID: {(student as any).userId || student._id}</div>
                                         )}
                                       </div>
                                     </div>
@@ -6496,7 +6495,7 @@ const ManageUsers: React.FC = () => {
                                         </button>
                                         {/* Reset Password removed for students */}
                                         <button
-                                          onClick={() => handleDeleteUser(student._id, student.name || `User ${student._id}`)}
+                                          onClick={() => handleDeleteUser(student._id, (student.name as any)?.displayName || (student.name as any)?.firstName || `User ${student._id}`)}
                                           className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
                                           title="Delete User"
                                         >
@@ -6618,18 +6617,18 @@ const ManageUsers: React.FC = () => {
                           <td className="px-6 py-4 text-sm text-gray-500">
                             <div className="max-w-xs">
                               <div className="break-words">{user.email}</div>
-                              <div className="text-xs text-gray-400">{(user as any).contact?.primaryPhone || user.phone || 'No phone'}</div>
+                              <div className="text-xs text-gray-400">{(user as any).contact?.primaryPhone || (user as any).phone || 'No phone'}</div>
                             </div>
                           </td>
                           {activeTab === 'student' && (
                             <>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                 {/* Reads from the processed studentDetails object, with fallback to academicInfo */}
-                                {user.studentDetails?.currentClass || user.studentDetails?.class || (user as any).academicInfo?.class || 'Not assigned'}
+                                {user.studentDetails?.currentClass || (user.studentDetails as any)?.class || (user as any).academicInfo?.class || 'Not assigned'}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                 {/* Reads from the processed studentDetails object, with fallback to academicInfo */}
-                                {user.studentDetails?.currentSection || user.studentDetails?.section || (user as any).academicInfo?.section || 'Not assigned'}
+                                {user.studentDetails?.currentSection || (user.studentDetails as any)?.section || (user as any).academicInfo?.section || 'Not assigned'}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                 {(user as any).userId || user._id || 'Not assigned'}
@@ -6734,7 +6733,7 @@ const ManageUsers: React.FC = () => {
                               )}
                               {/* Delete button - prevent self-deletion */}
                               <button
-                                onClick={() => handleDeleteUser(user._id, user.name || `User ${user._id}`)}
+                                onClick={() => handleDeleteUser(user._id, (user.name as any)?.displayName || (user.name as any)?.firstName || `User ${user._id}`)}
                                 className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                 title="Delete User"
                                 disabled={false} // Temporarily allow all deletions for testing
