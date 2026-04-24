@@ -4117,7 +4117,14 @@ const ManageUsers: React.FC = () => {
 
   const filteredUsers = users.filter(user => {
     const userId = ((user as any).userId || user._id || '').toLowerCase();
-    const userName = (user.name || '').toLowerCase();
+    const getUserNameString = (nameObj: any) => {
+      if (!nameObj) return '';
+      if (typeof nameObj === 'string') return nameObj;
+      return nameObj.displayName || 
+             (nameObj.firstName ? `${nameObj.firstName} ${nameObj.lastName || ''}`.trim() : '') || 
+             '';
+    };
+    const userName = getUserNameString(user.name).toLowerCase();
     const userEmail = (user.email || '').toLowerCase();
     const searchLower = searchTerm.toLowerCase();
 
@@ -10122,7 +10129,7 @@ const ManageUsers: React.FC = () => {
                   <div className="space-y-6">
                     {/* Academic Year Mismatch Warning */}
                     {(() => {
-                      const firstSuccess = importResults.success[0];
+                      const firstSuccess = importResults.success[0] as any;
                       const importedYear = firstSuccess?.data?.studentDetails?.academic?.academicYear;
                       const normalizeYearStr = (year: any) => {
                         if (!year) return '';
