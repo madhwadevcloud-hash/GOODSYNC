@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Search, Plus, Edit, Trash2, Download, Upload, Filter, X,
   UserCheck, UserX, Eye, EyeOff, Lock, Unlock, Building, // Added Eye, EyeOff, X
-  RotateCcw, FileText, AlertTriangle, Check, Users, GraduationCap, Shield, KeyRound, Camera // Added Camera for profile image
+  RotateCcw, FileText, AlertTriangle, Check, Users, GraduationCap, Shield, KeyRound, Camera, Info
 } from 'lucide-react';
 // Use ApiUser alias here
 import { schoolUserAPI, User as ApiUser } from '../../../api/schoolUsers';
@@ -957,10 +957,12 @@ const ManageUsers: React.FC = () => {
   const [isImporting, setIsImporting] = useState(false);
   const [importResults, setImportResults] = useState<{
     success: Array<{ userId: string, email: string, password: string, role: string }>,
-    errors: Array<{ row: number, error: string, data: any }>
+    errors: Array<{ row: number, error: string, data: any }>,
+    skipped: Array<{ row: number, reason: string, className: string, section: string, studentName: string, email: string, message: string }>,
+    skippedSummary?: { byClass: any, bySection: any, alreadyExistsCount: number }
   } | null>(null);
 
-  const [formData, setFormData] = useState<AddUserFormData>({
+  const [formData, setFormData] = useState<any>({
     // Core Fields
     role: 'student',
 
@@ -2060,7 +2062,7 @@ const ManageUsers: React.FC = () => {
         console.log('🔍 ========== END DEBUG ==========');
         console.log('Full response object:', JSON.stringify(response, null, 2));
 
-        const allUsers: User[] = [];
+        const allUsers: any[] = [];
 
         // Extract users from the response
         // Backend response: { success: true, data: [...users array], totalCount, breakdown }
@@ -2086,7 +2088,7 @@ const ManageUsers: React.FC = () => {
         if (usersArray && Array.isArray(usersArray) && usersArray.length > 0) {
           usersArray.forEach((userData: any) => {
             // Initialize processedUser with potential studentDetails structure
-            const processedUser: User = {
+            const processedUser: any = {
               _id: userData._id || userData.userId,
               userId: userData.userId,
               name: userData.name?.displayName ||
@@ -2163,7 +2165,7 @@ const ManageUsers: React.FC = () => {
             if (response[roleKey] && Array.isArray(response[roleKey])) {
               response[roleKey].forEach((userData: any) => {
                 const role = roleKey.slice(0, -1) as 'student' | 'teacher' | 'admin'; // Remove 's' from plural
-                const processedUser: User = {
+                const processedUser: any = {
                   _id: userData._id || userData.userId,
                   userId: userData.userId, // Add the userId field
                   name: userData.name?.displayName ||
@@ -2235,7 +2237,7 @@ const ManageUsers: React.FC = () => {
           temporaryPassword: t.temporaryPassword,
           tempPassword: t.tempPassword
         })));
-        setUsers(allUsers);
+        setUsers(allUsers as unknown as DisplayUser[]);
 
       } catch (apiError) {
         console.error('API Error:', apiError);
@@ -2342,7 +2344,7 @@ const ManageUsers: React.FC = () => {
         return {
           exists: true,
           role: existingUser.role,
-          name: existingUser.name
+          name: (existingUser.name as any)?.displayName || (existingUser.name as any)?.firstName || String(existingUser.name)
         };
       }
 
@@ -2446,7 +2448,6 @@ const ManageUsers: React.FC = () => {
         gender: formData.gender,
         address: formData.address,
         city: formData.cityVillageTown || (formData as any).city || formData.permanentCity,
-        state: (formData as any).state || formData.permanentState,
         pinCode: (formData as any).pinCode || formData.permanentPincode,
         // Location helpers for UserGenerator.createUser
         cityVillageTown: formData.cityVillageTown,
@@ -3041,7 +3042,7 @@ const ManageUsers: React.FC = () => {
     console.log('=== EDITING USER ===');
     console.log('User:', user);
     // Set editingUser - the useEffect will handle populating formData
-    setEditingUser(user as User);
+    setEditingUser(user as DisplayUser);
     setShowEditModal(true);
   };
 
@@ -3114,11 +3115,19 @@ const ManageUsers: React.FC = () => {
       middleName: userData.name?.middleName || userData.middleName || sDetails.middleName || '',
       lastName: userData.name?.lastName || parsedLastName || userData.lastName || sDetails.lastName || '',
 
+<<<<<<< HEAD
       // FIX 2: Read DOB from personal object first (Student or Teacher)
       dateOfBirth: formatDateForInput(sPersonal.dateOfBirth || tPersonal.dateOfBirth || userData.dateOfBirth || ''),
 
       ageYears: sPersonal.ageYears || userData.ageYears || 0,
       ageMonths: sPersonal.ageMonths || userData.ageMonths || 0,
+=======
+      // FIX 2: Read DOB from personal object first or teacher personal object
+      dateOfBirth: formatDateForInput(sPersonal.dateOfBirth || tPersonal.dateOfBirth || userData.dateOfBirth || ''),
+
+      ageYears: sPersonal.ageYears || tPersonal.ageYears || userData.ageYears || 0,
+      ageMonths: sPersonal.ageMonths || tPersonal.ageMonths || userData.ageMonths || 0,
+>>>>>>> 7adf01c7adef3d1f1880f558f4aaf122b2195229
       gender: sPersonal.gender || tPersonal.gender || userData.gender || 'male',
 
       // Family Details - FIX: Read from nested family object
@@ -3280,8 +3289,14 @@ const ManageUsers: React.FC = () => {
       employeeId: userData.teacherDetails?.employeeId || '',
       department: userData.teacherDetails?.department || '',
       joiningDate: formatDateForInput(userData.teacherDetails?.joiningDate || ''),
+<<<<<<< HEAD
       // Teacher personal data handled above in FIX 2
       // Teacher address
+=======
+      // Teacher personal data has been merged above
+      // Teacher address
+
+>>>>>>> 7adf01c7adef3d1f1880f558f4aaf122b2195229
       currentAddress: userData.address?.current?.street || userData.currentAddress || '',
       permanentAddress: userData.address?.permanent?.street || userData.permanentAddress || '',
 
@@ -4114,7 +4129,14 @@ const ManageUsers: React.FC = () => {
 
   const filteredUsers = users.filter(user => {
     const userId = ((user as any).userId || user._id || '').toLowerCase();
-    const userName = (user.name || '').toLowerCase();
+    const getUserNameString = (nameObj: any) => {
+      if (!nameObj) return '';
+      if (typeof nameObj === 'string') return nameObj;
+      return nameObj.displayName || 
+             (nameObj.firstName ? `${nameObj.firstName} ${nameObj.lastName || ''}`.trim() : '') || 
+             '';
+    };
+    const userName = getUserNameString(user.name).toLowerCase();
     const userEmail = (user.email || '').toLowerCase();
     const searchLower = searchTerm.toLowerCase();
 
@@ -4124,27 +4146,38 @@ const ManageUsers: React.FC = () => {
     const matchesRole = user.role === activeTab;
     // Get class from multiple possible locations, prioritizing academicInfo (handles both old and new data formats)
     const studentClass = (user as any).academicInfo?.class ||
-      user.studentDetails?.academic?.currentClass ||
+      (user.studentDetails as any)?.academic?.currentClass ||
       user.studentDetails?.currentClass ||
-      user.studentDetails?.class ||
+      (user.studentDetails as any)?.class ||
       (user as any).class;
     // Get section from multiple possible locations, prioritizing academicInfo (handles both old and new data formats)
     const studentSection = (user as any).academicInfo?.section ||
-      user.studentDetails?.academic?.currentSection ||
+      (user.studentDetails as any)?.academic?.currentSection ||
       user.studentDetails?.currentSection ||
-      user.studentDetails?.section ||
+      (user.studentDetails as any)?.section ||
       (user as any).section;
     const matchesGrade = activeTab !== 'student' || selectedGrade === 'all' || String(studentClass).trim() === String(selectedGrade).trim();
     const matchesSection = activeTab !== 'student' || selectedSection === 'all' || String(studentSection).trim().toUpperCase() === String(selectedSection).trim().toUpperCase();
 
+    // Normalize academic year formats (e.g., "2025-26" -> "2025-2026")
+    const normalizeYear = (year: any) => {
+      if (!year) return '';
+      const str = String(year).trim();
+      const parts = str.split('-');
+      if (parts.length === 2 && parts[1].length === 2) {
+        return `${parts[0]}-20${parts[1]}`;
+      }
+      return str;
+    };
+
     // Filter students by viewing academic year - check multiple possible locations
-    const studentAcademicYear = user.studentDetails?.academic?.academicYear ||
-      user.studentDetails?.academicYear ||
+    const studentAcademicYear = (user.studentDetails as any)?.academic?.academicYear ||
+      (user.studentDetails as any)?.academicYear ||
       (user as any).academicYear ||
       (user as any).academicInfo?.academicYear;
     // If academic year is not set, don't filter it out (allow it through)
     const matchesAcademicYear = activeTab !== 'student' ||
-      (!studentAcademicYear || String(studentAcademicYear).trim() === String(viewingAcademicYear).trim());
+      (!studentAcademicYear || normalizeYear(studentAcademicYear) === normalizeYear(viewingAcademicYear));
 
     // Debug logging for academic year filtering
     if (activeTab === 'student' && user.userId === 'AVM-S-0063') {
@@ -4154,33 +4187,53 @@ const ManageUsers: React.FC = () => {
         matchesAcademicYear,
         matchesGrade,
         matchesSection,
-        currentClass: user.studentDetails?.academic?.currentClass || user.studentDetails?.currentClass,
+        currentClass: (user.studentDetails as any)?.academic?.currentClass || user.studentDetails?.currentClass,
         selectedGrade
       });
     }
 
     return matchesSearch && matchesRole && matchesGrade && matchesSection && matchesAcademicYear;
   }).sort((a, b) => {
-    // Sort students by userId (Student ID) in ascending order
+    // Sort students by Class, then Section, then Student ID
     if (a.role === 'student' && b.role === 'student') {
+      const classA = String(a.studentDetails?.currentClass || (a.studentDetails as any)?.class || (a as any).academicInfo?.class || '').trim();
+      const classB = String(b.studentDetails?.currentClass || (b.studentDetails as any)?.class || (b as any).academicInfo?.class || '').trim();
+
+      const classOrder = ['LKG', 'UKG', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
+      const indexA = classOrder.indexOf(classA);
+      const indexB = classOrder.indexOf(classB);
+
+      // If both are in the known order list
+      if (indexA !== -1 && indexB !== -1) {
+        if (indexA !== indexB) {
+          return indexA - indexB; // Sort by class progression
+        }
+      } else if (indexA !== -1) {
+        return -1; // A comes first
+      } else if (indexB !== -1) {
+        return 1; // B comes first
+      } else if (classA !== classB) {
+        // Neither in list, fallback to alphabetical class sort
+        return classA.localeCompare(classB);
+      }
+
+      // If classes are identical, sort alphabetically by section
+      const sectionA = String(a.studentDetails?.currentSection || (a.studentDetails as any)?.section || (a as any).academicInfo?.section || '').trim().toUpperCase();
+      const sectionB = String(b.studentDetails?.currentSection || (b.studentDetails as any)?.section || (b as any).academicInfo?.section || '').trim().toUpperCase();
+      
+      const secComp = sectionA.localeCompare(sectionB);
+      if (secComp !== 0) return secComp;
+
+      // If both class and section are identical, fallback to Student ID
       const studentIdA = (a as any).userId || a._id || '';
       const studentIdB = (b as any).userId || b._id || '';
-
-      // Extract numeric part from student ID (e.g., "BG-S-0003" -> 3)
       const extractNumber = (id: string) => {
         const match = id.match(/\d+$/);
         return match ? parseInt(match[0]) : 0;
       };
-
       const numA = extractNumber(studentIdA);
       const numB = extractNumber(studentIdB);
-
-      // If both have numeric parts, compare numerically
-      if (numA !== 0 || numB !== 0) {
-        return numA - numB;
-      }
-
-      // Fallback to string comparison
+      if (numA !== 0 || numB !== 0) return numA - numB;
       return studentIdA.localeCompare(studentIdB);
     }
 
@@ -4536,7 +4589,7 @@ const ManageUsers: React.FC = () => {
           name.middleName || '',
           name.lastName || '',
           user.email || '',
-          contact.primaryPhone || contact.phone || user.phone || '',
+          contact.primaryPhone || contact.phone || (user as any).phone || '',
 
           // Student Academic Details
           studentDetails.studentId || userData.userId || '',
@@ -4639,7 +4692,7 @@ const ManageUsers: React.FC = () => {
           guardian.phone || '',
           guardian.email || '',
           guardian.address || '',
-          (guardian.isEmergencyContact === true ? 'TRUE' : 'FALSE') || '',
+          guardian.isEmergencyContact === true ? 'TRUE' : 'FALSE',
 
           // Siblings Information (up to 3 siblings)
           siblings[0]?.name || '',
@@ -4776,7 +4829,7 @@ const ManageUsers: React.FC = () => {
           name.firstName || '',
           name.lastName || '',
           user.email || '',
-          contact.primaryPhone || contact.phone || user.phone || '',
+          contact.primaryPhone || contact.phone || (user as any).phone || '',
           teacherDetails.dateOfBirth ? new Date(teacherDetails.dateOfBirth).toISOString().split('T')[0] : '',
           teacherDetails.gender || '',
 
@@ -4893,17 +4946,17 @@ const ManageUsers: React.FC = () => {
           name.middleName || '',
           name.lastName || '',
           user.email || '',
-          contact.primaryPhone || contact.phone || user.phone || '',
+          contact.primaryPhone || contact.phone || (user as any).phone || '',
 
           // Personal Information (using top-level user fields or nested adminDetails for consistency)
           adminDetails.dateOfBirth ? new Date(adminDetails.dateOfBirth).toISOString().split('T')[0] : '',
           personalInfo.placeOfBirth || '',
-          user.gender || adminDetails.gender || '',
-          user.bloodGroup || adminDetails.bloodGroup || '',
-          user.nationality || 'Indian',
-          user.religion || adminDetails.religion || '',
-          user.caste || adminDetails.caste || '',
-          user.category || adminDetails.category || '',
+          (user as any).gender || adminDetails.gender || '',
+          (user as any).bloodGroup || adminDetails.bloodGroup || '',
+          (user as any).nationality || 'Indian',
+          (user as any).religion || adminDetails.religion || '',
+          (user as any).caste || adminDetails.caste || '',
+          (user as any).category || adminDetails.category || '',
           personalInfo.motherTongue || '',
           Array.isArray(personalInfo.languagesKnown) ? personalInfo.languagesKnown.join(', ') : '',
           personalInfo.maritalStatus || '',
@@ -5036,13 +5089,7 @@ const ManageUsers: React.FC = () => {
     // Create CSV content
     const csvContent = "data:text/csv;charset=utf-8," +
       headers.join(',') + '\n' +
-      csvRows.map(row => row.map(cell => {
-        const strCell = String(cell ?? '');
-        if (strCell.includes('"') || strCell.includes(',') || strCell.includes('\n') || strCell.includes('\r')) {
-          return `"${strCell.replace(/"/g, '""')}"`;
-        }
-        return strCell;
-      }).join(',')).join('\n');
+      csvRows.join('\n');
 
     // Create and trigger download
     const link = document.createElement("a");
@@ -5353,35 +5400,49 @@ const ManageUsers: React.FC = () => {
       setImportProgress(100);
 
       // Handle different response structures
-      const results = response.data?.results || response.data || { successData: [], errors: [] };
+      const results = response.data?.results || response.data || { successData: [], errors: [], skipped: [] };
 
       // Backend returns 'successData' not 'success'
       const successArray = Array.isArray(results.successData) ? results.successData :
         Array.isArray(results.success) ? results.success : [];
       const errorsArray = Array.isArray(results.errors) ? results.errors : [];
+      const skippedArray = Array.isArray(results.skipped) ? results.skipped : [];
 
       // Use insertedCount if available (actual DB inserts)
       const actualInserted = results.insertedCount || successArray.length;
 
       // Ensure results has the expected structure
-      const importResults = {
+      const importResultData = {
         success: successArray,
-        errors: errorsArray
+        errors: errorsArray,
+        skipped: skippedArray,
+        skippedSummary: results.skippedSummary
       };
 
-      setImportResults(importResults);
+      setImportResults(importResultData as any);
 
       if (actualInserted > 0) {
-        toast.success(`Successfully imported ${actualInserted} users`);
-        // Don't refresh yet - wait for user to click "Done"
-        // fetchUsers will be called when modal closes
+        toast.success(`Successfully imported ${actualInserted} students`);
+        // Force refresh the user list
+        fetchUsers();
+      }
+
+      if (skippedArray.length > 0) {
+        // Build a concise skip summary for the toast
+        const skippedSummary = results.skippedSummary || {};
+        const classMissing = Object.keys(skippedSummary.byClass || {});
+        const sectionMissing = Object.keys(skippedSummary.bySection || {});
+        let skipMsg = `${skippedArray.length} students skipped`;
+        if (classMissing.length > 0) skipMsg += ` — classes not configured: ${classMissing.join(', ')}`;
+        if (sectionMissing.length > 0) skipMsg += ` — sections not configured: ${sectionMissing.join(', ')}`;
+        toast(skipMsg, { icon: '⚠️', duration: 6000 });
       }
 
       if (errorsArray.length > 0) {
-        toast.error(`${errorsArray.length} rows had errors`);
+        toast.error(`${errorsArray.length} rows had validation errors`);
       }
 
-      if (actualInserted === 0 && errorsArray.length === 0) {
+      if (actualInserted === 0 && errorsArray.length === 0 && skippedArray.length === 0) {
         toast.error('No users were imported. Please check your CSV file.');
       }
 
@@ -5395,13 +5456,15 @@ const ManageUsers: React.FC = () => {
       if (partialResults) {
         setImportResults({
           success: partialResults.successData || partialResults.success || [],
-          errors: partialResults.errors || []
-        });
+          errors: partialResults.errors || [],
+          skipped: partialResults.skipped || []
+        } as any);
       } else {
         setImportResults({
           success: [],
-          errors: [{ row: 'N/A', error: errorMessage, data: {} }]
-        });
+          errors: [{ row: 0, error: errorMessage, data: {} }],
+          skipped: []
+        } as any);
       }
     } finally {
       setIsImporting(false);
@@ -5425,8 +5488,9 @@ const ManageUsers: React.FC = () => {
       if (validationErrors.length > 0) {
         setImportResults({
           success: [],
-          errors: validationErrors
-        });
+          errors: validationErrors,
+          skipped: []
+        } as any);
         setIsImporting(false);
         return;
       }
@@ -5884,7 +5948,10 @@ const ManageUsers: React.FC = () => {
           }
 
           // Create user via API
-          const response = await schoolUserAPI.createUser(userData);
+          const authData = localStorage.getItem('erp.auth');
+          const token = authData ? JSON.parse(authData).token : '';
+          const userSchoolCode = user?.schoolCode || 'NPS';
+          const response = await schoolUserAPI.addUser(userSchoolCode, userData, token);
 
           successResults.push({
             userId: userId,
@@ -5905,8 +5972,9 @@ const ManageUsers: React.FC = () => {
 
       setImportResults({
         success: successResults,
-        errors: errorResults
-      });
+        errors: errorResults,
+        skipped: []
+      } as any);
 
       if (successResults.length > 0) {
         toast.success(`Successfully imported ${successResults.length} users!`);
@@ -5963,7 +6031,7 @@ const ManageUsers: React.FC = () => {
   // Helper function to organize students hierarchically
   const organizeStudentsByClass = () => {
     const students = filteredUsers.filter(user => user.role === 'student');
-    const organized: { [key: string]: { [key: string]: User[] } } = {};
+    const organized: { [key: string]: { [key: string]: DisplayUser[] } } = {};
 
     // Define class order
     const classOrder = ['LKG', 'UKG', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
@@ -5971,15 +6039,15 @@ const ManageUsers: React.FC = () => {
     students.forEach(student => {
       // Check all possible locations for class and section, prioritizing academicInfo
       const className = (student as any).academicInfo?.class ||
-        student.studentDetails?.academic?.currentClass ||
-        student.studentDetails?.currentClass ||
-        student.studentDetails?.class ||
+        (student.studentDetails as any)?.academic?.currentClass ||
+        (student.studentDetails as any)?.currentClass ||
+        (student.studentDetails as any)?.class ||
         (student as any).class ||
         'Unassigned';
       const section = (student as any).academicInfo?.section ||
-        student.studentDetails?.academic?.currentSection ||
-        student.studentDetails?.currentSection ||
-        student.studentDetails?.section ||
+        (student.studentDetails as any)?.academic?.currentSection ||
+        (student.studentDetails as any)?.currentSection ||
+        (student.studentDetails as any)?.section ||
         (student as any).section ||
         'A';
 
@@ -6003,11 +6071,11 @@ const ManageUsers: React.FC = () => {
       return indexA - indexB;
     });
 
-    const result: { [key: string]: { [key: string]: User[] } } = {};
+    const result: { [key: string]: { [key: string]: DisplayUser[] } } = {};
     sortedClasses.forEach(className => {
       result[className] = organized[className];
       // Sort sections within each class
-      const sortedSections: { [key: string]: User[] } = {};
+      const sortedSections: { [key: string]: DisplayUser[] } = {};
       Object.keys(organized[className]).sort().forEach(section => {
         // Sort students by userId (Student ID) in ascending order
         sortedSections[section] = organized[className][section].sort((a, b) => {
@@ -6055,10 +6123,11 @@ const ManageUsers: React.FC = () => {
     // Update available sections based on selected class
     handleClassSelection(grade);
   };
-  const userData = user as DisplayUser;
+  const userData = user as unknown as DisplayUser;
 
   // Add error boundary state
   const [hasRenderError, setHasRenderError] = React.useState(false);
+  const [renderErrorDetails, setRenderErrorDetails] = React.useState<any>(null);
 
   if (hasRenderError) {
     return (
@@ -6066,9 +6135,17 @@ const ManageUsers: React.FC = () => {
         <div className="text-center">
           <h2 className="text-2xl font-bold text-red-600 mb-4">Something went wrong</h2>
           <p className="text-gray-600 mb-4">There was an error rendering the page.</p>
+          {renderErrorDetails && (
+            <div className="bg-gray-100 p-4 rounded text-left mb-4 overflow-auto max-h-40 text-xs text-red-800 font-mono">
+              {renderErrorDetails.message}
+              <br/>
+              {renderErrorDetails.stack?.split('\n').map((line, i) => <div key={i}>{line}</div>)}
+            </div>
+          )}
           <button
             onClick={() => {
               setHasRenderError(false);
+              setRenderErrorDetails(null);
               window.location.reload();
             }}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -6397,15 +6474,15 @@ const ManageUsers: React.FC = () => {
                                       <div className="flex-shrink-0">
                                         <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
                                           <span className="text-sm font-medium text-blue-600">
-                                            {student.name.charAt(0)}
+                                            {(student.name as any)?.displayName?.charAt(0) || (student.name as any)?.firstName?.charAt(0) || 'U'}
                                           </span>
                                         </div>
                                       </div>
                                       <div className="flex-1 min-w-0">
-                                        <div className="text-sm font-medium text-gray-900 break-words">{student.name}</div>
+                                        <div className="text-sm font-medium text-gray-900 break-words">{(student.name as any)?.displayName || (student.name as any)?.firstName || 'Unknown'}</div>
                                         <div className="text-sm text-gray-500 break-words">{student.email}</div>
-                                        {student.studentDetails?.studentId && (
-                                          <div className="text-xs text-gray-400 truncate">ID: {student.studentDetails.studentId}</div>
+                                        {((student as any).userId || student._id) && (
+                                          <div className="text-xs text-gray-400 truncate">ID: {(student as any).userId || student._id}</div>
                                         )}
                                       </div>
                                     </div>
@@ -6430,7 +6507,7 @@ const ManageUsers: React.FC = () => {
                                         </button>
                                         {/* Reset Password removed for students */}
                                         <button
-                                          onClick={() => handleDeleteUser(student._id, student.name || `User ${student._id}`)}
+                                          onClick={() => handleDeleteUser(student._id, (student.name as any)?.displayName || (student.name as any)?.firstName || `User ${student._id}`)}
                                           className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
                                           title="Delete User"
                                         >
@@ -6452,9 +6529,9 @@ const ManageUsers: React.FC = () => {
             </div>
           ) : (
             /* Table View */
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-320px)] border border-gray-200 shadow sm:rounded-lg" style={{ scrollBehavior: 'smooth' }}>
               <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+                <thead className="bg-gray-50 sticky top-0 z-10 shadow-[0_1px_2px_rgba(0,0,0,0.1)]">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Photo</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
@@ -6552,18 +6629,18 @@ const ManageUsers: React.FC = () => {
                           <td className="px-6 py-4 text-sm text-gray-500">
                             <div className="max-w-xs">
                               <div className="break-words">{user.email}</div>
-                              <div className="text-xs text-gray-400">{(user as any).contact?.primaryPhone || user.phone || 'No phone'}</div>
+                              <div className="text-xs text-gray-400">{(user as any).contact?.primaryPhone || (user as any).phone || 'No phone'}</div>
                             </div>
                           </td>
                           {activeTab === 'student' && (
                             <>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                 {/* Reads from the processed studentDetails object, with fallback to academicInfo */}
-                                {user.studentDetails?.currentClass || user.studentDetails?.class || (user as any).academicInfo?.class || 'Not assigned'}
+                                {user.studentDetails?.currentClass || (user.studentDetails as any)?.class || (user as any).academicInfo?.class || 'Not assigned'}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                 {/* Reads from the processed studentDetails object, with fallback to academicInfo */}
-                                {user.studentDetails?.currentSection || user.studentDetails?.section || (user as any).academicInfo?.section || 'Not assigned'}
+                                {user.studentDetails?.currentSection || (user.studentDetails as any)?.section || (user as any).academicInfo?.section || 'Not assigned'}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                 {(user as any).userId || user._id || 'Not assigned'}
@@ -6668,7 +6745,7 @@ const ManageUsers: React.FC = () => {
                               )}
                               {/* Delete button - prevent self-deletion */}
                               <button
-                                onClick={() => handleDeleteUser(user._id, user.name || `User ${user._id}`)}
+                                onClick={() => handleDeleteUser(user._id, (user.name as any)?.displayName || (user.name as any)?.firstName || `User ${user._id}`)}
                                 className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                 title="Delete User"
                                 disabled={false} // Temporarily allow all deletions for testing
@@ -10061,39 +10138,110 @@ const ManageUsers: React.FC = () => {
                 ) : (
                   /* Import Results */
                   <div className="space-y-6">
+                    {/* Academic Year Mismatch Warning */}
+                    {(() => {
+                      const firstSuccess = importResults.success[0] as any;
+                      const importedYear = firstSuccess?.data?.studentDetails?.academic?.academicYear;
+                      const normalizeYearStr = (year: any) => {
+                        if (!year) return '';
+                        const str = String(year).trim();
+                        const parts = str.split('-');
+                        if (parts.length === 2 && parts[1].length === 2) {
+                          return `${parts[0]}-20${parts[1]}`;
+                        }
+                        return str;
+                      };
+                      const hasMismatch = importedYear && viewingAcademicYear && normalizeYearStr(importedYear) !== normalizeYearStr(viewingAcademicYear);
+                      
+                      if (!hasMismatch && !importResults.skippedSummary?.alreadyExistsCount) return null;
+                      
+                      return (
+                        <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 animate-in fade-in slide-in-from-top-2 duration-500">
+                          <div className="flex gap-3">
+                            <div className="flex-shrink-0">
+                              <Info className="h-5 w-5 text-blue-600" />
+                            </div>
+                            <div>
+                              <h4 className="text-sm font-semibold text-blue-900">Visibility & Duplicate Notice</h4>
+                              <div className="mt-1 text-sm text-blue-800 space-y-2">
+                                {hasMismatch && (
+                                  <p>
+                                    Students were imported for <strong>{importedYear}</strong>, but you are currently viewing <strong>{viewingAcademicYear}</strong>. 
+                                    Switch the academic year filter in the dashboard to see them.
+                                  </p>
+                                )}
+                                {importResults.skippedSummary?.alreadyExistsCount ? (
+                                  <p>
+                                    {importResults.skippedSummary.alreadyExistsCount} records already existed and were skipped. You can find them by searching their email in the user list.
+                                  </p>
+                                ) : null}
+                              </div>
+                              <button 
+                                onClick={() => {
+                                  if (importedYear) setViewingYear(importedYear);
+                                  setSelectedGrade('all');
+                                  setSelectedSection('all');
+                                  setActiveTab('student');
+                                  setShowImportModal(false);
+                                  fetchUsers();
+                                }}
+                                className="mt-3 text-xs font-medium text-blue-700 hover:text-blue-800 underline transition-colors"
+                              >
+                                {hasMismatch ? `Switch to ${importedYear} & clear filters to view students →` : 'Clear all filters & refresh view →'}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
                     <div className="text-center">
-                      <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
-                        <Check className="h-6 w-6 text-green-600" />
+                      <div className={`mx-auto flex items-center justify-center h-12 w-12 rounded-full ${importResults.success.length > 0 ? 'bg-green-100' : importResults.skipped?.length > 0 ? 'bg-amber-100' : 'bg-red-100'}`}>
+                        {importResults.success.length > 0 ? (
+                          <Check className="h-6 w-6 text-green-600" />
+                        ) : importResults.skipped?.length > 0 ? (
+                          <AlertTriangle className="h-6 w-6 text-amber-600" />
+                        ) : (
+                          <X className="h-6 w-6 text-red-600" />
+                        )}
                       </div>
                       <h3 className="mt-4 text-lg font-medium text-gray-900">
                         Import Completed
                       </h3>
                       <p className="mt-2 text-sm text-gray-500">
-                        {importResults.success.length} users imported successfully
-                        {importResults.errors.length > 0 && `, ${importResults.errors.length} failed`}
+                        {importResults.success.length > 0 && <span className="text-green-600 font-medium">{importResults.success.length} imported</span>}
+                        {importResults.success.length > 0 && (importResults.skipped?.length > 0 || importResults.errors.length > 0) && ' · '}
+                        {importResults.skipped?.length > 0 && (
+                          <span className="text-amber-600 font-medium">
+                            {importResults.skipped.length} skipped 
+                            {importResults.skippedSummary?.alreadyExistsCount ? ` (${importResults.skippedSummary.alreadyExistsCount} already existed)` : ''}
+                          </span>
+                        )}
+                        {importResults.skipped?.length > 0 && importResults.errors.length > 0 && ' · '}
+                        {importResults.errors.length > 0 && <span className="text-red-600 font-medium">{importResults.errors.length} failed</span>}
                       </p>
                     </div>
 
                     {/* Success Summary */}
                     {importResults.success.length > 0 && (
-                      <div className="bg-green-50 p-4 rounded-lg">
+                      <div className="bg-green-50 p-4 rounded-lg border border-green-200">
                         <h4 className="font-medium text-green-900 mb-2">
-                          Successfully Imported ({importResults.success.length})
+                          ✅ Successfully Imported ({importResults.success.length})
                         </h4>
                         <div className="max-h-40 overflow-auto">
                           <table className="min-w-full text-sm">
                             <thead>
                               <tr className="text-left text-green-700">
-                                <th className="font-medium">User ID</th>
-                                <th className="font-medium">Email</th>
+                                <th className="font-medium pr-4">User ID</th>
+                                <th className="font-medium pr-4">Email</th>
                                 <th className="font-medium">Password</th>
                               </tr>
                             </thead>
                             <tbody className="text-green-800">
                               {importResults.success.slice(0, 10).map((user, index) => (
                                 <tr key={index}>
-                                  <td className="font-mono">{user.userId}</td>
-                                  <td>{user.email}</td>
+                                  <td className="font-mono pr-4">{user.userId}</td>
+                                  <td className="pr-4">{user.email}</td>
                                   <td className="font-mono">{user.password}</td>
                                 </tr>
                               ))}
@@ -10108,11 +10256,97 @@ const ManageUsers: React.FC = () => {
                       </div>
                     )}
 
+                    {/* Skipped Students Summary */}
+                    {importResults.skipped?.length > 0 && (
+                      <div className="bg-amber-50 p-4 rounded-lg border border-amber-200">
+                        <h4 className="font-medium text-amber-900 mb-2">
+                          ⚠️ Skipped Records ({importResults.skipped.length})
+                        </h4>
+                        
+                        {importResults.skippedSummary?.alreadyExistsCount ? (
+                          <div className="mb-3 p-2 bg-white/50 rounded border border-amber-100 text-xs text-amber-800">
+                            <strong>Note:</strong> {importResults.skippedSummary.alreadyExistsCount} students already existed in the system and were skipped to avoid duplicates.
+                          </div>
+                        ) : null}
+
+                        {(importResults.skipped.length > (importResults.skippedSummary?.alreadyExistsCount || 0)) && (
+                          <p className="text-xs text-amber-700 mb-3">
+                            Some students were skipped because their class or section has not been created by the SuperAdmin. 
+                            Create the missing classes/sections and re-import to include them.
+                          </p>
+                        )}
+                        {/* Breakdown by class/section */}
+                        {(() => {
+                          const byClass: Record<string, number> = {};
+                          const bySection: Record<string, number> = {};
+                          importResults.skipped.forEach((s: any) => {
+                            if (s.reason === 'class_not_found') {
+                              byClass[s.className] = (byClass[s.className] || 0) + 1;
+                            } else if (s.reason === 'section_not_found') {
+                              const key = `${s.className} → ${s.section}`;
+                              bySection[key] = (bySection[key] || 0) + 1;
+                            }
+                          });
+                          return (
+                            <div className="space-y-2 mb-3">
+                              {Object.keys(byClass).length > 0 && (
+                                <div className="flex flex-wrap gap-2">
+                                  <span className="text-xs font-medium text-amber-800">Missing Classes:</span>
+                                  {Object.entries(byClass).map(([cls, cnt]) => (
+                                    <span key={cls} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-200 text-amber-900">
+                                      {cls} ({cnt} students)
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                              {Object.keys(bySection).length > 0 && (
+                                <div className="flex flex-wrap gap-2">
+                                  <span className="text-xs font-medium text-amber-800">Missing Sections:</span>
+                                  {Object.entries(bySection).map(([key, cnt]) => (
+                                    <span key={key} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-200 text-amber-900">
+                                      {key} ({cnt} students)
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
+                        <div className="max-h-32 overflow-auto">
+                          <table className="min-w-full text-sm">
+                            <thead>
+                              <tr className="text-left text-amber-700">
+                                <th className="font-medium pr-3 text-xs">Row</th>
+                                <th className="font-medium pr-3 text-xs">Student</th>
+                                <th className="font-medium pr-3 text-xs">Class</th>
+                                <th className="font-medium text-xs">Section</th>
+                              </tr>
+                            </thead>
+                            <tbody className="text-amber-800 text-xs">
+                              {importResults.skipped.slice(0, 10).map((s: any, index: number) => (
+                                <tr key={index}>
+                                  <td className="pr-3">{s.row}</td>
+                                  <td className="pr-3">{s.studentName}</td>
+                                  <td className="pr-3 font-medium">{s.className}</td>
+                                  <td>{s.section}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                          {importResults.skipped.length > 10 && (
+                            <p className="text-amber-600 text-center mt-2 text-xs">
+                              +{importResults.skipped.length - 10} more skipped students
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Error Summary */}
                     {importResults.errors.length > 0 && (
-                      <div className="bg-red-50 p-4 rounded-lg">
+                      <div className="bg-red-50 p-4 rounded-lg border border-red-200">
                         <h4 className="font-medium text-red-900 mb-2">
-                          Failed to Import ({importResults.errors.length})
+                          ❌ Failed to Import ({importResults.errors.length})
                         </h4>
                         <div className="max-h-40 overflow-auto space-y-2">
                           {importResults.errors.slice(0, 10).map((error, index) => (
@@ -10386,7 +10620,10 @@ const ManageUsers: React.FC = () => {
     );
   } catch (error) {
     console.error('Render error in ManageUsers:', error);
-    setHasRenderError(true);
+    if (!hasRenderError) {
+      setRenderErrorDetails(error);
+      setHasRenderError(true);
+    }
     return null;
   }
 };

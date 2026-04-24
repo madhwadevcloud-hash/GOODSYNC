@@ -191,23 +191,43 @@ const AcademicNavigation: React.FC = () => {
   // Add section to class
   const addSection = async () => {
     if (!selectedClass || !newSection.trim()) {
-      toast.error('Please select class and enter section name');
+      toast.error('Please select class and enter section(s)');
       return;
     }
 
     try {
-      const response = await classAPI.addSectionToClass(selectedSchoolId, selectedClass, newSection.trim());
+      // Split by comma in case super admin enters multiple sections (e.g., "A, B, C")
+      const sectionsToAdd = newSection.split(',').map(s => s.trim().toUpperCase()).filter(s => s.length > 0);
+      
+      let successCount = 0;
+      let errorMessages: string[] = [];
 
-      if (response.success) {
-        toast.success(`Section ${newSection} added successfully`);
-        setNewSection('');
-        await fetchClasses();
-      } else {
-        throw new Error(response.message || 'Failed to add section');
+      for (const section of sectionsToAdd) {
+        try {
+          const response = await classAPI.addSectionToClass(selectedSchoolId, selectedClass, section);
+          if (response.success) {
+            successCount++;
+          } else {
+            errorMessages.push(`Failed to add ${section}: ${response.message}`);
+          }
+        } catch (err: any) {
+           errorMessages.push(`Error adding ${section}: ${err.message}`);
+        }
       }
+
+      if (successCount > 0) {
+        toast.success(`Successfully added ${successCount} section(s)`);
+        setNewSection('');
+      }
+      
+      if (errorMessages.length > 0) {
+        toast.error(errorMessages.join('\n'));
+      }
+
+      await fetchClasses();
     } catch (error: any) {
-      console.error('Error adding section:', error);
-      toast.error(error.message || 'Failed to add section');
+      console.error('Error processing sections:', error);
+      toast.error('An unexpected error occurred while adding sections');
     }
   };
 

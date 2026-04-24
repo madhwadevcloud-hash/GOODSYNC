@@ -39,6 +39,6 @@ const superAdminSchema = new mongoose.Schema({
 });
 
 // Index for faster queries
-superAdminSchema.index({ email: 1 });
+// superAdminSchema.index({ email: 1 });
 
 module.exports = mongoose.model('SuperAdmin', superAdminSchema);
