@@ -272,6 +272,8 @@ exports.importUsers = async (req, res) => {
     'permissionsauditlogs': 'permissions_auditlogs',
     // Template variations
     'cityvillagetown': 'permanentcity', 'schooladmissiondate': 'admissiondate', 'bankifsccode': 'bankifsc', 'isrtecandidate': 'isrtcandidate',
+    'bankifsccode': 'bankifsc', 'ifsccode': 'bankifsc',
+    'phonenumber': 'primaryphone', 'primaryphonenumber': 'primaryphone'
   };
 
   // --- Parse CSV and INFER ROLE ---
@@ -312,24 +314,29 @@ exports.importUsers = async (req, res) => {
           const hasClass = firstRowKeys.has('currentclass');
           const hasSection = firstRowKeys.has('currentsection');
           const hasFather = firstRowKeys.has('fathername');
-          const hasAdmissionNumber = firstRowKeys.has('admissionnumber') || firstRowKeys.has('studentid') || firstRowKeys.has('enrollmentnumber') || firstRowKeys.has('enrollmentno');
-          if (hasClass && ((hasSection && hasFather) || hasAdmissionNumber)) {
+          const hasAdmissionNumber = firstRowKeys.has('admissionnumber') || firstRowKeys.has('studentid') || firstRowKeys.has('admissionnumber');
+          const hasEmail = firstRowKeys.has('email');
+          const hasPhone = firstRowKeys.has('primaryphone');
+
+
+          // Student Inference: Needs class OR admission info OR father name + section
+          if (hasClass || hasAdmissionNumber || (hasFather && hasSection)) {
             inferredRole = 'student';
-          }
-          // 2. Then check for teacher (original complex format)
-          else if (firstRowKeys.has('joiningdate') && firstRowKeys.has('highestqualification') && firstRowKeys.has('totalexperience')) {
-            inferredRole = 'teacher';
-          }
-          // 2b. Check for teacher (simplified template format)
-          else if (firstRowKeys.has('qualification') && (firstRowKeys.has('phonenumber') || firstRowKeys.has('subjectstaught'))) {
-            inferredRole = 'teacher';
-          }
-          // 3. Then check for admin <--- NEW: Admin Inference
-          else if (firstRowKeys.has('joiningdate') && (firstRowKeys.has('admintype') || firstRowKeys.has('designation'))) {
+          } 
+          // Admin/Teacher Inference
+          else if (firstRowKeys.has('admintype') || firstRowKeys.has('designation') || firstRowKeys.has('department')) {
             inferredRole = 'admin';
+          } else if (firstRowKeys.has('joiningdate') || firstRowKeys.has('highestqualification') || firstRowKeys.has('qualification')) {
+            inferredRole = 'teacher';
           }
-          else {
-            throw new Error("Could not infer user role (student/teacher/admin) from CSV columns. Ensure headers like 'currentclass'/'fathername' (for students) OR 'joiningdate'/'highestqualification' (for teachers) OR 'admintype'/'designation' (for admins) are present."); // <--- MODIFIED ERROR MESSAGE
+
+          if (!inferredRole) {
+            // Default fallback if we have basic user info but can't distinguish
+            if (hasEmail && hasPhone && (firstRowKeys.has('firstname') || firstRowKeys.has('lastname'))) {
+              inferredRole = 'student'; // Default to student
+            } else {
+              throw new Error("Could not infer user role (student/teacher/admin) from CSV columns. Please check your headers.");
+            }
           }
           console.log(`Inferred Role: ${inferredRole}`);
         }
@@ -365,7 +372,7 @@ exports.importUsers = async (req, res) => {
   console.log(`Using database collection: ${collectionName}`);
 
   // --- Process Rows Serially ---
-  const results = { success: [], errors: [], total: csvData.length };
+  const results = { success: [], errors: [], skipped: [], total: csvData.length };
   const usersToInsert = [];
   const processedEmails = new Set();
 
@@ -387,7 +394,9 @@ exports.importUsers = async (req, res) => {
       if (userRole === 'student') {
         validationErrors = validateStudentRowRobust(row, rowNumber);
 
-        // Additional validation: Check if class and section exist using pre-fetched classes
+        // --- CLASS/SECTION AVAILABILITY CHECK ---
+        // Instead of treating missing class/section as a validation error (which causes 400),
+        // we gracefully SKIP these students and track them separately.
         if (validationErrors.length === 0) {
           const currentClassInput = row['currentclass']?.toString().trim();
           const currentSectionInput = row['currentsection']?.toString().trim();
@@ -396,13 +405,19 @@ exports.importUsers = async (req, res) => {
             const matchedClass = findMatchingClass(currentClassInput);
 
             if (!matchedClass) {
-              validationErrors.push({
+              // Class not created by SuperAdmin — skip this student gracefully
+              results.skipped.push({
                 row: rowNumber,
-                field: 'currentclass',
-                error: `Class "${currentClassInput}" does not exist in SuperAdmin. Please add this class exactly as it appears in the SuperAdmin dashboard.`
+                reason: 'class_not_found',
+                className: currentClassInput,
+                section: currentSectionInput || 'N/A',
+                studentName: `${row['firstname'] || ''} ${row['lastname'] || ''}`.trim(),
+                email: row['email'] || '',
+                message: `Class "${currentClassInput}" has not been created by the SuperAdmin. This student was skipped.`
               });
+              continue; // Skip to next row — do NOT add to errors
             } else {
-              // Standardize the class name and section from the DB values
+              // Standardize the class name from the DB value
               row['currentclass'] = matchedClass.className;
 
               if (currentSectionInput) {
@@ -410,11 +425,18 @@ exports.importUsers = async (req, res) => {
                 const matchedSection = sections.find(s => s.toString().trim().toLowerCase() === currentSectionInput.toLowerCase());
 
                 if (!matchedSection) {
-                  validationErrors.push({
+                  // Section not created by SuperAdmin for this class — skip gracefully
+                  results.skipped.push({
                     row: rowNumber,
-                    field: 'currentsection',
-                    error: `Section "${currentSectionInput}" does not exist in Class "${matchedClass.className}". Available sections: ${sections.join(', ') || 'None'}`
+                    reason: 'section_not_found',
+                    className: matchedClass.className,
+                    section: currentSectionInput,
+                    availableSections: sections,
+                    studentName: `${row['firstname'] || ''} ${row['lastname'] || ''}`.trim(),
+                    email: row['email'] || '',
+                    message: `Section "${currentSectionInput}" does not exist in Class "${matchedClass.className}". Available sections: [${sections.join(', ') || 'None'}]. This student was skipped.`
                   });
+                  continue; // Skip to next row — do NOT add to errors
                 } else {
                   row['currentsection'] = matchedSection; // Use exact case from DB
                 }
@@ -441,7 +463,15 @@ exports.importUsers = async (req, res) => {
       // Check against the correct collection for existing email
       const existingUser = await userCollection.findOne({ email: email });
       if (existingUser) {
-        throw new Error(`User already exists in ${collectionName} collection with this email: ${email}`);
+        // --- GRACEFUL SKIP: User already exists ---
+        results.skipped.push({
+          row: rowNumber,
+          reason: 'already_exists',
+          studentName: `${row['firstname'] || ''} ${row['lastname'] || ''}`.trim(),
+          email: email,
+          message: `A user with email "${email}" already exists in the ${collectionName} collection. This row was skipped.`
+        });
+        continue; // Skip to next row
       }
 
       // Store row data temporarily - will generate userId during bulk insert preparation
@@ -573,38 +603,73 @@ exports.importUsers = async (req, res) => {
   const finalErrorCount = results.errors.length;   // Validation errors + Bulk insert errors
 
   let inferredRoleName = inferredRole || 'user'; // Fallback
-  let finalMessage = `Import process completed for ${inferredRoleName}s. Total CSV rows (excluding header): ${results.total}.`;
+  const skippedCount = results.skipped.length;
+  const validationErrorCount = results.errors.filter(e => e.row !== 'N/A').length;
 
-  // Message logic based on validation and insertion results
+  // --- Build Skipped Summary (class/section breakdown) ---
+  const skippedByClass = {};
+  const skippedBySection = {};
+  let alreadyExistsCount = 0;
+  results.skipped.forEach(s => {
+    if (s.reason === 'class_not_found') {
+      const key = s.className;
+      skippedByClass[key] = (skippedByClass[key] || 0) + 1;
+    } else if (s.reason === 'section_not_found') {
+      const key = `${s.className}-${s.section}`;
+      skippedBySection[key] = (skippedBySection[key] || 0) + 1;
+    } else if (s.reason === 'already_exists') {
+      alreadyExistsCount++;
+    }
+  });
+
+  let finalMessage = `Import completed for ${inferredRoleName}s. Total CSV rows: ${results.total}.`;
+
   if (results.total === 0) {
     finalMessage = 'Import process completed. The CSV file contained no data rows.';
-  } else if (finalUsersToInsert.length === 0 && finalErrorCount > 0) {
-    // All rows failed validation
-    finalMessage += ` Rows successfully processed: 0. Rows with validation errors: ${finalErrorCount}. No ${inferredRoleName}s were inserted. Please review the errors.`;
-  } else if (finalUsersToInsert.length > 0) {
-    // Some rows were prepared for insert
-    finalMessage += ` Rows prepared for insert: ${finalUsersToInsert.length}. Rows with validation errors: ${results.errors.filter(e => e.row !== 'N/A').length}.`; // Count only validation errors here
-    finalMessage += ` Actual documents inserted: ${insertedCount}.`;
-    if (insertedCount < finalUsersToInsert.length) {
-      const bulkInsertFailures = finalUsersToInsert.length - insertedCount;
-      finalMessage += ` ${bulkInsertFailures} prepared rows failed during bulk insert (e.g., duplicate email/ID). Check errors list (marked 'N/A' or 'Insert Error').`;
-    } else if (finalErrorCount > 0) {
-      finalMessage += ` Some initial rows failed validation (check errors list).`;
+  } else {
+    if (insertedCount > 0) {
+      finalMessage += ` Successfully imported: ${insertedCount}.`;
+    }
+    if (skippedCount > 0) {
+      finalMessage += ` Skipped (class/section not configured): ${skippedCount}.`;
+      const classSkipDetails = Object.entries(skippedByClass).map(([cls, cnt]) => `${cls} (${cnt})`).join(', ');
+      const sectionSkipDetails = Object.entries(skippedBySection).map(([key, cnt]) => `${key} (${cnt})`).join(', ');
+      if (classSkipDetails) finalMessage += ` Missing classes: ${classSkipDetails}.`;
+      if (sectionSkipDetails) finalMessage += ` Missing sections: ${sectionSkipDetails}.`;
+    }
+    if (validationErrorCount > 0) {
+      finalMessage += ` Validation errors: ${validationErrorCount}.`;
+    }
+    if (insertedCount < finalUsersToInsert.length && finalUsersToInsert.length > 0) {
+      const bulkFails = finalUsersToInsert.length - insertedCount;
+      finalMessage += ` ${bulkFails} row(s) failed during database insert (e.g., duplicate email).`;
     }
   }
 
-  // Overall success means no validation errors AND all prepared rows were inserted successfully.
-  const overallSuccess = results.errors.filter(e => e.row !== 'N/A').length === 0 && (finalUsersToInsert.length === 0 || insertedCount === finalUsersToInsert.length);
+  // Overall success: at least some rows were inserted, OR there were only skips (no hard errors)
+  const hasHardErrors = validationErrorCount > 0 || (finalUsersToInsert.length > 0 && insertedCount < finalUsersToInsert.length);
+  const overallSuccess = insertedCount > 0 || (!hasHardErrors && skippedCount > 0);
 
+  // Status: 201 if any inserts, 200 if all skipped (no errors), 400 only if hard errors
+  let httpStatus = 200;
+  if (insertedCount > 0) httpStatus = 201;
+  if (hasHardErrors && insertedCount === 0) httpStatus = 400;
 
-  res.status(overallSuccess && results.total > 0 ? 201 : (finalErrorCount > 0 || insertedCount < finalUsersToInsert.length ? 400 : 200)).json({
+  res.status(httpStatus).json({
     success: overallSuccess,
     message: finalMessage,
     results: {
-      successData: results.success, // Final list that *should* have been inserted (minus bulk errors)
-      errors: results.errors,       // Combined validation and bulk errors
+      successData: results.success,
+      errors: results.errors,
+      skipped: results.skipped,
       totalRows: results.total,
-      insertedCount: insertedCount    // Actual DB inserts
+      insertedCount: insertedCount,
+      skippedCount: skippedCount,
+      skippedSummary: {
+        byClass: skippedByClass,
+        bySection: skippedBySection,
+        alreadyExistsCount: alreadyExistsCount
+      }
     }
   });
 };
@@ -1199,10 +1264,10 @@ function validateStudentRowRobust(normalizedRow, rowNumber) {
   const requiredKeys = [
     'firstname', 'lastname', 'email', 'primaryphone', 'dateofbirth', 'gender',
     'currentclass', 'currentsection', 'admissionnumber', 'tcnumber',
-    'studentcastecertno', 'admissiondate',
-    'bankname', 'bankaccountno', 'bankifsc', 'nationality',
+    'admissiondate',
     'permanentstreet', 'permanentcity', 'permanentpincode'
   ];
+  // Note: nationality, bankname, bankaccountno, bankifsc are now optional in bulk import
 
   requiredKeys.forEach(key => {
     if (!normalizedRow.hasOwnProperty(key) || normalizedRow[key] === undefined || normalizedRow[key] === null || String(normalizedRow[key]).trim() === '') {
@@ -1362,9 +1427,9 @@ async function createStudentFromRowRobust(normalizedRow, schoolIdAsObjectId, use
       academic: {
         currentClass: normalizedRow['currentclass'] || '',
         currentSection: normalizedRow['currentsection'] || '',
-        academicYear: currentAcademicYear,
+        academicYear: normalizedRow['academicyear'] || currentAcademicYear,
         admissionDate: finalAdmissionDate,
-        admissionClass: normalizedRow['admissionclass'] || '',
+        admissionClass: normalizedRow['admissionclass'] || normalizedRow['currentclass'] || '',
         enrollmentNo: normalizedRow['admissionnumber'] || '',
         tcNo: normalizedRow['tcnumber'] || ''
       },
