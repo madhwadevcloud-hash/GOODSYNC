@@ -67,7 +67,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
       console.log(`📊 Fetching dashboard data for academic year: ${academicYear}`);
 
       // *** MODIFICATION START ***
-      // Fetch assignments for ALL classes in the current academic year
+      // Fetch assignments ses in the current academic year
       // The backend (assignmentController) removes teacher-specific filtering for teachers
       let assignmentsData: any = { assignments: [] };
       try {
@@ -121,7 +121,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
       setAssignments(assignmentsArray.slice(0, 4));
       setLeaveRequests(leaveRequestsArray);
 
-      // This totalAssignments is now the total for all classes this year
+      // This totalAssignments is now the total ses this year
       const totalAssignments = assignmentsArray.length;
 
       // Active assignments can still be calculated from the full list

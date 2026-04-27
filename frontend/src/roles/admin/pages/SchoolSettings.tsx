@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Save, Calendar, GraduationCap, Clock, Users, Award, BookOpen, ChevronDown, ChevronRight, FileText, CheckCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import api from '../../../services/api';
+import { useAuth } from '../../../auth/AuthContext';
 import { useAcademicYear } from '../../../contexts/AcademicYearContext';
+import { normalizeAcademicYear } from '../../../utils/academicYearUtils';
 import PromotionTab from '../components/PromotionTab';
 import UniversalTemplate from '../components/UniversalTemplate';
 
@@ -29,24 +31,44 @@ interface ClassData {
 }
 
 const SchoolSettings: React.FC = () => {
-  const { refreshAcademicYear } = useAcademicYear();
+  const { user } = useAuth();
+  const { 
+    currentAcademicYear: academicYearFromContext, 
+    viewingAcademicYear, 
+    ready: academicYearReady,
+    refreshAcademicYear 
+  } = useAcademicYear();
+
+  // Local state for form inputs
   const [activeTab, setActiveTab] = useState('academic');
   const [tests, setTests] = useState<TestData[]>([]);
   const [classes, setClasses] = useState<ClassData[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [testScoring, setTestScoring] = useState<Record<string, { maxMarks: number; weightage: number }>>({});
   const [expandedTests, setExpandedTests] = useState<Set<string>>(new Set());
 
-  // Academic Year state
-  const [currentAcademicYear, setCurrentAcademicYear] = useState('2024-2025');
-  const [academicYearStart, setAcademicYearStart] = useState('2024-04-01');
-  const [academicYearEnd, setAcademicYearEnd] = useState('2025-03-31');
-
-  // Promotion state
-  const [fromYear, setFromYear] = useState('2024-25');
+  const [currentAcademicYear, setCurrentAcademicYear] = useState('');
+  const [academicYearStart, setAcademicYearStart] = useState('');
+  const [academicYearEnd, setAcademicYearEnd] = useState('');
+  const [fromYear, setFromYear] = useState('');
   const [toYear, setToYear] = useState('');
   const [isAcademicYearSaved, setIsAcademicYearSaved] = useState(false);
   const [savedAcademicYear, setSavedAcademicYear] = useState('');
+
+  // Sync local state from AcademicYearContext
+  useEffect(() => {
+    if (academicYearReady) {
+      const year = viewingAcademicYear || academicYearFromContext || '2025-26';
+      setCurrentAcademicYear(year);
+      setFromYear(year);
+      setSavedAcademicYear(year);
+      setIsAcademicYearSaved(!!academicYearFromContext);
+      // Derive start/end dates from year string
+      const startYearNum = parseInt(year.split('-')[0]);
+      setAcademicYearStart(`${startYearNum}-04-01`);
+      setAcademicYearEnd(`${startYearNum + 1}-03-31`);
+    }
+  }, [academicYearReady, viewingAcademicYear, academicYearFromContext]);
 
   // Reset saved state when academic year is modified
   useEffect(() => {
@@ -60,7 +82,7 @@ const SchoolSettings: React.FC = () => {
     const authData = localStorage.getItem('erp.auth');
     if (authData) {
       const parsed = JSON.parse(authData);
-      const schoolCode = parsed.user?.schoolCode || parsed.schoolCode || 'SB';
+      const schoolCode = user?.schoolCode || 'R';
       const token = parsed.token;
       console.log('🔍 Admin Auth Data:', parsed);
       console.log('🔍 Extracted School Code:', schoolCode);
@@ -126,9 +148,10 @@ const SchoolSettings: React.FC = () => {
 
     try {
       setLoading(true);
-      const endpoint = `/admin/classes/${schoolCode}/classes-sections`;
+      const yearToFetch = viewingAcademicYear || academicYearFromContext || currentAcademicYear || '2025-26';
+      const endpoint = `/admin/classes/${schoolCode}/classes-sections?academicYear=${yearToFetch}`;
       console.log('📡 Fetching classes from endpoint:', endpoint);
-      console.log('📡 Using school code:', schoolCode);
+      console.log('📡 Using school code:', schoolCode, 'year:', yearToFetch);
 
       const response = await api.get(endpoint);
 
@@ -176,14 +199,22 @@ const SchoolSettings: React.FC = () => {
               s.studentDetails?.academic?.academicYear ||
               s.academicYear ||
               s.academicInfo?.academicYear;
-
+            
+            const normalizedStudentYear = normalizeAcademicYear(String(studentYear || '').trim());
+            const normalizedTargetYear = normalizeAcademicYear(String(targetYear || '').trim());
+            
             const classMatch = String(studentClass || '').trim() === String(cls.className).trim();
             const yearMatch =
-              !targetYear ||
-              !studentYear ||
-              String(studentYear).trim() === String(targetYear).trim();
+              !normalizedTargetYear ||
+              !normalizedStudentYear ||
+              normalizedStudentYear === normalizedTargetYear;
 
-            return classMatch && yearMatch && !!studentSection;
+            // Extra debug for Class 1 students
+            if (cls.className === "1" && classMatch && yearMatch) {
+                // console.log(`Matched student for Class 1: ${s.userId || s._id} - Section: ${studentSection}`);
+            }
+
+            return classMatch && yearMatch; // Removed !!studentSection to be more inclusive
           });
 
           // Count students per section
@@ -406,16 +437,16 @@ const SchoolSettings: React.FC = () => {
   // Load data when component mounts or tab changes
   useEffect(() => {
     if (activeTab === 'academic') {
-      fetchAcademicYear();
+      refreshAcademicYear();
     } else if (activeTab === 'scoring') {
       fetchTests();
     } else if (activeTab === 'classes') {
       fetchClasses();
     } else if (activeTab === 'promotion') {
       fetchClasses();
-      fetchAcademicYear();
+      refreshAcademicYear();
     }
-  }, [activeTab]);
+  }, [activeTab, academicYearReady, viewingAcademicYear]);
 
   // Auto-calculate toYear when fromYear changes
   useEffect(() => {

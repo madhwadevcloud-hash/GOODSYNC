@@ -84,6 +84,7 @@ router.post('/sync/all', setMainDbContext, requireSuperAdmin, schoolController.s
 router.post('/:schoolId/sync', setMainDbContext, requireSuperAdmin, schoolController.syncSchoolToDatabase);
 
 // School-specific routes (require school context)
+router.get('/profile', schoolController.getSchoolProfile);
 router.get('/:schoolId', setSchoolContext, validateSchoolAccess(['admin', 'superadmin']), schoolController.getSchoolById);
 
 // Direct school info route (bypasses school-specific database issues)

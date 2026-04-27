@@ -21,6 +21,7 @@ import UserForm from '../../../components/forms/UserForm';
 import LocationSelector from '../../../components/LocationSelector';
 import { State, District, Taluka } from '../../../services/locationAPI';
 import { compressImage, validateImageFile, blobToFile } from '../../../utils/schoolConfig';
+import { getAcademicYearToUse, normalizeAcademicYear } from '../../../utils/academicYearUtils';
 interface School {
   _id: string;
   name: string;
@@ -429,7 +430,15 @@ const ManageUsers: React.FC = () => {
     return `${year}-${month}-${day}`;
   };
 
-  const { currentAcademicYear, viewingAcademicYear, isViewingHistoricalYear, setViewingYear, availableYears, loading: academicYearLoading } = useAcademicYear();
+  const { 
+    currentAcademicYear, 
+    viewingAcademicYear, 
+    isViewingHistoricalYear, 
+    setViewingYear, 
+    availableYears, 
+    loading: academicYearLoading,
+    ready: academicYearReady 
+  } = useAcademicYear();
   // Use the school classes hook to get dynamic data
   const {
     classesData,
@@ -2033,7 +2042,7 @@ const ManageUsers: React.FC = () => {
       // Use the same token retrieval method as Dashboard
       const authData = localStorage.getItem('erp.auth');
       const token = authData ? JSON.parse(authData).token : null;
-      const schoolCode = user?.schoolCode || 'TST'; // Use context schoolCode, fallback to 'TST'
+      const schoolCode = user?.schoolCode || localStorage.getItem('erp.schoolCode') || 'R'; // Use context schoolCode, then storage, fallback to 'R'
 
       if (!token) {
         console.error('❌ No token found!');
@@ -2418,7 +2427,7 @@ const ManageUsers: React.FC = () => {
       // Use the same token retrieval method as Dashboard
       const authData = localStorage.getItem('erp.auth');
       const token = authData ? JSON.parse(authData).token : null;
-      const schoolCode = user?.schoolCode || 'NPS';
+      const schoolCode = user?.schoolCode || localStorage.getItem('erp.schoolCode') || 'R';
 
       if (!token) {
         toast.error('Authentication required');
@@ -2535,7 +2544,7 @@ const ManageUsers: React.FC = () => {
           academic: {
             currentClass: formData.studentDetails?.currentClass || formData.class || '',
             currentSection: formData.studentDetails?.currentSection || formData.section || '',
-            academicYear: formData.studentDetails?.academicYear || currentAcademicYear || '2024-25',
+            academicYear: formData.studentDetails?.academicYear || getAcademicYearToUse(undefined, currentAcademicYear),
             admissionDate: formData.studentDetails?.admissionDate ? new Date(formData.studentDetails.admissionDate) : undefined,
             admissionClass: formData.studentDetails?.admissionClass || '',
             rollNumber: formData.studentDetails?.rollNumber || formData.rollNumber || '',
@@ -2747,7 +2756,7 @@ const ManageUsers: React.FC = () => {
         // ===== END CRITICAL FIX =====
 
         // Academic year for UserGenerator.createUser (school-users)
-        userData.academicYear = formData.studentDetails?.academicYear || currentAcademicYear || '2024-25';
+        userData.academicYear = formData.studentDetails?.academicYear || getAcademicYearToUse(undefined, currentAcademicYear);
 
         // Map Aadhaar and caste certificate fields for UserGenerator.createUser
         userData.aadharKPRNo = formData.studentAadhaar
@@ -4147,16 +4156,8 @@ const ManageUsers: React.FC = () => {
     const matchesGrade = activeTab !== 'student' || selectedGrade === 'all' || String(studentClass).trim() === String(selectedGrade).trim();
     const matchesSection = activeTab !== 'student' || selectedSection === 'all' || String(studentSection).trim().toUpperCase() === String(selectedSection).trim().toUpperCase();
 
-    // Normalize academic year formats (e.g., "2025-26" -> "2025-2026")
-    const normalizeYear = (year: any) => {
-      if (!year) return '';
-      const str = String(year).trim();
-      const parts = str.split('-');
-      if (parts.length === 2 && parts[1].length === 2) {
-        return `${parts[0]}-20${parts[1]}`;
-      }
-      return str;
-    };
+    // Use standardized normalization from utils
+    const normalizeYear = (year: any) => normalizeAcademicYear(String(year || '').trim());
 
     // Filter students by viewing academic year - check multiple possible locations
     const studentAcademicYear = (user.studentDetails as any)?.academic?.academicYear ||
@@ -5618,7 +5619,7 @@ const ManageUsers: React.FC = () => {
               academic: {
                 currentClass: row['Class*'],
                 currentSection: row['Section*'] || 'A',
-                academicYear: row['Academic Year'] || '2024-25',
+                academicYear: normalizeAcademicYear(row['Academic Year']) || getAcademicYearToUse(undefined, currentAcademicYear),
                 admissionDate: row['Admission Date (YYYY-MM-DD)'] ? new Date(row['Admission Date (YYYY-MM-DD)']) : new Date(),
                 admissionClass: row['Admission Class'] || row['Class*'],
                 stream: row['Stream'] || '',

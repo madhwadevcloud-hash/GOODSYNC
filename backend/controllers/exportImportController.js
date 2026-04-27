@@ -140,17 +140,24 @@ exports.importUsers = async (req, res) => {
   const db = connection.db;
 
   // --- MODIFIED: Get Current Academic Year (from school_info) ---
-  let currentAcademicYear = '2024-25'; // Default fallback
+  const now = new Date();
+  const currentMonth = now.getMonth(); // 0-indexed
+  const startYear = currentMonth >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+  const endYear = startYear + 1;
+  let currentAcademicYear = `${startYear}-${endYear.toString().slice(-2)}`; // Dynamic fallback like 2025-26
+
   try {
     // Find the school's main configuration document
-    const schoolInfoDoc = await db.collection('school_info').findOne(); // <-- Find the one school_info doc
+    const schoolInfoDoc = await db.collection('school_info').findOne();
 
-    // Use the path from your JSON: academicYear.currentYear
-    if (schoolInfoDoc && schoolInfoDoc.academicYear && schoolInfoDoc.academicYear.currentYear) {
-      currentAcademicYear = schoolInfoDoc.academicYear.currentYear;
+    // Check multiple possible paths for academic year
+    const ayConfig = schoolInfoDoc?.settings?.academicYear || schoolInfoDoc?.academicYear;
+    
+    if (ayConfig && ayConfig.currentYear) {
+      currentAcademicYear = ayConfig.currentYear;
       console.log(`Using current academic year from school_info: ${currentAcademicYear}`);
     } else {
-      console.warn(`No 'academicYear.currentYear' found in school_info for ${upperSchoolCode}. Defaulting to '${currentAcademicYear}'.`);
+      console.warn(`No 'academicYear.currentYear' found in school_info for ${upperSchoolCode}. Defaulting to dynamic year '${currentAcademicYear}'.`);
     }
   } catch (yearError) {
     console.error(`Error fetching academic year from school_info for ${upperSchoolCode}:`, yearError.message);

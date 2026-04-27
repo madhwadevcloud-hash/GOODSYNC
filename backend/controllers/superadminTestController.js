@@ -173,7 +173,7 @@ exports.addTest = async (req, res) => {
           sections: classInfo.sections, // Array of sections this test applies to
           schoolId: schoolId,
           schoolCode: school.code,
-          academicYear: '2024-25',
+          academicYear: req.body.academicYear || require('../utils/dateUtils').getDefaultAcademicYear(),
           isActive: true,
           createdAt: new Date(),
           updatedAt: new Date()

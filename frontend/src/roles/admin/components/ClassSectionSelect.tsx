@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ChevronDown, AlertCircle, RefreshCw } from 'lucide-react';
 import { classesAPI } from '../../../services/api';
 import { useAuth } from '../../../auth/AuthContext';
+import { useAcademicYear } from '../../../contexts/AcademicYearContext';
 
 interface ClassSectionSelectProps {
   schoolCode?: string; // Optional - if omitted use auth.user.schoolCode
@@ -12,6 +13,7 @@ interface ClassSectionSelectProps {
   includeAllOptions?: boolean; // Default true
   disabled?: boolean;
   showSection?: boolean; // Default true. When false, hide section UI and force 'ALL'
+  academicYear?: string; // Optional - if omitted use viewingAcademicYear from context
 }
 
 interface SectionData {
@@ -34,10 +36,12 @@ const ClassSectionSelect: React.FC<ClassSectionSelectProps> = ({
   onSectionChange,
   includeAllOptions = true,
   disabled = false,
-  showSection = true
+  showSection = true,
+  academicYear
 }) => {
 
   const { user } = useAuth();
+  const { viewingAcademicYear } = useAcademicYear();
   const [isClassDropdownOpen, setIsClassDropdownOpen] = useState(false);
   const [isSectionDropdownOpen, setIsSectionDropdownOpen] = useState(false);
 
@@ -46,8 +50,11 @@ const ClassSectionSelect: React.FC<ClassSectionSelectProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Get the school code to use
-  const targetSchoolCode = schoolCode || user?.schoolCode;
+  // Get the school code to use with robust fallback
+  const targetSchoolCode = schoolCode || 
+                           user?.schoolCode || 
+                           localStorage.getItem('erp.schoolCode') || 
+                           'R';
 
   // Fetch classes and sections from API
   const fetchClasses = async () => {
@@ -60,8 +67,10 @@ const ClassSectionSelect: React.FC<ClassSectionSelectProps> = ({
       setLoading(true);
       setError(null);
       
-      console.log('🔍 Fetching classes for school code:', targetSchoolCode);
-      const response = await classesAPI.getSchoolClasses(targetSchoolCode);
+      console.log('🔍 Fetching classes for school code:', targetSchoolCode, 'Year:', academicYear || viewingAcademicYear);
+      const response = await classesAPI.getSchoolClasses(targetSchoolCode, { 
+        academicYear: academicYear || viewingAcademicYear 
+      });
       
       console.log('📥 Classes API Response:', response);
       
@@ -120,10 +129,10 @@ const ClassSectionSelect: React.FC<ClassSectionSelectProps> = ({
     }
   };
 
-  // Fetch classes on mount and when schoolCode changes
+  // Fetch classes on mount and when schoolCode or academicYear changes
   useEffect(() => {
     fetchClasses();
-  }, [targetSchoolCode]);
+  }, [targetSchoolCode, academicYear, viewingAcademicYear]);
 
   // Handle class change
   const handleClassChange = (className: string) => {
@@ -167,8 +176,15 @@ const ClassSectionSelect: React.FC<ClassSectionSelectProps> = ({
   const getSelectedSectionDisplay = () => {
     if (valueSection === 'ALL') return 'All Sections';
     
-    const selectedSection = getAvailableSections().find(s => s.sectionName === valueSection);
-    return selectedSection ? `Section ${selectedSection.sectionName}` : 'Select Section';
+    const availableSections = getAvailableSections();
+    const selectedSection = availableSections.find((s: any) => 
+      typeof s === 'string' ? s === valueSection : s.sectionName === valueSection
+    );
+    
+    if (!selectedSection) return 'Select Section';
+    
+    const sectionName = typeof selectedSection === 'string' ? selectedSection : selectedSection.sectionName;
+    return `Section ${sectionName}`;
   };
 
   // Render loading state
@@ -304,16 +320,23 @@ const ClassSectionSelect: React.FC<ClassSectionSelectProps> = ({
                   </div>
                 )}
                 {getAvailableSections()
-                  .filter(section => section.sectionId !== 'ALL')
-                  .map((section) => (
-                    <div
-                      key={`section-${section.sectionId}`}
-                      className="cursor-pointer select-none relative py-2 pl-3 pr-9 hover:bg-blue-50"
-                      onClick={() => handleSectionChange(section.sectionName)}
-                    >
-                      <span className="font-normal block truncate">Section {section.sectionName}</span>
-                    </div>
-                  ))}
+                  .filter((section: any) => {
+                    const id = typeof section === 'string' ? section : section.sectionId;
+                    return id !== 'ALL';
+                  })
+                  .map((section: any) => {
+                    const sectionId = typeof section === 'string' ? section : section.sectionId;
+                    const sectionName = typeof section === 'string' ? section : section.sectionName;
+                    return (
+                      <div
+                        key={`section-${sectionId}`}
+                        className="cursor-pointer select-none relative py-2 pl-3 pr-9 hover:bg-blue-50"
+                        onClick={() => handleSectionChange(sectionName)}
+                      >
+                        <span className="font-normal block truncate">Section {sectionName}</span>
+                      </div>
+                    );
+                  })}
               </div>
             )}
           </div>

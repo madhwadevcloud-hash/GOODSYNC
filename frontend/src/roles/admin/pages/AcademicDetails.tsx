@@ -5,11 +5,13 @@ import { useSchoolClasses } from '../../../hooks/useSchoolClasses';
 import { renderToString } from 'react-dom/server';
 import AdmitCardTemplate from '../../../components/templates/AdmitCardTemplate';
 import SimpleIDCardGenerator from '../../../components/SimpleIDCardGenerator';
+import NewIDCardTemplate from '../../../components/templates/NewIDCardTemplate';
 import { useTemplateData } from '../../../components/templates/hooks/useTemplateData';
 import { useAuth } from '../../../auth/AuthContext';
 import { useAcademicYear } from '../../../contexts/AcademicYearContext';
 import api from '../../../services/api';
 import { schoolAPI } from '../../../services/api';
+import { getAcademicYearToUse, normalizeAcademicYear, getDynamicFallbackYear } from '../../../utils/academicYearUtils';
 
 interface Subject {
   name: string;
@@ -37,6 +39,7 @@ interface Test {
 }
 
 interface Student {
+  _id?: string;
   id: string;
   name: string;
   rollNumber: string;
@@ -76,7 +79,7 @@ interface SubjectExam {
 
 const AcademicDetails: React.FC = () => {
   const { token, user } = useAuth();
-  const { currentAcademicYear, viewingAcademicYear, isViewingHistoricalYear, setViewingYear, availableYears, loading: academicYearLoading } = useAcademicYear();
+  const { currentAcademicYear, viewingAcademicYear, isViewingHistoricalYear, setViewingYear, availableYears, loading: academicYearLoading, ready: academicYearReady } = useAcademicYear();
 
   // Use the useSchoolClasses hook to fetch classes configured by superadmin
   const {
@@ -86,7 +89,7 @@ const AcademicDetails: React.FC = () => {
     getClassOptions,
     getSectionsByClass,
     hasClasses
-  } = useSchoolClasses();
+  } = useSchoolClasses(academicYearReady ? getAcademicYearToUse(viewingAcademicYear, currentAcademicYear) : undefined);
 
   // Tab management
   const [activeTab, setActiveTab] = useState('subjects');
@@ -98,8 +101,11 @@ const AcademicDetails: React.FC = () => {
   const [availableSections, setAvailableSections] = useState<any[]>([]);
   const [expandedClass, setExpandedClass] = useState<string>('');
   const [expandedSection, setExpandedSection] = useState<string>('');
+
   const [loading, setLoading] = useState(false);
   const [newSubjectName, setNewSubjectName] = useState('');
+  const [applyToAllClasses, setApplyToAllClasses] = useState(false);
+  const [applyToAllSections, setApplyToAllSections] = useState(false);
 
   // State management for Hall Ticket Generation
   const [hallTicketClass, setHallTicketClass] = useState<string>('');
@@ -198,112 +204,65 @@ const AcademicDetails: React.FC = () => {
   }, [hallTicketClass, hallTicketSection, classesData]);
 
   // Get class list from superadmin configuration and sort in ascending order
-  const classList = (classesData?.classes?.map((c: any) => c.className) || []).sort((a: string, b: string) => {
-    // Convert to numbers for proper numeric sorting
-    const numA = parseInt(a);
-    const numB = parseInt(b);
-
-    // If both are numbers, sort numerically
-    if (!isNaN(numA) && !isNaN(numB)) {
-      return numA - numB;
-    }
-
-    // If one or both are not numbers, sort alphabetically
-    return a.localeCompare(b);
+  const classOrder = ['Nursery', 'LKG', 'UKG', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
+  const sortedClasses = [...(classesData?.classes || [])].sort((a, b) => {
+    return classOrder.indexOf(a.className) - classOrder.indexOf(b.className);
   });
+  const classList = Array.from(new Set(sortedClasses.map(c => c.className)));
+  console.log('📚 Unique Classes sorted in ascending order:', classList);
 
-  // Debug log to verify sorting
-  console.log('📚 Classes sorted in ascending order:', classList);
 
-  // Fetch subjects for all classes
+  // Fetch all class subjects
   const fetchAllClassSubjects = async () => {
-    setLoading(true);
     try {
-      // Get the school code from localStorage or auth context
-      const schoolCode = localStorage.getItem('erp.schoolCode') || user?.schoolCode || '';
+      setLoading(true);
+      const schoolCode = (localStorage.getItem('erp.schoolCode') || user?.schoolCode || '').toUpperCase();
+      const academicYear = normalizeAcademicYear(viewingAcademicYear || currentAcademicYear || getDynamicFallbackYear());
 
-      console.log('Fetching subjects with school code:', schoolCode);
+      console.log('📡 Fetching all class subjects for year:', academicYear, 'school:', schoolCode);
 
-      const response = await api.get('/class-subjects/classes');
-      const data = response.data;
+      const response = await api.get(`/class-subjects/classes`, {
+        params: { academicYear },
+        headers: { 'x-school-code': schoolCode }
+      });
 
-      if (data && data.data && data.data.classes) {
-        setClassSubjects(data.data.classes || []);
+      if (response.data.success && response.data.data?.classes && response.data.data.classes.length > 0) {
+        setClassSubjects(response.data.data.classes);
       } else {
-        // Try direct test endpoints for each class as fallback
-        console.log('Regular API failed, trying direct test endpoints...');
-        await fetchClassesViaDirectEndpoints();
+        // No subjects yet — just clear the list, no need for error
+        setClassSubjects([]);
+        console.log('⚠️ No subjects found for', academicYear, '- list cleared.');
       }
     } catch (error) {
       console.error('Error fetching class subjects:', error);
-      toast.error('Error connecting to server, trying fallback...');
-
-      // Try direct test endpoints for each class as fallback
-      await fetchClassesViaDirectEndpoints();
+      setClassSubjects([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Fallback method to fetch classes via direct test endpoints
-  const fetchClassesViaDirectEndpoints = async () => {
-    try {
-      const schoolCode = localStorage.getItem('erp.schoolCode') || user?.schoolCode || '';
-
-      if (!schoolCode) {
-        toast.error('School code not available');
-        return;
-      }
-
-      console.log('Trying direct endpoints with school code:', schoolCode);
-
-      // Collect results for all classes in parallel
-      const results = await Promise.all(
-        classList.map(async (className) => {
-          try {
-            const response = await api.get(`/direct-test/class-subjects/${className}?schoolCode=${schoolCode}`);
-            const data = response.data;
-
-            if (data && data.data) {
-              return data.data;
-            } else {
-              console.log(`No subjects found for class ${className}`);
-              return null;
-            }
-          } catch (error) {
-            console.error(`Error fetching class ${className}:`, error);
-            return null;
-          }
-        })
-      );
-
-      // Filter out null responses and format
-      const validResults = results.filter(Boolean);
-      setClassSubjects(validResults);
-
-      if (validResults.length > 0) {
-        toast.success(`Found ${validResults.length} classes using fallback method`);
-      } else {
-        toast.error('No class data available');
-      }
-    } catch (error) {
-      console.error('Error in fallback method:', error);
-      toast.error('Failed to fetch class data');
-    }
-  };
 
   useEffect(() => {
-    fetchAllClassSubjects();
-  }, []);
+    if (academicYearReady) {
+      fetchAllClassSubjects();
+    }
+  }, [viewingAcademicYear, currentAcademicYear, academicYearReady]);
+
+  // Auto-fetch subjects for Hall Ticket when selection changes
+  useEffect(() => {
+    if (activeTab === 'hallticket' && hallTicketClass && hallTicketSection && selectedTest) {
+      fetchSubjects();
+    }
+  }, [activeTab, hallTicketClass, hallTicketSection, selectedTest, viewingAcademicYear]);
 
   // Add subject to selected class and section
   const addSubject = async () => {
-    if (!selectedClass) {
+    if (!selectedClass && !applyToAllClasses) {
       toast.error('Please select a class first');
       return;
     }
 
-    if (!selectedSection) {
+    if (!selectedSection && !applyToAllClasses && !applyToAllSections) {
       toast.error('Please select a section first');
       return;
     }
@@ -318,19 +277,26 @@ const AcademicDetails: React.FC = () => {
       let schoolCode = localStorage.getItem('erp.schoolCode') || user?.schoolCode || '';
       schoolCode = schoolCode.toUpperCase(); // <-- CRITICAL FIX: Use UPPERCASE schoolCode for consistent storage
 
-      console.log('Adding subject with school code (UPPERCASE):', schoolCode, 'class:', selectedClass, 'section:', selectedSection);
+      const academicYearToUse = normalizeAcademicYear(viewingAcademicYear || currentAcademicYear || getDynamicFallbackYear());
+
+      console.log('Adding subject with school code (UPPERCASE):', schoolCode, 'class:', selectedClass, 'section:', selectedSection, 'year:', academicYearToUse);
 
       const response = await api.post('/class-subjects/add-subject', {
         className: selectedClass,
         grade: selectedClass,
         section: selectedSection,
         subjectName: newSubjectName.trim(),
-        schoolCode: schoolCode // <-- Pass UPPERCASE schoolCode
+        schoolCode: schoolCode,
+        academicYear: academicYearToUse,
+        applyToAllClasses,
+        applyToAllSections
       });
 
       const data = response.data;
       toast.success(data.message);
       setNewSubjectName('');
+      setApplyToAllClasses(false);
+      setApplyToAllSections(false);
       fetchAllClassSubjects(); // Refresh the list
     } catch (error) {
       console.error('Error adding subject:', error);
@@ -341,13 +307,14 @@ const AcademicDetails: React.FC = () => {
   // Remove subject from class and section
   const removeSubject = async (className: string, section: string, subjectName: string) => {
     try {
-      const schoolCode = localStorage.getItem('erp.schoolCode') || user?.schoolCode || '';
+      const academicYearToUse = normalizeAcademicYear(viewingAcademicYear || currentAcademicYear || getDynamicFallbackYear());
 
       const response = await api.delete('/class-subjects/remove-subject', {
         data: {
           className,
           section,
-          subjectName
+          subjectName,
+          academicYear: academicYearToUse
         }
       });
 
@@ -378,7 +345,7 @@ const AcademicDetails: React.FC = () => {
     const sections = classSubjects
       .filter(cs => cs.className === className)
       .map(cs => cs.section || 'A');
-    return [...new Set(sections)];
+    return Array.from(new Set(sections));
   };
 
   // Toggle class expansion
@@ -475,144 +442,97 @@ const AcademicDetails: React.FC = () => {
   };
 
   const fetchSubjects = async () => {
-    if (!hallTicketClass || !hallTicketSection || !selectedTest) {
-      toast.error('Please select class, section, and test');
-      return;
-    }
+    if (!hallTicketClass || !hallTicketSection) return;
 
     setLoadingSubjects(true);
+    setSubjectExams([]); 
+    
     try {
       const schoolCode = (localStorage.getItem('erp.schoolCode') || user?.schoolCode || '').toUpperCase();
+      const academicYearToUse = normalizeAcademicYear(viewingAcademicYear || currentAcademicYear || getDynamicFallbackYear());
 
-      // Fetch actual subjects from the class-subjects API
+      console.log('📡 Fetching subjects for Hall Ticket:', { hallTicketClass, hallTicketSection, selectedTest, academicYearToUse });
+
+      // 1. Primary API: Get all classes and find the current one
       try {
         const response = await api.get('/class-subjects/classes', {
-          headers: {
-            'x-school-code': schoolCode
-          }
+          params: { academicYear: academicYearToUse },
+          headers: { 'x-school-code': schoolCode }
         });
-        const responseData = response.data;
-        console.log('📥 Class-subjects API response:', responseData);
+        
+        if (response.data?.success && response.data?.data?.classes) {
+          const classData = response.data.data.classes.find((c: any) => {
+            const matchClass = String(c.className).trim() === String(hallTicketClass).trim();
+            const matchSection = (c.section || 'A').toUpperCase() === (hallTicketSection || 'A').toUpperCase();
+            return matchClass && matchSection;
+          });
 
-        if (responseData && responseData.data) {
-
-          // Find the class data for the selected class and section
-          const classData = responseData?.data?.classes?.find((c: any) =>
-            c.className === hallTicketClass && c.section === hallTicketSection
-          );
-
-          if (classData && classData.subjects) {
-            // Filter only active subjects
-            const activeSubjects = classData.subjects.filter((subject: any) => subject.isActive !== false);
-            console.log('🔍 Total subjects:', classData.subjects.length, 'Active subjects:', activeSubjects.length);
-
-            const subjectExamsList: SubjectExam[] = activeSubjects.map((subject: any, index: number) => ({
-              id: `${hallTicketClass}-${hallTicketSection}-${subject.name}-${selectedTest}`,
-              name: subject.name,
-              className: hallTicketClass,
-              section: hallTicketSection,
-              testName: availableTests.find(test => test.id === selectedTest)?.name || 'Test'
-            }));
-
-            setSubjectExams(subjectExamsList);
-
-            // Initialize hall ticket data for each subject
-            const initialData: { [key: string]: HallTicketData } = {};
-            subjectExamsList.forEach(subject => {
-              initialData[subject.id] = {
-                subjectId: subject.id,
-                examDate: '',
-                examTime: '',
-                examHour: '00',
-                examMinute: '00',
-                examAmPm: 'AM',
-                roomNumber: ''
-              };
-            });
-            setHallTicketData(initialData);
-
-            // Also fetch students for this class and section
-            await fetchStudentsForClass();
-
-            toast.success(`Found ${subjectExamsList.length} subjects`);
-            return; // Success, exit the function
-          } else {
-            console.log('❌ No subjects found for class-section combination in primary API');
-            // Don't throw error, let it fall through to fallback
+          if (classData && classData.subjects && classData.subjects.length > 0) {
+            await processSubjectsList(classData.subjects, "Primary API");
+            return;
           }
-        } else {
-          console.log('❌ Primary API response not OK:', response.status);
         }
-      } catch (apiError) {
-        console.log('🔄 Primary API failed, using fallback method...', apiError);
+      } catch (e) {
+        console.log('🔄 Primary subjects API failed or empty, trying fallback...');
       }
 
-      // Fallback to direct endpoint if primary API didn't return data
+      // 2. Fallback API: Direct test endpoint
       try {
-        console.log('🔄 Trying fallback endpoint for subjects...');
         const response = await api.get(`/direct-test/class-subjects/${hallTicketClass}`, {
-          params: { schoolCode },
-          headers: {
-            'x-school-code': schoolCode
-          }
+          params: { schoolCode, academicYear: academicYearToUse },
+          headers: { 'x-school-code': schoolCode }
         });
-        const data = response.data;
-        console.log('📥 Fallback API response:', data);
 
-        if (data && data.data) {
-
-          if (data.data && data.data.subjects && data.data.subjects.length > 0) {
-            const subjectExamsList: SubjectExam[] = data.data.subjects.map((subject: any, index: number) => ({
-              id: `${hallTicketClass}-${hallTicketSection}-${subject.name}-${selectedTest}`,
-              name: subject.name,
-              className: hallTicketClass,
-              section: hallTicketSection,
-              testName: availableTests.find(test => test.id === selectedTest)?.name || 'Test'
-            }));
-
-            setSubjectExams(subjectExamsList);
-
-            // Initialize hall ticket data for each subject
-            const initialData: { [key: string]: HallTicketData } = {};
-            subjectExamsList.forEach(subject => {
-              initialData[subject.id] = {
-                subjectId: subject.id,
-                examDate: '',
-                examTime: '',
-                examHour: '00',
-                examMinute: '00',
-                examAmPm: 'AM',
-                roomNumber: ''
-              };
-            });
-            setHallTicketData(initialData);
-
-            // Also fetch students for this class and section
-            await fetchStudentsForClass();
-
-            toast.success(`Found ${subjectExamsList.length} subjects via fallback`);
-            return; // Success
-          } else {
-            console.log('❌ Fallback API returned no subjects');
-          }
-        } else {
-          console.log('❌ Fallback API response not OK');
+        if (response.data?.success && response.data?.data?.subjects) {
+          await processSubjectsList(response.data.data.subjects, "Fallback API");
+          return;
         }
-      } catch (fallbackError) {
-        console.error('❌ Fallback API also failed:', fallbackError);
+      } catch (e) {
+        console.log('❌ Fallback subjects API failed.');
       }
 
-      // If we reach here, both APIs failed
-      console.log('❌ No subjects found for class-section combination');
-      toast.error(`No subjects configured for Class ${hallTicketClass} Section ${hallTicketSection}. Please add subjects first in the "Class Subjects Management" tab.`);
-      setSubjectExams([]);
-      setHallTicketData({});
+      // If we reach here, no subjects were found
+      toast.error(`No subjects found for Class ${hallTicketClass} Section ${hallTicketSection} in ${academicYearToUse}. Please add subjects first.`);
+      
     } catch (error) {
-      console.error('Error fetching subjects:', error);
+      console.error('Error in fetchSubjects:', error);
       toast.error('Failed to fetch subjects');
     } finally {
       setLoadingSubjects(false);
     }
+  };
+
+  // Helper to process subjects list and fetch students
+  const processSubjectsList = async (subjects: any[], source: string) => {
+    const activeSubjects = subjects.filter((s: any) => s.isActive !== false);
+    
+    if (activeSubjects.length === 0) {
+      toast.error(`All subjects for this class are marked as inactive (${source}).`);
+      return;
+    }
+
+    const subjectExamsList: SubjectExam[] = activeSubjects.map((s: any) => ({
+      id: `${hallTicketClass}-${hallTicketSection}-${s.name}-${selectedTest}`,
+      name: s.name,
+      className: hallTicketClass,
+      section: hallTicketSection,
+      testName: availableTests.find(test => test.id === selectedTest)?.name || 'Test'
+    }));
+
+    setSubjectExams(subjectExamsList);
+
+    // Initialize data
+    const initialData: { [key: string]: HallTicketData } = {};
+    subjectExamsList.forEach(s => {
+      initialData[s.id] = {
+        subjectId: s.id, examDate: '', examTime: '', examHour: '00', examMinute: '00', examAmPm: 'AM', roomNumber: ''
+      };
+    });
+    setHallTicketData(initialData);
+
+    // Also fetch students
+    await fetchStudentsForClass();
+    toast.success(`Found ${subjectExamsList.length} subjects (${source})`);
   };
 
   // --- START OF FIX: fetchStudentsForClass ---
@@ -635,8 +555,10 @@ const AcademicDetails: React.FC = () => {
       }
 
       // CRITICAL FIX 2: Use the selected academic year for filtering students
-      const academicYearToUse = viewingAcademicYear || currentAcademicYear || '2024-25';
-      console.log(`📡 Fetching students for Hall Tickets - Class ${hallTicketClass} Section ${hallTicketSection}, Academic Year: ${academicYearToUse}`);
+      const targetClass = String(hallTicketClass).trim();
+      const targetSection = String(hallTicketSection).trim();
+      const academicYearToUse = normalizeAcademicYear(viewingAcademicYear || currentAcademicYear || getDynamicFallbackYear());
+      console.log(`📡 Fetching students for Hall Tickets - Class ${targetClass} Section ${targetSection}, Academic Year: ${academicYearToUse}`);
 
       let foundStudents: Student[] = [];
 
@@ -691,10 +613,16 @@ const AcademicDetails: React.FC = () => {
 
         const classMatch = String(studentClass).trim() === String(targetClass).trim();
         const sectionMatch = String(studentSection).trim().toUpperCase() === String(targetSection).trim().toUpperCase();
-        const academicYearMatch = String(studentAcademicYear).trim() === String(targetAcademicYear).trim();
+        
+        const normalizedStudentYear = normalizeAcademicYear(String(studentAcademicYear).trim());
+        const normalizedTargetYear = normalizeAcademicYear(String(targetAcademicYear || academicYearToUse).trim());
+        const academicYearMatch = normalizedStudentYear === normalizedTargetYear;
 
         if (!classMatch || !sectionMatch || !academicYearMatch) {
-          console.log(`🚫 Student ${student.name?.displayName || student.userId} filtered out (${apiName}). Class: '${studentClass}' (Req: '${targetClass}'), Section: '${studentSection}' (Req: '${targetSection}'), AcademicYear: '${studentAcademicYear}' (Req: '${targetAcademicYear}')`);
+          if (classMatch && sectionMatch) {
+            console.log(`🚫 Student ${student.name?.displayName || student.userId} filtered out (${apiName}). Year Match: ${academicYearMatch}`);
+            console.log(`🔍 Details - Class: '${studentClass}' vs '${targetClass}', Section: '${studentSection}' vs '${targetSection}', Year: '${studentAcademicYear}' vs '${academicYearToUse}'`);
+          }
         }
 
         return classMatch && sectionMatch && academicYearMatch;
@@ -757,7 +685,13 @@ const AcademicDetails: React.FC = () => {
       } else {
         console.log('⚠️ No students found for the selected class, section and academic year after all attempts.');
         setStudents([]);
-        toast.error(`No students found for Class ${hallTicketClass} Section ${hallTicketSection} in ${academicYearToUse}. Please check student data.`);
+        toast.error(
+          <div>
+            <p className="font-bold">No students found for {academicYearToUse}</p>
+            <p className="text-xs mt-1">Please ensure students are migrated to the current academic year in School Settings.</p>
+          </div>,
+          { duration: 5000 }
+        );
       }
 
     } catch (error: any) {
@@ -781,8 +715,10 @@ const AcademicDetails: React.FC = () => {
       }
 
       // CRITICAL FIX 2: Use the selected academic year for filtering students
-      const academicYearToUse = viewingAcademicYear || currentAcademicYear || '2024-25';
-      console.log(`📡 Fetching students for ID Cards - Class ${idCardClass} Section ${idCardSection}, Academic Year: ${academicYearToUse}`);
+      const targetClass = String(idCardClass).trim();
+      const targetSection = String(idCardSection).trim();
+      const academicYearToUse = normalizeAcademicYear(viewingAcademicYear || currentAcademicYear || getDynamicFallbackYear());
+      console.log(`📡 Fetching students for ID Cards - Class ${targetClass} Section ${targetSection}, Academic Year: ${academicYearToUse}`);
 
       let foundStudents: Student[] = [];
 
@@ -833,12 +769,15 @@ const AcademicDetails: React.FC = () => {
           ''
         );
 
-        const classMatch = String(studentClass).trim() === String(targetClass).trim();
-        const sectionMatch = String(studentSection).trim().toUpperCase() === String(targetSection).trim().toUpperCase();
-        const academicYearMatch = String(studentAcademicYear).trim() === String(targetAcademicYear).trim();
+        const classMatch = String(studentClass).trim() === targetClass;
+        const sectionMatch = String(studentSection).trim().toUpperCase() === targetSection.toUpperCase();
+        const academicYearMatch = normalizeAcademicYear(String(studentAcademicYear).trim()) === academicYearToUse;
 
         if (!classMatch || !sectionMatch || !academicYearMatch) {
-          console.log(`🚫 Student ${student.name?.displayName || student.userId} filtered out (${apiName}). Class: '${studentClass}' (Req: '${targetClass}'), Section: '${studentSection}' (Req: '${targetSection}'), AcademicYear: '${studentAcademicYear}' (Req: '${targetAcademicYear}')`);
+          if (classMatch && sectionMatch) {
+            console.log(`🚫 Student ${student.name?.displayName || student.userId} filtered out (${apiName}). Year Match: ${academicYearMatch}`);
+            console.log(`🔍 Details - Class: '${studentClass}' vs '${targetClass}', Section: '${studentSection}' vs '${targetSection}', Year: '${studentAcademicYear}' vs '${academicYearToUse}'`);
+          }
         }
 
         return classMatch && sectionMatch && academicYearMatch;
@@ -901,7 +840,13 @@ const AcademicDetails: React.FC = () => {
       } else {
         console.log('⚠️ No students found for the selected class, section and academic year after all attempts.');
         setIdCardStudents([]);
-        toast.error(`No students found for Class ${idCardClass} Section ${idCardSection} in ${academicYearToUse}. Please add students to this class first.`);
+        toast.error(
+          <div>
+            <p className="font-bold">No students found for {academicYearToUse}</p>
+            <p className="text-xs mt-1">Please ensure students are migrated to the current academic year in School Settings.</p>
+          </div>,
+          { duration: 5000 }
+        );
       }
     } catch (error: any) {
       console.error('Error in fetchStudentsForIdCards:', error);
@@ -913,11 +858,11 @@ const AcademicDetails: React.FC = () => {
 
   const updateHallTicketData = (subjectId: string, field: 'examDate' | 'examTime' | 'examHour' | 'examMinute' | 'examAmPm' | 'roomNumber', value: string) => {
     setHallTicketData(prev => {
-      const currentData = prev[subjectId] || {};
+      const currentData = prev[subjectId] || { subjectId, examDate: '', examTime: '', examHour: '', examMinute: '', examAmPm: '', roomNumber: '' };
       const updatedData = {
         ...currentData,
         [field]: value
-      };
+      } as HallTicketData;
 
       // Auto-update examTime when hour/minute/ampm changes for backward compatibility
       if (field === 'examHour' || field === 'examMinute' || field === 'examAmPm') {
@@ -1707,18 +1652,33 @@ const AcademicDetails: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* Class Selection */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Select Class <span className="text-red-500">*</span>
-                  </label>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Select Class <span className="text-red-500">*</span>
+                    </label>
+                    <label className="flex items-center text-xs text-blue-600 cursor-pointer hover:text-blue-800">
+                      <input
+                        type="checkbox"
+                        checked={applyToAllClasses}
+                        onChange={(e) => {
+                          setApplyToAllClasses(e.target.checked);
+                          if (e.target.checked) setApplyToAllSections(true);
+                        }}
+                        className="mr-1"
+                      />
+                      for all classes
+                    </label>
+                  </div>
                   <select
                     value={selectedClass}
                     onChange={(e) => setSelectedClass(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    disabled={applyToAllClasses}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
                   >
                     <option value="">Choose a class...</option>
-                    {classList.map(cls => (
-                      <option key={cls} value={cls}>
-                        Class {cls}
+                    {getClassOptions().map(cls => (
+                      <option key={cls.value} value={cls.value}>
+                        {cls.label}
                       </option>
                     ))}
                   </select>
@@ -1726,13 +1686,25 @@ const AcademicDetails: React.FC = () => {
 
                 {/* Section Selection */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Select Section <span className="text-red-500">*</span>
-                  </label>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Select Section <span className="text-red-500">*</span>
+                    </label>
+                    <label className="flex items-center text-xs text-blue-600 cursor-pointer hover:text-blue-800">
+                      <input
+                        type="checkbox"
+                        checked={applyToAllSections}
+                        onChange={(e) => setApplyToAllSections(e.target.checked)}
+                        disabled={applyToAllClasses}
+                        className="mr-1"
+                      />
+                      for all sections
+                    </label>
+                  </div>
                   <select
                     value={selectedSection}
                     onChange={(e) => setSelectedSection(e.target.value)}
-                    disabled={!selectedClass || availableSections.length === 0}
+                    disabled={!selectedClass || availableSections.length === 0 || applyToAllSections || applyToAllClasses}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
                   >
                     <option value="">Choose section...</option>
@@ -1763,7 +1735,12 @@ const AcademicDetails: React.FC = () => {
                 <div className="flex items-end">
                   <button
                     onClick={addSubject}
-                    disabled={!selectedClass || !selectedSection || !newSubjectName.trim()}
+                    disabled={
+                      !newSubjectName.trim() || 
+                      (!applyToAllClasses && !selectedClass) || 
+                      (!applyToAllClasses && !applyToAllSections && !selectedSection) ||
+                      loadingSubjects
+                    }
                     className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
                     <Plus className="h-4 w-4" />
@@ -1782,13 +1759,14 @@ const AcademicDetails: React.FC = () => {
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
                   <p className="text-gray-600 mt-2">Loading classes...</p>
                 </div>
-              ) : classList.length === 0 ? (
+              ) : getClassOptions().length === 0 ? (
                 <div className="text-center py-8">
-                  <p className="text-gray-500">No classes configured. Please contact your super admin.</p>
+                  <p className="text-gray-500">No classes configured for this academic year. Please create classes in Super Admin first.</p>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {classList.map(className => {
+                  {getClassOptions().map(classOpt => {
+                    const className = classOpt.value;
                     const isClassExpanded = expandedClass === className;
                     const classSections = classesData?.sectionsByClass?.[className] || [];
 
@@ -1925,11 +1903,11 @@ const AcademicDetails: React.FC = () => {
                   <p>Selected Test: {selectedTest}</p>
                   <p>Subjects Found: {subjectExams.length}</p>
                 </div>
-                {hallTicketClass && hallTicketSection && subjectExams.length === 0 && (
+                {hallTicketClass && hallTicketSection && selectedTest && !loadingSubjects && subjectExams.length === 0 && (
                   <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded">
                     <p className="text-xs text-red-700">
-                      ⚠️ No subjects found for Class {hallTicketClass} Section {hallTicketSection}.
-                      Please add subjects in the "Class Subjects Management" tab first.
+                      ⚠️ No subjects found for Class {hallTicketClass} Section {hallTicketSection} in {viewingAcademicYear}.
+                      Please add subjects in the "Class Subjects Management" tab first for this specific academic year.
                     </p>
                     <p className="text-xs text-red-600 mt-1">
                       💡 Available classes in database: Check console for details
@@ -2408,7 +2386,6 @@ const AcademicDetails: React.FC = () => {
             )}
           </div>
         )}
-
       </div>
     </div>
   );

@@ -6,6 +6,7 @@ import { useAcademicYear } from '../../../contexts/AcademicYearContext';
 import { useSchoolClasses } from '../../../hooks/useSchoolClasses';
 import api from '../../../api/axios';
 import { Calendar, Users, Search, Sun, Moon, CheckCircle, XCircle, AlertCircle, Clock } from 'lucide-react';
+import { normalizeAcademicYear } from '../../../utils/academicYearUtils';
 
 interface Student {
   _id: string;
@@ -66,7 +67,7 @@ const ViewAttendanceRecords: React.FC = () => {
     if (selectedClass && selectedSection) {
       fetchStudentsAndAttendance();
     }
-  }, [selectedClass, selectedSection, selectedDate, session]);
+  }, [selectedClass, selectedSection, selectedDate, session, viewingAcademicYear]);
 
   useEffect(() => {
     filterStudents();
@@ -131,7 +132,9 @@ const ViewAttendanceRecords: React.FC = () => {
                                    u.academicYear ||
                                    u.academicInfo?.academicYear;
         // If academic year is not set, don't filter it out (allow it through)
-        const matchesAcademicYear = !studentAcademicYear || String(studentAcademicYear).trim() === String(viewingAcademicYear).trim();
+        const normalizedStudentYear = normalizeAcademicYear(String(studentAcademicYear || '').trim());
+        const normalizedTargetYear = normalizeAcademicYear(String(viewingAcademicYear || '').trim());
+        const matchesAcademicYear = !studentAcademicYear || normalizedStudentYear === normalizedTargetYear;
         
         return isStudent && matchesClass && matchesSection && matchesAcademicYear;
       });
@@ -266,7 +269,9 @@ const ViewAttendanceRecords: React.FC = () => {
                                    u.academicYear ||
                                    u.academicInfo?.academicYear;
         // If academic year is not set, don't filter it out (allow it through)
-        const matchesAcademicYear = !studentAcademicYear || String(studentAcademicYear).trim() === String(viewingAcademicYear).trim();
+        const normalizedStudentYear = normalizeAcademicYear(String(studentAcademicYear || '').trim());
+        const normalizedTargetYear = normalizeAcademicYear(String(viewingAcademicYear || '').trim());
+        const matchesAcademicYear = !studentAcademicYear || normalizedStudentYear === normalizedTargetYear;
         
         return isStudent && matchesClass && matchesSection && matchesAcademicYear;
       });

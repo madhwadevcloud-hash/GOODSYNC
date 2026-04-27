@@ -36,6 +36,7 @@ exports.getSchoolClasses = async (req, res) => {
     // Get school database connection
     const schoolConnection = await getSchoolConnectionWithFallback(school.code);
     const classesCollection = schoolConnection.collection('classes');
+    const studentsCollection = schoolConnection.collection('students');
 
     // Fetch all classes
     const classes = await classesCollection.find({
@@ -43,16 +44,38 @@ exports.getSchoolClasses = async (req, res) => {
       isActive: true
     }).toArray();
 
-    // Transform classes to new structure
-    const transformedClasses = classes.map(cls => ({
-      _id: cls._id,
-      className: cls.className,
-      sections: cls.sections || [], // Array of sections
-      academicYear: cls.academicYear,
-      createdAt: cls.createdAt,
-      classTeacher: cls.classTeacher,
-      studentCount: cls.students ? cls.students.length : 0
-    }));
+    // Fetch all active students once for efficient counting
+    const allStudents = await studentsCollection.find({ isActive: true }).toArray();
+
+    // Transform classes to new structure with accurate student counts
+    const transformedClasses = classes.map(cls => {
+      const classStudents = allStudents.filter(s => {
+        const studentClass = s.studentDetails?.academic?.currentClass || 
+                            s.studentDetails?.currentClass || 
+                            s.class;
+        const studentYear = s.studentDetails?.academic?.academicYear || 
+                           s.studentDetails?.academicYear || 
+                           s.academicYear;
+        
+        // Match class name and academic year
+        const classMatch = String(studentClass || '').trim() === String(cls.className || '').trim();
+        const yearMatch = !cls.academicYear || 
+                         !studentYear || 
+                         String(studentYear).trim() === String(cls.academicYear).trim();
+        
+        return classMatch && yearMatch;
+      });
+
+      return {
+        _id: cls._id,
+        className: cls.className,
+        sections: cls.sections || [],
+        academicYear: cls.academicYear,
+        createdAt: cls.createdAt,
+        classTeacher: cls.classTeacher,
+        studentCount: classStudents.length
+      };
+    });
 
     res.json({
       success: true,
@@ -79,7 +102,7 @@ exports.getSchoolClasses = async (req, res) => {
 exports.addClass = async (req, res) => {
   try {
     const { schoolId } = req.params;
-    const { className, academicYear = '2024-25' } = req.body;
+    const { className, academicYear = require('../utils/dateUtils').getDefaultAcademicYear() } = req.body;
 
     // Validate input
     if (!className) {

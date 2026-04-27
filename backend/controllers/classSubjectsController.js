@@ -31,7 +31,10 @@ const addSubjectToClass = async (req, res) => {
       section = 'A',
       subjectName,
       teacherId = null,
-      teacherName = null
+      teacherName = null,
+      academicYear = require('../utils/dateUtils').getDefaultAcademicYear(),
+      applyToAllClasses = false,
+      applyToAllSections = false
     } = req.body;
 
     let schoolCode = req.user.schoolCode;
@@ -39,11 +42,11 @@ const addSubjectToClass = async (req, res) => {
     const userId = req.user.userId;
 
     // Validate required fields
-    if (!className || !grade || !subjectName) {
-      console.log(`[ADD SUBJECT] Validation failed:`, { className, grade, subjectName });
+    if (!subjectName || (!applyToAllClasses && (!className || !grade))) {
+      console.log(`[ADD SUBJECT] Validation failed:`, { className, grade, subjectName, applyToAllClasses });
       return res.status(400).json({
         success: false,
-        message: 'Class name, grade, and subject name are required'
+        message: 'Subject name is required, and class/grade are required if not applying to all classes'
       });
     }
 
@@ -80,48 +83,151 @@ const addSubjectToClass = async (req, res) => {
         try {
           const SchoolClassSubjects = ClassSubjectsSimple.getModelForConnection(schoolConn);
 
-          // Find or create the class on the school's DB
-          let classSubjects = null;
-          try {
-            classSubjects = await SchoolClassSubjects.findOne({
-              schoolCode,
-              className,
-              section,
-              academicYear: '2024-25',
-              isActive: true
+          // Logic to determine which classes/sections to add the subject to
+          let targetClasses = [];
+
+          if (applyToAllClasses) {
+            // Fetch all active classes for this school and academic year
+            const classesCollection = schoolConn.collection('classes');
+            let allClasses = await classesCollection.find({ 
+              isActive: true,
+              academicYear: academicYear,
+              $or: [{ schoolCode: schoolCode }, { schoolId: schoolId.toString() }]
+            }).toArray();
+
+            console.log(`[ADD SUBJECT] Found ${allClasses.length} classes for ${academicYear}`);
+
+            // SMART INHERIT: If no classes found for target year, find latest available
+            if (allClasses.length === 0) {
+              console.log(`💡 Auto-adjusting: No classes for ${academicYear}, searching previous year...`);
+              const latestClasses = await classesCollection.find({
+                isActive: true,
+                $or: [{ schoolCode: schoolCode }, { schoolId: schoolId.toString() }]
+              }).sort({ academicYear: -1 }).toArray();
+
+              if (latestClasses.length > 0) {
+                const latestYear = latestClasses[0].academicYear;
+                allClasses = latestClasses.filter(c => c.academicYear === latestYear);
+                console.log(`✨ Found structure from ${latestYear}. Auto-migrating ${allClasses.length} classes.`);
+                
+                // Perform implicit migration of classes
+                const migratedClasses = allClasses.map(cls => {
+                  const { _id, ...rest } = cls;
+                  return {
+                    ...rest,
+                    academicYear: academicYear,
+                    createdAt: new Date(),
+                    updatedAt: new Date()
+                  };
+                });
+                await classesCollection.insertMany(migratedClasses);
+                // Use the new year's instances
+                allClasses = await classesCollection.find({ 
+                  academicYear: academicYear,
+                  $or: [{ schoolCode: schoolCode }, { schoolId: schoolId.toString() }]
+                }).toArray();
+              }
+            }
+            
+            // Map to the format we need
+            targetClasses = allClasses.flatMap(cls => {
+              const sectionsToUse = (cls.sections && cls.sections.length > 0) ? cls.sections : ['A'];
+              return sectionsToUse.map(sec => ({
+                className: cls.className,
+                grade: cls.grade || cls.className,
+                section: sec
+              }));
+            });
+          } else if (applyToAllSections) {
+            // Fetch all sections for this specific class
+            const classesCollection = schoolConn.collection('classes');
+            let targetClassDoc = await classesCollection.findOne({ 
+              isActive: true,
+              className: className,
+              academicYear: academicYear,
+              $or: [{ schoolCode: schoolCode }, { schoolId: schoolId.toString() }]
             });
 
-            console.log(`[ADD SUBJECT] Class exists:`, !!classSubjects);
+            // SMART INHERIT: If class not found for target year, find latest available
+            if (!targetClassDoc) {
+              console.log(`💡 Auto-adjusting Class ${className}: Not found in ${academicYear}, searching previous year...`);
+              const latestClassDoc = await classesCollection.findOne({
+                isActive: true,
+                className: className,
+                $or: [{ schoolCode: schoolCode }, { schoolId: schoolId.toString() }]
+              }, { sort: { academicYear: -1 } });
 
-            if (!classSubjects) {
-              // Use static helper of the model if available, otherwise create directly
-              if (typeof SchoolClassSubjects.findOrCreateClass === 'function') {
-                classSubjects = await SchoolClassSubjects.findOrCreateClass({
-                  className,
-                  grade,
-                  section,
-                  schoolCode,
-                  schoolId,
-                  createdBy: userId
-                });
-              } else {
-                classSubjects = new SchoolClassSubjects({
-                  className,
-                  grade,
-                  section,
-                  schoolCode,
-                  schoolId,
-                  academicYear: '2024-25',
-                  subjects: [],
-                  createdBy: userId,
-                  lastModifiedBy: userId
-                });
-                await classSubjects.save();
+              if (latestClassDoc) {
+                console.log(`✨ Found Class ${className} in ${latestClassDoc.academicYear}. Auto-migrating.`);
+                const { _id, ...rest } = latestClassDoc;
+                const newClassDoc = {
+                  ...rest,
+                  academicYear: academicYear,
+                  createdAt: new Date(),
+                  updatedAt: new Date()
+                };
+                const result = await classesCollection.insertOne(newClassDoc);
+                targetClassDoc = { ...newClassDoc, _id: result.insertedId };
               }
             }
 
-            // Add the subject (simplified - just name and optional teacher info)
+            if (targetClassDoc && targetClassDoc.sections && targetClassDoc.sections.length > 0) {
+              targetClasses = targetClassDoc.sections.map(sec => ({
+                className,
+                grade,
+                section: sec
+              }));
+            } else {
+              targetClasses = [{ className, grade, section }];
+            }
+          } else {
+            targetClasses = [{ className, grade, section }];
+          }
+
+          console.log(`[ADD SUBJECT] Applying to ${targetClasses.length} target classes/sections`);
+
+          const processResults = [];
+
+          for (const target of targetClasses) {
             try {
+              // Find or create the class on the school's DB
+              let classSubjects = await SchoolClassSubjects.findOne({
+                schoolCode,
+                className: target.className,
+                section: target.section,
+                academicYear: academicYear,
+                isActive: true
+              });
+
+              if (!classSubjects) {
+                // Use static helper of the model if available, otherwise create directly
+                if (typeof SchoolClassSubjects.findOrCreateClass === 'function') {
+                  classSubjects = await SchoolClassSubjects.findOrCreateClass({
+                    className: target.className,
+                    grade: target.grade,
+                    section: target.section,
+                    schoolCode,
+                    schoolId,
+                    academicYear, // Pass academic year to helper
+                    createdBy: userId
+                  });
+                } else {
+                  classSubjects = new SchoolClassSubjects({
+                    className: target.className,
+                    grade: target.grade,
+                    section: target.section,
+                    schoolCode,
+                    schoolId,
+                    academicYear: academicYear,
+                    subjects: [],
+                    createdBy: userId,
+                    lastModifiedBy: userId
+                  });
+                  await classSubjects.save();
+                }
+              }
+
+              // Add the subject
               classSubjects.addSubject({
                 name: subjectName,
                 teacherId,
@@ -129,47 +235,25 @@ const addSubjectToClass = async (req, res) => {
               });
 
               classSubjects.lastModifiedBy = userId;
-
-              try {
-                await classSubjects.save();
-
-                console.log(`[ADD SUBJECT] Subject added successfully:`, { className, subjectName });
-
-                res.status(200).json({
-                  success: true,
-                  message: `Subject "${subjectName}" added to ${className} successfully`,
-                  data: {
-                    classId: classSubjects._id,
-                    className: classSubjects.className,
-                    grade: classSubjects.grade,
-                    section: classSubjects.section,
-                    totalSubjects: classSubjects.totalSubjects,
-                    subjects: classSubjects.getActiveSubjects()
-                  }
-                });
-              } catch (saveError) {
-                console.error(`[ADD SUBJECT] Error saving class:`, saveError);
-                return res.status(500).json({
-                  success: false,
-                  message: 'Error saving subject to class',
-                  error: saveError.message
-                });
-              }
-            } catch (addSubjectError) {
-              console.error(`[ADD SUBJECT] Error adding subject to class:`, addSubjectError);
-              return res.status(400).json({
-                success: false,
-                message: addSubjectError.message || 'Error adding subject to class'
-              });
+              await classSubjects.save();
+              processResults.push({ success: true, target: `${target.className}-${target.section}` });
+            } catch (err) {
+              console.error(`[ADD SUBJECT] Error for ${target.className}-${target.section}:`, err.message);
+              processResults.push({ success: false, target: `${target.className}-${target.section}`, error: err.message });
             }
-          } catch (findClassError) {
-            console.error(`[ADD SUBJECT] Error finding/creating class:`, findClassError);
-            return res.status(500).json({
-              success: false,
-              message: 'Database error while finding or creating class',
-              error: findClassError.message
-            });
           }
+
+          const successful = processResults.filter(r => r.success).length;
+          
+          res.status(200).json({
+            success: true,
+            message: `Subject "${subjectName}" processed for ${successful} of ${processResults.length} classes/sections`,
+            data: {
+              processed: processResults,
+              subjectName
+            }
+          });
+
         } catch (modelError) {
           console.error(`[ADD SUBJECT] Error getting model for connection:`, modelError);
           return res.status(500).json({
@@ -211,7 +295,7 @@ const addSubjectToClass = async (req, res) => {
  */
 const removeSubjectFromClass = async (req, res) => {
   try {
-    const { className, subjectName } = req.body;
+    const { className, subjectName, section = 'A', academicYear = require('../utils/dateUtils').getDefaultAcademicYear() } = req.body;
     let schoolCode = req.user.schoolCode;
     schoolCode = schoolCode.toUpperCase(); // <-- CRITICAL FIX: Store UPPERCASE schoolCode for consistent querying
     const userId = req.user.userId;
@@ -232,6 +316,8 @@ const removeSubjectFromClass = async (req, res) => {
     const classSubjects = await SchoolClassSubjects.findOne({
       schoolCode,
       className,
+      section,
+      academicYear,
       isActive: true
     });
 
@@ -298,7 +384,7 @@ const getAllClassesWithSubjects = async (req, res) => {
 
     let schoolCode = req.user.schoolCode;
     schoolCode = schoolCode.toUpperCase(); // <-- CRITICAL FIX: Store UPPERCASE schoolCode for consistent querying
-    const { academicYear = '2024-25' } = req.query;
+    const { academicYear = require('../utils/dateUtils').getDefaultAcademicYear() } = req.query;
 
     console.log(`[GET ALL CLASSES] Looking for classes in school: ${schoolCode}, academic year: ${academicYear}`);
 
@@ -318,7 +404,23 @@ const getAllClassesWithSubjects = async (req, res) => {
         const SchoolClassSubjects = ClassSubjectsSimple.getModelForConnection(schoolConn);
 
         try {
-          const classes = await SchoolClassSubjects.getAllClasses(schoolCode, academicYear);
+          let classes = await SchoolClassSubjects.getAllClasses(schoolCode, academicYear);
+
+          // --- SMART INHERIT FALLBACK ---
+          if (classes.length === 0 && academicYear) {
+            console.log(`💡 No subjects found for ${academicYear}, searching for latest available year...`);
+            // Find all subject assignments for this school
+            const allAssignments = await SchoolClassSubjects.find({
+              schoolCode: schoolCode,
+              isActive: true
+            }).sort({ academicYear: -1 }).exec();
+
+            if (allAssignments.length > 0) {
+              const latestYear = allAssignments[0].academicYear;
+              console.log(`✨ Found subjects in ${latestYear}. Inheriting for ${academicYear}.`);
+              classes = allAssignments.filter(a => a.academicYear === latestYear);
+            }
+          }
 
           console.log(`[GET ALL CLASSES] Found ${classes.length} classes for school: ${schoolCode}`);
 
@@ -394,7 +496,7 @@ const getSubjectsForClass = async (req, res) => {
 
     const { className } = req.params;
     const schoolCode = req.user.schoolCode;
-    const { academicYear = '2024-25', section } = req.query;
+    const { academicYear = require('../utils/dateUtils').getDefaultAcademicYear(), section } = req.query;
 
     console.log(`[GET CLASS SUBJECTS] Fetching subjects for class: ${className}, section: ${section || 'ALL'}, academicYear: ${academicYear}`);
 
@@ -502,7 +604,7 @@ const getSubjectsByGradeSection = async (req, res) => {
   try {
     const { grade, section } = req.params;
     const schoolCode = req.user.schoolCode;
-    const { academicYear = '2024-25' } = req.query;
+    const { academicYear = require('../utils/dateUtils').getDefaultAcademicYear() } = req.query;
 
     const schoolConn = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
     const SchoolClassSubjects = ClassSubjectsSimple.getModelForConnection(schoolConn);
@@ -628,7 +730,8 @@ const bulkAddSubjectsToClass = async (req, res) => {
       className,
       grade,
       section = 'A',
-      subjects
+      subjects,
+      academicYear = require('../utils/dateUtils').getDefaultAcademicYear()
     } = req.body;
 
     const schoolCode = req.user.schoolCode;
@@ -673,6 +776,7 @@ const bulkAddSubjectsToClass = async (req, res) => {
       section,
       schoolCode,
       schoolId,
+      academicYear,
       createdBy: userId
     });
 
@@ -745,7 +849,7 @@ const initializeBasicSubjects = async (req, res) => {
       });
     }
 
-    const { className, grade, section = 'A' } = req.body;
+    const { className, grade, section = 'A', academicYear = require('../utils/dateUtils').getDefaultAcademicYear() } = req.body;
     const schoolCode = req.user.schoolCode;
     const userId = req.user.userId;
 
@@ -777,7 +881,7 @@ const initializeBasicSubjects = async (req, res) => {
         schoolCode,
         className,
         section,
-        academicYear: '2024-25',
+        academicYear,
         isActive: true
       });
 
@@ -812,7 +916,7 @@ const initializeBasicSubjects = async (req, res) => {
           schoolCode,
           className,
           section,
-          academicYear: '2024-25'
+          academicYear
         },
         {
           $setOnInsert: {
@@ -821,7 +925,7 @@ const initializeBasicSubjects = async (req, res) => {
             grade,
             section,
             schoolId,
-            academicYear: '2024-25',
+            academicYear,
             isActive: true,
             createdBy: userId,
             createdAt: new Date()

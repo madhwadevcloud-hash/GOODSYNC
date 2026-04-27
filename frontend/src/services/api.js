@@ -390,7 +390,7 @@ export const messagesAPI = {
 
 // Classes API - Uses different endpoints based on user role
 export const classesAPI = {
-  getSchoolClasses: (schoolCode) => {
+  getSchoolClasses: (schoolCode, params = {}) => {
     // Get the token from localStorage to check user role
     const authData = localStorage.getItem('erp.auth');
     let isSuperAdmin = false;
@@ -407,10 +407,10 @@ export const classesAPI = {
     // Use superadmin endpoint for superadmins, regular endpoint for others
     const endpoint = isSuperAdmin
       ? `/superadmin/classes/schools/${schoolCode}/classes`
-      : `/schools/${schoolCode}/classes`;
+      : `/admin/classes/${schoolCode}/classes-sections`;
 
-    console.log(`🔍 [classesAPI] Using endpoint: ${endpoint}`);
-    return api.get(endpoint);
+    console.log(`🔍 [classesAPI] Using endpoint: ${endpoint} with params:`, params);
+    return api.get(endpoint, { params });
   },
 
   getSectionsForClass: (schoolCode, classId) => {
@@ -430,7 +430,7 @@ export const classesAPI = {
     // Use superadmin endpoint for superadmins, regular endpoint for others
     const endpoint = isSuperAdmin
       ? `/superadmin/classes/schools/${schoolCode}/classes/${classId}/sections`
-      : `/schools/${schoolCode}/classes/${classId}/sections`;
+      : `/admin/classes/${schoolCode}/classes/${classId}/sections`;
 
     console.log(`🔍 [classesAPI] Using endpoint: ${endpoint}`);
     return api.get(endpoint);

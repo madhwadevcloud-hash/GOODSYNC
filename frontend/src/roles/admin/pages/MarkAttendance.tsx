@@ -6,6 +6,7 @@ import { useAcademicYear } from '../../../contexts/AcademicYearContext';
 import { useSchoolClasses } from '../../../hooks/useSchoolClasses'; // Import the hook
 import api from '../../../api/axios';
 import { Save, Calendar, Users, UserCheck, UserX, Search, Clock, Sun, Moon, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { normalizeAcademicYear } from '../../../utils/academicYearUtils';
 
 interface Student {
   _id: string;
@@ -79,7 +80,7 @@ const MarkAttendance: React.FC = () => {
     } else {
       setStudents([]);
     }
-  }, [selectedClass, selectedSection, token, user?.schoolCode]);
+  }, [selectedClass, selectedSection, token, user?.schoolCode, viewingAcademicYear]);
 
   // Check session status when date or session changes
   useEffect(() => {
@@ -204,7 +205,9 @@ const MarkAttendance: React.FC = () => {
                                    u.academicYear ||
                                    u.academicInfo?.academicYear;
         // If academic year is not set, don't filter it out (allow it through)
-        const matchesAcademicYear = !studentAcademicYear || String(studentAcademicYear).trim() === String(viewingAcademicYear).trim();
+        const normalizedStudentYear = normalizeAcademicYear(String(studentAcademicYear || '').trim());
+        const normalizedTargetYear = normalizeAcademicYear(String(viewingAcademicYear || '').trim());
+        const matchesAcademicYear = !studentAcademicYear || normalizedStudentYear === normalizedTargetYear;
         
         return isStudent && matchesClass && matchesSection && matchesAcademicYear;
       });

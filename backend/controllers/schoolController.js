@@ -1881,6 +1881,75 @@ exports.getSchoolInfoFromDatabase = async (req, res) => {
   }
 };
 
+// Get school profile for the current logged-in user or requested via header
+exports.getSchoolProfile = async (req, res) => {
+  try {
+    const schoolCode = req.headers['x-school-code'] || req.user.schoolCode;
+    
+    if (!schoolCode) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'School code is required' 
+      });
+    }
+
+    // Security check: Only allow access to the user's own school unless superadmin
+    if (req.user.role !== 'superadmin' && schoolCode.toUpperCase() !== req.user.schoolCode.toUpperCase()) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Access denied: You can only view your own school profile' 
+      });
+    }
+
+    const school = await School.findOne({ code: schoolCode.toUpperCase() });
+    
+    if (!school) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'School profile not found' 
+      });
+    }
+
+    // Return structured data including 'logo' field for frontend compatibility
+    res.json({
+      success: true,
+      data: {
+        _id: school._id,
+        name: school.name,
+        code: school.code,
+        schoolName: school.name,
+        schoolCode: school.code,
+        address: school.address,
+        contact: school.contact,
+        principalName: school.principalName,
+        principalEmail: school.principalEmail,
+        mobile: school.mobile,
+        bankDetails: school.bankDetails,
+        settings: school.settings,
+        features: school.features,
+        stats: school.stats,
+        schoolType: school.schoolType,
+        establishedYear: school.establishedYear,
+        affiliationBoard: school.affiliationBoard,
+        website: school.website,
+        secondaryContact: school.secondaryContact,
+        logoUrl: school.logoUrl,
+        logo: school.logoUrl, // Alias for frontend compatibility
+        isActive: school.isActive,
+        createdAt: school.createdAt,
+        updatedAt: school.updatedAt
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching school profile:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error fetching school profile', 
+      error: error.message 
+    });
+  }
+};
+
 // Fix corrupted school data (utility endpoint)
 exports.fixSchoolData = async (req, res) => {
   try {

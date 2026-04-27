@@ -23,7 +23,7 @@ exports.getAcademicYear = async (req, res) => {
     console.log(`📅 [ACADEMIC YEAR] Found school: ${school.name} (${school.code})`);
 
     const academicYear = school.settings?.academicYear || {
-      currentYear: '2024-2025',
+      currentYear: '2024-25',
       startDate: new Date('2024-04-01'),
       endDate: new Date('2025-03-31')
     };

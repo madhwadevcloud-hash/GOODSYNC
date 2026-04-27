@@ -2139,43 +2139,59 @@ exports.getUsersByRole = async (req, res) => {
     // Filter by class, section, and academic year if provided (for students)
     if (role === 'student' && (className || section || academicYear)) {
       const normalizedFilterAY = normalizeAcademicYear(academicYear);
-      console.log(`🔍 Filtering students by class: ${className}, section: ${section}, academicYear: ${academicYear} (normalized: ${normalizedFilterAY})`);
-      console.log(`📚 Total students before filtering: ${users.length}`);
+      console.log(`🔍 Filtering ${users.length} students by class: ${className}, section: ${section}, academicYear: ${academicYear} (normalized: ${normalizedFilterAY})`);
 
       users = users.filter(user => {
-        // Check multiple possible field structures for class and section
-        const userClass = user.academicInfo?.class ||
-          user.studentDetails?.class ||
-          user.studentDetails?.currentClass ||  // Added currentClass
+        // Extract class from multiple possible locations
+        const userClass = String(
           user.studentDetails?.academic?.currentClass ||
-          user.class;
-        const userSection = user.academicInfo?.section ||
-          user.studentDetails?.section ||
-          user.studentDetails?.currentSection ||  // Added currentSection
-          user.studentDetails?.academic?.currentSection ||
-          user.section;
+          user.studentDetails?.currentClass ||
+          user.academicInfo?.class ||
+          user.studentDetails?.class ||
+          user.class ||
+          ''
+        ).trim();
 
-        // Check academic year field - check multiple locations
-        const userAcademicYear = user.studentDetails?.academic?.academicYear ||
+        // Extract section from multiple possible locations
+        const userSection = String(
+          user.studentDetails?.academic?.currentSection ||
+          user.studentDetails?.currentSection ||
+          user.academicInfo?.section ||
+          user.studentDetails?.section ||
+          user.section ||
+          ''
+        ).trim();
+
+        // Extract academic year from multiple possible locations
+        const userAcademicYear = String(
+          user.studentDetails?.academic?.academicYear ||
           user.studentDetails?.academicYear ||
-          user.academicYear;
+          user.academicInfo?.academicYear ||
+          user.academicYear ||
+          ''
+        ).trim();
 
         const normalizedUserAY = normalizeAcademicYear(userAcademicYear);
 
-        console.log(`👤 Student ${user.userId}: class=${userClass}, section=${userSection}, academicYear=${userAcademicYear} (normalized: ${normalizedUserAY}) | filtering by: ${normalizedFilterAY}`);
-
-        const classMatch = !className || userClass === className;
-        const sectionMatch = !section || userSection === section;
+        const classMatch = !className || userClass === String(className).trim();
+        const sectionMatch = !section || userSection.toUpperCase() === String(section).trim().toUpperCase();
+        
+        // Year match is only enforced if academicYear is provided in query
         const academicYearMatch = !academicYear || normalizedUserAY === normalizedFilterAY;
 
-        if (!academicYearMatch && academicYear) {
-          console.log(`   ❌ EXCLUDED - AY mismatch: student has "${userAcademicYear}" (normalized: ${normalizedUserAY}), filtering for "${academicYear}" (normalized: ${normalizedFilterAY})`);
+        // Verbose logging for mismatches to help debugging
+        if (className && !classMatch) {
+          // Skip logging every mismatch to avoid spam, but useful for one-off checks
+        }
+
+        if (academicYear && !academicYearMatch && classMatch && sectionMatch) {
+          console.log(`   ❌ Student ${user.userId} excluded by year: has "${userAcademicYear}" (norm: ${normalizedUserAY}), requested "${academicYear}" (norm: ${normalizedFilterAY})`);
         }
 
         return classMatch && sectionMatch && academicYearMatch;
       });
 
-      console.log(`📊 Filtered to ${users.length} students for class: ${className}, section: ${section}, academicYear: ${academicYear}`);
+      console.log(`📊 Filtered to ${users.length} students`);
     }
 
     console.log(`✅ Found ${users.length} ${role}s in school ${schoolCode}`);

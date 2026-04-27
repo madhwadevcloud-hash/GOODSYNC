@@ -7,6 +7,7 @@ interface AcademicYearContextType {
   academicYearStart: string;
   academicYearEnd: string;
   loading: boolean;
+  ready: boolean; // True once the year has been fetched from the server
   error: string | null;
   isViewingHistoricalYear: boolean; // True if viewing a past year
   refreshAcademicYear: () => Promise<void>;
@@ -30,11 +31,12 @@ interface AcademicYearProviderProps {
 }
 
 export const AcademicYearProvider: React.FC<AcademicYearProviderProps> = ({ children, schoolCode }) => {
-  const [currentAcademicYear, setCurrentAcademicYear] = useState<string>('2024-2025');
-  const [viewingAcademicYear, setViewingAcademicYear] = useState<string>('2024-2025');
-  const [academicYearStart, setAcademicYearStart] = useState<string>('2024-04-01');
-  const [academicYearEnd, setAcademicYearEnd] = useState<string>('2025-03-31');
+  const [currentAcademicYear, setCurrentAcademicYear] = useState<string>('');
+  const [viewingAcademicYear, setViewingAcademicYear] = useState<string>('');
+  const [academicYearStart, setAcademicYearStart] = useState<string>('');
+  const [academicYearEnd, setAcademicYearEnd] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
+  const [ready, setReady] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [availableYears, setAvailableYears] = useState<string[]>([]);
 
@@ -56,6 +58,7 @@ export const AcademicYearProvider: React.FC<AcademicYearProviderProps> = ({ chil
       if (!code) {
         console.warn('No school code available for fetching academic year');
         setLoading(false);
+        setReady(true); // Unblock downstream even if no code found yet
         return;
       }
 
@@ -67,21 +70,30 @@ export const AcademicYearProvider: React.FC<AcademicYearProviderProps> = ({ chil
 
       if (response.data.success) {
         const { currentYear, startDate, endDate } = response.data.data;
-        setCurrentAcademicYear(currentYear || '2024-2025');
-        setViewingAcademicYear(currentYear || '2024-2025'); // Default to current year
-        setAcademicYearStart(startDate ? startDate.split('T')[0] : '2024-04-01');
-        setAcademicYearEnd(endDate ? endDate.split('T')[0] : '2025-03-31');
+        const resolvedYear = currentYear || '2025-26';
+        setCurrentAcademicYear(resolvedYear);
+        setViewingAcademicYear(resolvedYear); // Default to current year
+        setAcademicYearStart(startDate ? startDate.split('T')[0] : '');
+        setAcademicYearEnd(endDate ? endDate.split('T')[0] : '');
         
         // Generate available years (current year + 2 previous years)
-        const years = generateAvailableYears(currentYear || '2024-2025');
+        const years = generateAvailableYears(resolvedYear);
         setAvailableYears(years);
+        setReady(true);
         
-        console.log(`✅ Academic year loaded: ${currentYear}`);
+        console.log(`✅ Academic year loaded: ${resolvedYear}`);
       }
     } catch (err: any) {
       console.error('Error fetching academic year:', err);
       setError(err.message || 'Failed to fetch academic year');
-      // Keep default values on error
+      // Fallback to a sensible default so downstream hooks don't wait forever
+      if (!currentAcademicYear) {
+        const fallback = '2025-26';
+        setCurrentAcademicYear(fallback);
+        setViewingAcademicYear(fallback);
+        setAvailableYears(generateAvailableYears(fallback));
+      }
+      setReady(true); // Unblock downstream even on error
     } finally {
       setLoading(false);
     }
@@ -100,7 +112,7 @@ export const AcademicYearProvider: React.FC<AcademicYearProviderProps> = ({ chil
     console.log(`📅 Switched to viewing academic year: ${year}`);
   };
 
-  const isViewingHistoricalYear = viewingAcademicYear !== currentAcademicYear;
+  const isViewingHistoricalYear = !!(viewingAcademicYear && currentAcademicYear && viewingAcademicYear !== currentAcademicYear);
 
   // Helper function to generate available years
   const generateAvailableYears = (currentYear: string): string[] => {
@@ -143,6 +155,7 @@ export const AcademicYearProvider: React.FC<AcademicYearProviderProps> = ({ chil
         academicYearStart,
         academicYearEnd,
         loading,
+        ready,
         error,
         isViewingHistoricalYear,
         refreshAcademicYear,

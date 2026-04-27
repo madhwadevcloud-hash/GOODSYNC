@@ -1,5 +1,6 @@
 const DatabaseManager = require('../utils/databaseManager');
 const { gradeSystem, gradeUtils } = require('../utils/gradeSystem');
+const { getDefaultAcademicYear } = require('../utils/dateUtils');
 
 // Create a new subject with grade assignments
 const createSubject = async (req, res) => {
@@ -34,8 +35,10 @@ const createSubject = async (req, res) => {
     const existingSubject = await Subject.findOne({
       schoolCode,
       subjectCode: subjectCode.toUpperCase(),
-      academicYear: req.body.academicYear || '2024-25'
+      academicYear: req.body.academicYear || getDefaultAcademicYear()
     });
+// ... and so on ...
+    const academicYear = req.body.academicYear || getDefaultAcademicYear();
 
     if (existingSubject) {
       return res.status(400).json({
@@ -70,7 +73,7 @@ const createSubject = async (req, res) => {
       curriculum,
       resources,
       assessmentConfig,
-      academicYear: req.body.academicYear || '2024-25',
+      academicYear: req.body.academicYear || getDefaultAcademicYear(),
       createdBy: req.user._id
     };
 
@@ -318,7 +321,7 @@ const getSubjectsByGrade = async (req, res) => {
     const { stream, includeTeachers = true } = req.query;
 
     const schoolCode = req.user.schoolCode;
-    const academicYear = req.query.academicYear || '2024-25';
+    const academicYear = req.query.academicYear || getDefaultAcademicYear();
 
     // Get school-specific connection
     const schoolConn = await DatabaseManager.getSchoolConnection(schoolCode);
@@ -408,7 +411,7 @@ const getSubjectsByTeacher = async (req, res) => {
     const { includeClasses = true } = req.query;
 
     const schoolCode = req.user.schoolCode;
-    const academicYear = req.query.academicYear || '2024-25';
+    const academicYear = req.query.academicYear || getDefaultAcademicYear();
 
     // Get school-specific connection
     const schoolConn = await DatabaseManager.getSchoolConnection(schoolCode);
@@ -508,7 +511,7 @@ const getSubjectsByTeacher = async (req, res) => {
 const getTeacherWorkloadSummary = async (req, res) => {
   try {
     const schoolCode = req.user.schoolCode;
-    const academicYear = req.query.academicYear || '2024-25';
+    const academicYear = req.query.academicYear || getDefaultAcademicYear();
 
     // Get school-specific connection
     const schoolConn = await DatabaseManager.getSchoolConnection(schoolCode);
@@ -627,7 +630,7 @@ const getAllSubjects = async (req, res) => {
 
     const subjects = await SchoolSubject.find({
       schoolCode,
-      academicYear: req.query.academicYear || '2024-25'
+      academicYear: req.query.academicYear || getDefaultAcademicYear()
     }).select('_id subjectName subjectCode className description isActive createdAt updatedAt');
 
     // Transform to frontend expected format
@@ -664,7 +667,7 @@ const bulkSaveSubjects = async (req, res) => {
     const { subjects } = req.body;
     const schoolCode = req.schoolCode || req.user.schoolCode;
     const schoolId = req.user.schoolId;
-    const academicYear = req.body.academicYear || '2024-25';
+    const academicYear = req.body.academicYear || getDefaultAcademicYear();
 
     console.log('💾 Bulk save request:', { 
       schoolCode, 

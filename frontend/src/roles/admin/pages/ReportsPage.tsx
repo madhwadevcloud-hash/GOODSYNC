@@ -4,6 +4,7 @@ import { useAuth } from '../../../auth/AuthContext';
 import { useAcademicYear } from '../../../contexts/AcademicYearContext';
 import ClassSectionSelect from '../components/ClassSectionSelect';
 import api from '../../../api/axios';
+import { normalizeAcademicYear } from '../../../utils/academicYearUtils';
 import { 
   getSchoolSummary,
   getStudentFeeRecords, 
@@ -204,7 +205,9 @@ const ReportsPage: React.FC = () => {
                                    s.academicInfo?.academicYear;
         // If academic year is not set, don't filter it out (allow it through)
         if (!studentAcademicYear) return true;
-        return String(studentAcademicYear).trim() === String(viewingAcademicYear).trim();
+        const normalizedStudentYear = normalizeAcademicYear(String(studentAcademicYear).trim());
+        const normalizedTargetYear = normalizeAcademicYear(String(viewingAcademicYear).trim());
+        return normalizedStudentYear === normalizedTargetYear;
       });
       
       if (selectedClass !== 'ALL') {
@@ -385,7 +388,9 @@ const ReportsPage: React.FC = () => {
                                    s.academicInfo?.academicYear;
         // If academic year is not set, don't filter it out (allow it through)
         if (!studentAcademicYear) return true;
-        return String(studentAcademicYear).trim() === String(viewingAcademicYear).trim();
+        const normalizedStudentYear = normalizeAcademicYear(String(studentAcademicYear).trim());
+        const normalizedTargetYear = normalizeAcademicYear(String(viewingAcademicYear).trim());
+        return normalizedStudentYear === normalizedTargetYear;
       });
       
       if (selectedClass !== 'ALL') {
@@ -754,7 +759,7 @@ const ReportsPage: React.FC = () => {
 
               <div className="md:col-span-2 lg:col-span-4">
                 <ClassSectionSelect
-                  schoolId={user?.schoolId}
+                  schoolCode={user?.schoolCode}
                   valueClass={selectedClass}
                   valueSection={selectedSection}
                   onClassChange={setSelectedClass}
@@ -928,7 +933,6 @@ const ReportsPage: React.FC = () => {
                                         ) : students.length > 0 ? (
                                           <div className="space-y-2">
                                             <h4 className="text-sm font-semibold text-gray-700 mb-3">Student Details</h4>
-                                            {console.log('📊 [ReportsPage] Displaying students:', students)}
                                             <table className="min-w-full divide-y divide-gray-200">
                                               <thead className="bg-gray-100">
                                                 <tr>

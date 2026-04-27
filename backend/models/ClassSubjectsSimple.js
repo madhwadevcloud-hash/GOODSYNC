@@ -47,7 +47,7 @@ const classSubjectsSchema = new mongoose.Schema({
   academicYear: {
     type: String,
     required: true,
-    default: '2024-25',
+    default: () => require('../utils/dateUtils').getDefaultAcademicYear(),
     match: /^\d{4}-\d{2}$/
   },
   
@@ -179,7 +179,7 @@ classSubjectsSchema.methods.getActiveSubjects = function() {
 
 // Find or create class subjects
 classSubjectsSchema.statics.findOrCreateClass = async function(classData) {
-  const { className, grade, section = 'A', schoolCode, schoolId, academicYear = '2024-25', createdBy } = classData;
+  const { className, grade, section = 'A', schoolCode, schoolId, academicYear = require('../utils/dateUtils').getDefaultAcademicYear(), createdBy } = classData;
   
   let classSubjects = await this.findOne({
     schoolCode,
@@ -208,7 +208,7 @@ classSubjectsSchema.statics.findOrCreateClass = async function(classData) {
 };
 
 // Find class by grade and section
-classSubjectsSchema.statics.findByGradeSection = async function(schoolCode, grade, section, academicYear = '2024-25') {
+classSubjectsSchema.statics.findByGradeSection = async function(schoolCode, grade, section, academicYear = require('../utils/dateUtils').getDefaultAcademicYear()) {
   return await this.findOne({
     schoolCode,
     grade,
@@ -219,7 +219,7 @@ classSubjectsSchema.statics.findByGradeSection = async function(schoolCode, grad
 };
 
 // Get all classes for a school
-classSubjectsSchema.statics.getAllClasses = async function(schoolCode, academicYear = '2024-25') {
+classSubjectsSchema.statics.getAllClasses = async function(schoolCode, academicYear = require('../utils/dateUtils').getDefaultAcademicYear()) {
   return await this.find({
     schoolCode,
     academicYear,

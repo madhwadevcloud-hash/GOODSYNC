@@ -1,4 +1,5 @@
 const Timetable = require('../models/Timetable');
+const { getDefaultAcademicYear } = require('../utils/dateUtils');
 const Subject = require('../models/Subject');
 const Class = require('../models/Class');
 const User = require('../models/User');
@@ -31,7 +32,7 @@ exports.createSmartTimetable = async (req, res) => {
       schoolCode,
       grade: className,
       section,
-      academicYear: academicYear || '2024-25',
+      academicYear: academicYear || getDefaultAcademicYear(),
       'settings.isActive': true
     });
 
@@ -44,7 +45,7 @@ exports.createSmartTimetable = async (req, res) => {
       schoolCode,
       'applicableGrades.grade': className,
       isActive: true,
-      academicYear: academicYear || '2024-25'
+      academicYear: academicYear || getDefaultAcademicYear()
     }).populate('teacherAssignments.teacherId');
 
     // Conflict detection results
@@ -54,7 +55,7 @@ exports.createSmartTimetable = async (req, res) => {
     // Process each day in the weekly schedule
     for (let daySchedule of weeklySchedule) {
       const dayConflicts = await detectDayConflicts(
-        daySchedule, subjects, schoolCode, academicYear || '2024-25'
+        daySchedule, subjects, schoolCode, academicYear || getDefaultAcademicYear()
       );
       
       conflicts = conflicts.concat(dayConflicts);
@@ -78,7 +79,7 @@ exports.createSmartTimetable = async (req, res) => {
     const timetableData = {
       schoolId,
       schoolCode,
-      academicYear: academicYear || '2024-25',
+      academicYear: academicYear || getDefaultAcademicYear(),
       class: className,
       section,
       classSection: `${className}${section}`,
@@ -358,7 +359,7 @@ exports.getTimetableWithAnalysis = async (req, res) => {
     const timetable = await Timetable.findOne({
       schoolCode,
       classSection,
-      academicYear: academicYear || '2024-25',
+      academicYear: academicYear || getDefaultAcademicYear(),
       status: { $in: ['active', 'draft'] }
     }).populate([
       {

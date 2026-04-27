@@ -7,6 +7,7 @@ import { resultsAPI } from '../../../services/api';
 import { toast } from 'react-hot-toast';
 import api from '../../../services/api';
 import { useSchoolClasses } from '../../../hooks/useSchoolClasses';
+import { normalizeAcademicYear } from '../../../utils/academicYearUtils';
 
 interface StudentResult {
   id: string;
@@ -23,7 +24,15 @@ interface StudentResult {
 
 const Results: React.FC = () => {
   const { user, token } = useAuth();
-  const { currentAcademicYear, viewingAcademicYear, isViewingHistoricalYear, setViewingYear, availableYears, loading: academicYearLoading } = useAcademicYear();
+  const { 
+    currentAcademicYear, 
+    viewingAcademicYear, 
+    isViewingHistoricalYear, 
+    setViewingYear, 
+    availableYears, 
+    loading: academicYearLoading,
+    ready: academicYearReady 
+  } = useAcademicYear();
 
   // Use the useSchoolClasses hook to fetch classes configured by superadmin
   const {
@@ -33,7 +42,7 @@ const Results: React.FC = () => {
     getClassOptions,
     getSectionsByClass,
     hasClasses
-  } = useSchoolClasses();
+  } = useSchoolClasses(academicYearReady ? viewingAcademicYear : undefined);
 
   const [selectedClass, setSelectedClass] = useState('');
   const [selectedSection, setSelectedSection] = useState('');
@@ -178,7 +187,7 @@ const Results: React.FC = () => {
   const grades = ['A+', 'A', 'B', 'C', 'D', 'F'];
 
   // Get class list from superadmin configuration
-  const classList = classesData?.classes?.map(c => c.className) || [];
+  const classList = [...new Set(classesData?.classes?.map(c => c.className) || [])];
 
   // Function to fetch test types for the selected class
   const fetchTestTypes = useCallback(async (className: string) => {
@@ -329,8 +338,9 @@ const Results: React.FC = () => {
 
               console.log('📝 Extracted subject names:', subjectNames);
 
-              setSubjects(subjectNames);
-              setSelectedSubject(subjectNames[0] || '');
+              const uniqueSubjects = [...new Set(subjectNames)];
+              setSubjects(uniqueSubjects);
+              setSelectedSubject(uniqueSubjects[0] || '');
               setLoadingSubjects(false);
               return;
             }
@@ -359,8 +369,9 @@ const Results: React.FC = () => {
 
             console.log('📝 Extracted subject names from fallback:', subjectNames);
 
-            setSubjects(subjectNames);
-            setSelectedSubject(subjectNames[0] || '');
+            const uniqueSubjects = [...new Set(subjectNames)];
+            setSubjects(uniqueSubjects);
+            setSelectedSubject(uniqueSubjects[0] || '');
             setLoadingSubjects(false);
             return;
           }
@@ -391,8 +402,7 @@ const Results: React.FC = () => {
     setError(null);
 
     try {
-      const schoolCodeRaw = localStorage.getItem('erp.schoolCode') || user?.schoolCode || '';
-      const schoolCode = schoolCodeRaw.toUpperCase();
+      const schoolCode = localStorage.getItem('erp.schoolCode') || user?.schoolCode || 'R';
 
       if (!schoolCode) {
         toast.error('School code not available');
@@ -400,7 +410,7 @@ const Results: React.FC = () => {
       }
 
       // Fetch students from the school's student collection
-      const response = await resultsAPI.getStudents(schoolCode, {
+      const response = await resultsAPI.getStudents(schoolCode.toUpperCase(), {
         class: selectedClass,
         section: selectedSection
       });
@@ -429,8 +439,13 @@ const Results: React.FC = () => {
             s.studentDetails?.academic?.academicYear ||
             s.academicYear ||
             s.academicInfo?.academicYear;
+          
+          const normalizedStudentYear = normalizeAcademicYear(String(studentAcademicYear || '').trim());
+          const normalizedViewingYear = normalizeAcademicYear(String(viewingAcademicYear || currentAcademicYear || '').trim());
+          
           // If academic year is not set, don't filter it out (allow it through)
-          const matchesAcademicYear = !studentAcademicYear || String(studentAcademicYear).trim() === String(viewingAcademicYear).trim();
+          const matchesAcademicYear = !studentAcademicYear || normalizedStudentYear === normalizedViewingYear;
+          
           return String(sClass).trim() === String(selectedClass).trim() &&
             String(sSection).trim().toUpperCase() === String(selectedSection).trim().toUpperCase() &&
             matchesAcademicYear;
@@ -438,9 +453,12 @@ const Results: React.FC = () => {
 
         const students = filtered.map((student: any, index: number) => ({
           id: student._id || student.id,
-          name: student.name?.displayName || `${student.name?.firstName || ''} ${student.name?.lastName || ''}`.trim() || student.fullName || 'Unknown',
+          name: typeof student.name === 'object' 
+            ? (student.name.displayName || `${student.name.firstName || ''} ${student.name.lastName || ''}`.trim())
+            : (student.name || student.fullName || 'Unknown'),
           userId: student.userId || student.user_id || 'N/A',
-          rollNumber: student.studentDetails?.rollNumber
+          rollNumber: student.studentDetails?.academic?.rollNumber
+            || student.studentDetails?.rollNumber
             || student.studentDetails?.currentRollNumber
             || student.rollNumber
             || student.sequenceId
@@ -765,9 +783,8 @@ const Results: React.FC = () => {
         schoolCode,
         class: selectedClass,
         section: selectedSection,
-        subject: selectedSubject,
         testType: selectedTestType,
-        academicYear: '2024-25'
+        academicYear: normalizeAcademicYear(viewingAcademicYear || currentAcademicYear)
       });
 
       // Update local state to mark all results as frozen
@@ -1032,7 +1049,7 @@ const Results: React.FC = () => {
               onChange={(e) => setViewingYear(e.target.value)}
               className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[150px]"
             >
-              {availableYears.map((year) => (
+              {[...new Set(availableYears)].map((year) => (
                 <option key={year} value={year}>
                   {year} {year === currentAcademicYear && '(Current)'}
                 </option>

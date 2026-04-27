@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../auth/AuthContext';
+import { useAcademicYear } from '../contexts/AcademicYearContext';
 import api from '../api/axios';
 
 interface ClassOption {
@@ -51,15 +52,26 @@ interface SchoolClassesData {
   totalTests: number;
 }
 
-export const useSchoolClasses = () => {
+export const useSchoolClasses = (academicYear?: string) => {
   const { user, token } = useAuth();
+  const { viewingAcademicYear, ready: yearReady } = useAcademicYear();
   const [classesData, setClassesData] = useState<SchoolClassesData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchSchoolClasses = async () => {
-    if (!user?.schoolCode || !token) {
-      setError('School code or authentication token not available');
+  const targetYear = academicYear || viewingAcademicYear;
+
+  const fetchSchoolClasses = useCallback(async () => {
+    // Resolve school code with fallbacks
+    const schoolCode = user?.schoolCode || localStorage.getItem('erp.schoolCode') || 'R';
+
+    if (!schoolCode || !token) {
+      console.warn('⚠️ useSchoolClasses: School code or token missing', { schoolCode, hasToken: !!token });
+      return;
+    }
+    
+    // Wait for year to be ready if we don't have an explicit year and context isn't ready
+    if (!targetYear && !yearReady) {
       return;
     }
 
@@ -67,10 +79,14 @@ export const useSchoolClasses = () => {
     setError(null);
 
     try {
+      const params = targetYear ? { academicYear: targetYear } : {};
+      
+      console.log(`🔍 [useSchoolClasses] Fetching for ${schoolCode}, Year: ${targetYear}`);
+      
       // Fetch both classes and tests in parallel
       const [classesResponse, testsResponse] = await Promise.all([
-        api.get(`/admin/classes/${user.schoolCode}/classes-sections`),
-        api.get(`/admin/classes/${user.schoolCode}/tests`)
+        api.get(`/admin/classes/${schoolCode}/classes-sections`, { params }),
+        api.get(`/admin/classes/${schoolCode}/tests`, { params })
       ]);
 
       const classesResult = classesResponse.data;
@@ -105,16 +121,16 @@ export const useSchoolClasses = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.schoolCode, token, targetYear, yearReady]);
 
   const getSectionsForClass = async (className: string): Promise<SectionOption[]> => {
-    if (!user?.schoolCode || !token) {
+    const schoolCode = user?.schoolCode || localStorage.getItem('erp.schoolCode') || 'R';
+    if (!schoolCode || !token) {
       throw new Error('School code or authentication token not available');
     }
 
     try {
-      const response = await api.get(`/admin/classes/${user.schoolCode}/classes/${className}/sections`);
-
+      const response = await api.get(`/admin/classes/${schoolCode}/classes/${className}/sections`);
       const result = response.data;
       
       if (result.success) {
@@ -122,7 +138,6 @@ export const useSchoolClasses = () => {
       } else {
         throw new Error(result.message || 'Failed to fetch sections');
       }
-
     } catch (err: any) {
       console.error('Error fetching sections for class:', err);
       throw err;
@@ -131,7 +146,7 @@ export const useSchoolClasses = () => {
 
   useEffect(() => {
     fetchSchoolClasses();
-  }, [user?.schoolCode, token]);
+  }, [fetchSchoolClasses]);
 
   // Memoize helper functions to prevent infinite re-renders
   const getClassOptions = useCallback(() => classesData?.classOptions || [], [classesData?.classOptions]);

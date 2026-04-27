@@ -86,10 +86,10 @@ const AcademicNavigation: React.FC = () => {
         // Sort classes in order: LKG, UKG, then 1-12
         const sortedClasses = (response.data.classes || []).sort((a: ClassData, b: ClassData) => {
           const classOrder = ['LKG', 'UKG', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
-          
+
           const aIndex = classOrder.indexOf(a.className);
           const bIndex = classOrder.indexOf(b.className);
-          
+
           // If both are in the predefined order, sort by index
           if (aIndex !== -1 && bIndex !== -1) {
             return aIndex - bIndex;
@@ -101,14 +101,14 @@ const AcademicNavigation: React.FC = () => {
           // If neither is in the order, sort alphabetically
           return a.className.localeCompare(b.className);
         });
-        
+
         // Sort sections within each class
         sortedClasses.forEach((cls: ClassData) => {
           if (cls.sections && cls.sections.length > 0) {
             cls.sections.sort((a, b) => a.localeCompare(b));
           }
         });
-        
+
         setClasses(sortedClasses);
       }
     } catch (error: any) {
@@ -135,14 +135,14 @@ const AcademicNavigation: React.FC = () => {
           schoolCode: response.data.schoolCode,
           schoolName: response.data.schoolName
         });
-        
+
         // Sort tests by class order: LKG, UKG, 1-12
         const sortedTests = (response.data.tests || []).sort((a: TestData, b: TestData) => {
           const classOrder = ['LKG', 'UKG', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
-          
+
           const aIndex = classOrder.indexOf(a.className);
           const bIndex = classOrder.indexOf(b.className);
-          
+
           if (aIndex !== -1 && bIndex !== -1) {
             return aIndex - bIndex;
           }
@@ -150,7 +150,7 @@ const AcademicNavigation: React.FC = () => {
           if (bIndex !== -1) return 1;
           return a.className.localeCompare(b.className);
         });
-        
+
         setTests(sortedTests);
         console.log('✅ Tests sorted by class order:', sortedTests);
       }
@@ -198,7 +198,7 @@ const AcademicNavigation: React.FC = () => {
     try {
       // Split by comma in case super admin enters multiple sections (e.g., "A, B, C")
       const sectionsToAdd = newSection.split(',').map(s => s.trim().toUpperCase()).filter(s => s.length > 0);
-      
+
       let successCount = 0;
       let errorMessages: string[] = [];
 
@@ -211,7 +211,7 @@ const AcademicNavigation: React.FC = () => {
             errorMessages.push(`Failed to add ${section}: ${response.message}`);
           }
         } catch (err: any) {
-           errorMessages.push(`Error adding ${section}: ${err.message}`);
+          errorMessages.push(`Error adding ${section}: ${err.message}`);
         }
       }
 
@@ -219,7 +219,7 @@ const AcademicNavigation: React.FC = () => {
         toast.success(`Successfully added ${successCount} section(s)`);
         setNewSection('');
       }
-      
+
       if (errorMessages.length > 0) {
         toast.error(errorMessages.join('\n'));
       }
@@ -244,11 +244,11 @@ const AcademicNavigation: React.FC = () => {
     // Note: This is a simplified check - in a real system, you'd need to track which sections each test applies to
     const className = classData.className;
     const relatedTests = tests.filter(test => test.className === className);
-    
-    const confirmMessage = relatedTests.length > 0 
+
+    const confirmMessage = relatedTests.length > 0
       ? `Remove section ${section} from Class ${className}? Note: This may affect ${relatedTests.length} test(s) for this class: ${relatedTests.map(t => t.name).join(', ')}`
       : `Remove section ${section} from Class ${className}?`;
-    
+
     if (!confirm(confirmMessage)) return;
 
     try {
@@ -273,18 +273,18 @@ const AcademicNavigation: React.FC = () => {
     // Find all tests related to this class
     const relatedTests = tests.filter(test => test.className === className);
     const testCount = relatedTests.length;
-    
-    const confirmMessage = testCount > 0 
+
+    const confirmMessage = testCount > 0
       ? `Delete class ${className}? This will also remove all sections and ${testCount} related test(s): ${relatedTests.map(t => t.name).join(', ')}`
       : `Delete class ${className}? This will also remove all sections.`;
-    
+
     if (!confirm(confirmMessage)) return;
 
     try {
       // First delete all related tests
       if (relatedTests.length > 0) {
         console.log(`Deleting ${relatedTests.length} tests related to class ${className}:`, relatedTests.map(t => t.name));
-        
+
         for (const test of relatedTests) {
           try {
             console.log(`Deleting test: ${test.name} (${test._id})`);
@@ -303,11 +303,11 @@ const AcademicNavigation: React.FC = () => {
       const response = await classAPI.deleteClass(selectedSchoolId, classId);
 
       if (response.success) {
-        const successMessage = testCount > 0 
+        const successMessage = testCount > 0
           ? `Class ${className} and ${testCount} related test(s) deleted successfully`
           : `Class ${className} deleted successfully`;
         toast.success(successMessage);
-        
+
         // Refresh both classes and tests data
         await fetchClasses();
         await fetchTests();
@@ -326,7 +326,7 @@ const AcademicNavigation: React.FC = () => {
       toast.error('Please select a class or choose "All Classes"');
       return;
     }
-    
+
     if (!newTestName.trim()) {
       toast.error('Please enter test name');
       return;
@@ -349,7 +349,7 @@ const AcademicNavigation: React.FC = () => {
           return;
         }
         testData.className = selectedClassData.className;
-        
+
         if (allSections) {
           testData.sections = selectedClassData.sections || [];
         } else {
@@ -363,7 +363,7 @@ const AcademicNavigation: React.FC = () => {
       console.log('Add test response:', response);
 
       if (response.success) {
-        const message = allClasses 
+        const message = allClasses
           ? `Test "${newTestName}" created for all classes`
           : allSections
             ? `Test "${newTestName}" created for all sections of Class ${testData.className}`

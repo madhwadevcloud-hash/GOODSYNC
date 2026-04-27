@@ -1,4 +1,5 @@
 const TestDetails = require('../models/TestDetails');
+const { getDefaultAcademicYear } = require('../utils/dateUtils');
 
 // Helper function to convert Map to object for JSON serialization
 const convertMapToObject = (testDetails) => {
@@ -13,7 +14,7 @@ const convertMapToObject = (testDetails) => {
 exports.getTestDetails = async (req, res) => {
   try {
     const schoolCode = req.user.schoolCode;
-    const academicYear = req.query.academicYear || '2024-25';
+    const academicYear = req.query.academicYear || getDefaultAcademicYear();
 
     console.log('[DEBUG] getTestDetails called with:');
     console.log('- schoolCode (from user):', schoolCode);
@@ -56,7 +57,7 @@ exports.getClassTestTypes = async (req, res) => {
   try {
     const { className } = req.params;
     const schoolCode = req.user.schoolCode;
-    const academicYear = req.query.academicYear || '2024-25';
+    const academicYear = req.query.academicYear || getDefaultAcademicYear();
 
     const testDetails = await TestDetails.findOne({
       schoolCode,
@@ -96,7 +97,7 @@ exports.updateClassTestTypes = async (req, res) => {
     const { className } = req.params;
     const { testTypes } = req.body;
     const schoolCode = req.user.schoolCode;
-    const academicYear = req.body.academicYear || '2024-25';
+    const academicYear = req.body.academicYear || getDefaultAcademicYear();
 
     if (!testTypes || !Array.isArray(testTypes)) {
       return res.status(400).json({
@@ -150,7 +151,7 @@ exports.updateTestDetails = async (req, res) => {
   try {
     const { testTypes } = req.body;
     const schoolCode = req.user.schoolCode;
-    const academicYear = req.body.academicYear || '2024-25';
+    const academicYear = req.body.academicYear || getDefaultAcademicYear();
 
     if (!testTypes || !Array.isArray(testTypes)) {
       return res.status(400).json({
@@ -213,7 +214,7 @@ exports.updateTestDetails = async (req, res) => {
 exports.getSchoolTestDetails = async (req, res) => {
   try {
     const { schoolCode } = req.params;
-    const academicYear = req.query.academicYear || '2024-25';
+    const academicYear = req.query.academicYear || getDefaultAcademicYear();
 
     if (req.user.role !== 'superadmin') {
       return res.status(403).json({
@@ -255,7 +256,7 @@ exports.getSchoolTestDetails = async (req, res) => {
 exports.updateSchoolTestDetails = async (req, res) => {
   try {
     const { schoolCode } = req.params;
-    const { classTestTypes, academicYear = '2024-25' } = req.body;
+    const { classTestTypes, academicYear = getDefaultAcademicYear() } = req.body;
 
     if (req.user.role !== 'superadmin') {
       return res.status(403).json({
@@ -323,7 +324,7 @@ exports.updateSchoolTestDetails = async (req, res) => {
 exports.getTestDetailsBySchoolId = async (req, res) => {
   try {
     const { schoolId } = req.params;
-    const academicYear = req.query.academicYear || '2024-25';
+    const academicYear = req.query.academicYear || getDefaultAcademicYear();
 
     if (req.user.role !== 'superadmin') {
       return res.status(403).json({
@@ -356,7 +357,7 @@ exports.getTestDetailsBySchoolId = async (req, res) => {
 exports.addTestTypeToClass = async (req, res) => {
   try {
     const { schoolCode, className } = req.params;
-    const { testType, academicYear = '2024-25' } = req.body;
+    const { testType, academicYear = getDefaultAcademicYear() } = req.body;
 
     if (req.user.role !== 'superadmin') {
       return res.status(403).json({
@@ -451,7 +452,7 @@ exports.addTestTypeToClass = async (req, res) => {
 exports.removeTestTypeFromClass = async (req, res) => {
   try {
     const { schoolCode, className, testCode } = req.params;
-    const { academicYear = '2024-25' } = req.query;
+    const { academicYear = getDefaultAcademicYear() } = req.query;
 
     if (req.user.role !== 'superadmin') {
       return res.status(403).json({
@@ -516,7 +517,7 @@ exports.removeTestTypeFromClass = async (req, res) => {
 exports.getSchoolTestDetails = async (req, res) => {
   try {
     const { schoolCode } = req.params;
-    const academicYear = req.query.academicYear || '2024-25';
+    const academicYear = req.query.academicYear || getDefaultAcademicYear();
 
     if (req.user.role !== 'superadmin') {
       return res.status(403).json({

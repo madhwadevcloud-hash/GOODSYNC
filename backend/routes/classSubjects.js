@@ -54,6 +54,16 @@ router.delete(
 );
 
 /**
+ * Get All Classes with Subjects (alias: /all)
+ * GET /api/class-subjects/all
+ * Query: schoolCode?, academicYear?
+ */
+router.get(
+  '/all',
+  classSubjectsController.getAllClassesWithSubjects
+);
+
+/**
  * Get All Classes with Subjects
  * GET /api/class-subjects/classes
  * Query: academicYear?

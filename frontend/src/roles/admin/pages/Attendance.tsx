@@ -3,7 +3,9 @@ import { Calendar, Search, Save, Users, Clock, Check, X, Minus } from 'lucide-re
 import { schoolUserAPI } from '../../../api/schoolUsers';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../../auth/AuthContext';
+import { useAcademicYear } from '../../../contexts/AcademicYearContext';
 import { useSchoolClasses } from '../../../hooks/useSchoolClasses';
+import { normalizeAcademicYear } from '../../../utils/academicYearUtils';
 
 interface Student {
   _id: string;
@@ -28,6 +30,11 @@ interface AttendanceRecord {
 
 const Attendance: React.FC = () => {
   const { user } = useAuth();
+  const { 
+    currentAcademicYear, 
+    viewingAcademicYear, 
+    ready: academicYearReady 
+  } = useAcademicYear();
 
   // Use the useSchoolClasses hook to fetch classes configured by superadmin
   const {
@@ -37,7 +44,7 @@ const Attendance: React.FC = () => {
     getClassOptions,
     getSectionsByClass,
     hasClasses
-  } = useSchoolClasses();
+  } = useSchoolClasses(academicYearReady ? viewingAcademicYear : undefined);
 
   // State management
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
@@ -52,7 +59,7 @@ const Attendance: React.FC = () => {
   const [activeSession, setActiveSession] = useState<'morning' | 'afternoon'>('morning');
 
   // Get class list from superadmin configuration
-  const classList = classesData?.classes?.map(c => c.className) || [];
+  const classList = [...new Set(classesData?.classes?.map(c => c.className) || [])];
 
   // Update available sections when class changes
   useEffect(() => {
@@ -91,7 +98,7 @@ const Attendance: React.FC = () => {
       setLoading(true);
       const authData = localStorage.getItem('erp.auth');
       const token = authData ? JSON.parse(authData).token : null;
-      const schoolCode = user?.schoolCode || 'P';
+      const schoolCode = user?.schoolCode || 'R';
 
       if (!token) {
         toast.error('Authentication required');
@@ -110,29 +117,47 @@ const Attendance: React.FC = () => {
         allStudents = response.data
           .filter((user: any) => user.role === 'student')
           .map((user: any) => ({
+            ...user, // Preserve all properties including studentDetails
             _id: user._id,
             userId: user.userId || user._id,
-            name: user.name,
-            class: user.class || user.studentDetails?.class,
-            section: user.section || user.studentDetails?.section,
-            rollNumber: user.rollNumber || user.studentDetails?.rollNumber
+            name: typeof user.name === 'object' ? (user.name.displayName || `${user.name.firstName} ${user.name.lastName}`) : user.name,
+            class: user.academicInfo?.class || user.class || user.studentDetails?.academic?.currentClass || user.studentDetails?.class,
+            section: user.academicInfo?.section || user.section || user.studentDetails?.academic?.currentSection || user.studentDetails?.section,
+            academicYear: user.academicInfo?.academicYear || user.academicYear || user.studentDetails?.academic?.academicYear || user.studentDetails?.academicYear,
+            rollNumber: user.academicInfo?.rollNumber || user.rollNumber || user.studentDetails?.academic?.rollNumber || user.studentDetails?.rollNumber
           }));
       } else if (response.data && response.data.students) {
         // Handle grouped response
         allStudents = response.data.students.map((user: any) => ({
-          _id: user._id,
-          userId: user.userId || user._id,
-          name: user.name,
-          class: user.class || user.studentDetails?.class,
-          section: user.section || user.studentDetails?.section,
-          rollNumber: user.rollNumber || user.studentDetails?.rollNumber
+            ...user, // Preserve all properties
+            _id: user._id,
+            userId: user.userId || user._id,
+            name: typeof user.name === 'object' ? (user.name.displayName || `${user.name.firstName} ${user.name.lastName}`) : user.name,
+            class: user.academicInfo?.class || user.class || user.studentDetails?.academic?.currentClass || user.studentDetails?.class,
+            section: user.academicInfo?.section || user.section || user.studentDetails?.academic?.currentSection || user.studentDetails?.section,
+            academicYear: user.academicInfo?.academicYear || user.academicYear || user.studentDetails?.academic?.academicYear || user.studentDetails?.academicYear,
+            rollNumber: user.academicInfo?.rollNumber || user.rollNumber || user.studentDetails?.academic?.rollNumber || user.studentDetails?.rollNumber
         }));
       }
 
-      // Filter students by selected class and section
-      const filteredStudents = allStudents.filter(student =>
-        student.class === selectedClass && student.section === selectedSection
-      );
+      // Filter students by selected class, section and academic year
+      const targetYear = normalizeAcademicYear(viewingAcademicYear || currentAcademicYear);
+      
+      const filteredStudents = allStudents.filter(s => {
+        // Handle nested data structure
+        const studentClass = s.academicInfo?.class || s.studentDetails?.academic?.currentClass || s.class || s.studentDetails?.class;
+        const studentSection = s.academicInfo?.section || s.studentDetails?.academic?.currentSection || s.section || s.studentDetails?.section;
+        const studentYear = s.academicInfo?.academicYear || s.studentDetails?.academic?.academicYear || s.academicYear || s.studentDetails?.academicYear;
+        
+        const normalizedStudentYear = normalizeAcademicYear(String(studentYear || '').trim());
+        const normalizedTargetYear = normalizeAcademicYear(String(viewingAcademicYear || currentAcademicYear || '').trim());
+
+        const matchesClass = String(studentClass).trim() === String(selectedClass).trim();
+        const matchesSection = String(studentSection).trim().toUpperCase() === String(selectedSection).trim().toUpperCase();
+        const matchesYear = !studentYear || normalizedStudentYear === normalizedTargetYear;
+
+        return matchesClass && matchesSection && matchesYear;
+      });
 
       // Sort by roll number or name
       filteredStudents.sort((a, b) => {
