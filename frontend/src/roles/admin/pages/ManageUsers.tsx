@@ -2462,7 +2462,6 @@ const ManageUsers: React.FC = () => {
         cityVillageTown: formData.cityVillageTown,
         locality: (formData as any).locality || formData.permanentArea || '',
         district: (formData as any).district || formData.districtText || '',
-        state: (formData as any).state || formData.permanentState || '',
         stateId: (formData as any).stateId || '',
         districtId: (formData as any).districtId || '',
         talukaId: (formData as any).talukaId || '',
@@ -2899,7 +2898,7 @@ const ManageUsers: React.FC = () => {
           // Note: Personal info (DOB, gender) is already added to the root `userData` object,
           // which the backend controller will read.
         };
-        
+
         // CRITICAL DEBUG: Log teacher details before sending
         console.log('🏫 Teacher Form Data:', {
           qualification: formData.qualification,
@@ -2909,7 +2908,7 @@ const ManageUsers: React.FC = () => {
           teacherDetailsExp: formData.teacherDetails?.experience
         });
         console.log('🏫 Teacher Details being sent to backend:', userData.teacherDetails);
-        
+
         // CRITICAL FIX: Explicitly ensure DOB and gender are included in userData for teachers
         // These fields are filled in the common "Basic Information" section
         if (!userData.dateOfBirth && formData.dateOfBirth) {
@@ -3728,7 +3727,7 @@ const ManageUsers: React.FC = () => {
         taluka: formData.taluka,
         city: formData.city || formData.permanentCity,
         pinCode: formData.pinCode || formData.permanentPincode,
-        
+
         // Simple address fields (for edit form)
         address: formData.address,
         cityVillageTown: formData.cityVillageTown,
@@ -10618,3 +10617,4 @@ const ManageUsers: React.FC = () => {
 };
 
 export default ManageUsers;
+
