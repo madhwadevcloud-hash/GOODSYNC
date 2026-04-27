@@ -471,7 +471,7 @@ class ReportService {
 
       // Add class filter - PRIORITY: academicInfo.class > studentDetails.currentClass > class
       if (className) {
-        const classRegex = { $regex: `^${className.toString()}$`, $options: 'i' };
+        const classRegex = { $regex: `^${className.toString().trim()}$`, $options: 'i' };
         studentsMatchQuery.$or = [
           { 'academicInfo.class': classRegex },
           { 'studentDetails.academic.currentClass': classRegex },
@@ -483,16 +483,35 @@ class ReportService {
 
       // Add section filter - PRIORITY: academicInfo.section > studentDetails.currentSection > section
       if (section && section !== 'ALL' && section !== 'All' && section !== 'All Sections') {
-        const sectionRegex = { $regex: `^${section.toString()}$`, $options: 'i' };
-        const sectionFilter = {
-          $or: [
-            { 'academicInfo.section': sectionRegex },
-            { 'studentDetails.academic.currentSection': sectionRegex },
-            { 'studentDetails.currentSection': sectionRegex },
-            { 'studentDetails.section': sectionRegex },
-            { section: sectionRegex }
-          ]
-        };
+        let sectionFilter;
+        
+        if (section === 'Not Assigned') {
+          // Match documents where section is missing or explicitly empty/'Not Assigned'
+          const emptyValues = [null, '', undefined, 'Not Assigned'];
+          sectionFilter = {
+            $or: [
+              { 'academicInfo.section': { $in: emptyValues } },
+              { 'studentDetails.academic.currentSection': { $in: emptyValues } },
+              { 'studentDetails.currentSection': { $in: emptyValues } },
+              { 'studentDetails.section': { $in: emptyValues } },
+              { section: { $in: emptyValues } },
+              { 'academicInfo.section': { $exists: false } },
+              { 'studentDetails.academic.currentSection': { $exists: false } }
+            ]
+          };
+        } else {
+          // Normal regex match for specific sections, trimming whitespace
+          const sectionRegex = { $regex: `^${section.toString().trim()}$`, $options: 'i' };
+          sectionFilter = {
+            $or: [
+              { 'academicInfo.section': sectionRegex },
+              { 'studentDetails.academic.currentSection': sectionRegex },
+              { 'studentDetails.currentSection': sectionRegex },
+              { 'studentDetails.section': sectionRegex },
+              { section: sectionRegex }
+            ]
+          };
+        }
         
         if (studentsMatchQuery.$or) {
           // Combine both class and section filters with $and
@@ -509,12 +528,39 @@ class ReportService {
 
       // Add academic year filter if provided
       if (academicYear) {
+        // Normalize: support both "2024-25" and "2024-2025" formats
+        const yearStr = academicYear.toString().trim();
+        const yearVariants = [yearStr];
+        
+        // Generate the alternate format
+        const parts = yearStr.split('-');
+        if (parts.length === 2) {
+          const startYear = parts[0].trim();
+          const endPart = parts[1].trim();
+          if (endPart.length === 2) {
+            // Short format "2024-25" -> also match "2024-2025"
+            yearVariants.push(`${startYear}-${startYear.substring(0, 2)}${endPart}`);
+          } else if (endPart.length === 4) {
+            // Full format "2024-2025" -> also match "2024-25"
+            yearVariants.push(`${startYear}-${endPart.substring(2)}`);
+          }
+        }
+        
+        console.log('📅 Academic year variants to match:', yearVariants);
+        
         const academicYearFilter = {
           $or: [
-            { 'studentDetails.academicYear': academicYear },
-            { 'studentDetails.academic.academicYear': academicYear },
-            { 'academicYear': academicYear },
-            { 'academicInfo.academicYear': academicYear }
+            { 'studentDetails.academicYear': { $in: yearVariants } },
+            { 'studentDetails.academic.academicYear': { $in: yearVariants } },
+            { 'academicYear': { $in: yearVariants } },
+            { 'academicInfo.academicYear': { $in: yearVariants } },
+            // Also allow students with no academic year set (they belong to current year)
+            { 'studentDetails.academicYear': { $exists: false } },
+            { $and: [
+              { 'studentDetails.academic.academicYear': { $exists: false } },
+              { 'academicInfo.academicYear': { $exists: false } },
+              { 'academicYear': { $exists: false } }
+            ]}
           ]
         };
         

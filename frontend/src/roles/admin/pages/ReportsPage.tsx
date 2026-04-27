@@ -238,18 +238,29 @@ const ReportsPage: React.FC = () => {
       
       filteredStudents.forEach((student: any) => {
         // Check all possible locations for class and section, prioritizing academicInfo
-        const className = student.academicInfo?.class ||
-                         student.studentDetails?.academic?.currentClass ||
-                         student.studentDetails?.currentClass || 
-                         student.studentDetails?.class ||
-                         student.class || 
-                         'Unknown';
-        const section = student.academicInfo?.section ||
-                       student.studentDetails?.academic?.currentSection ||
-                       student.studentDetails?.currentSection || 
-                       student.studentDetails?.section ||
-                       student.section || 
-                       'Not Assigned';
+        // Helper to extract string from potentially object-based class/section
+        const extractString = (val: any, defaultVal: string) => {
+          if (!val) return defaultVal;
+          if (typeof val === 'string') return val;
+          if (val.className) return val.className;
+          if (val.sectionName) return val.sectionName;
+          return String(val);
+        };
+
+        const rawClassName = student.academicInfo?.class ||
+                          student.studentDetails?.academic?.currentClass ||
+                          student.studentDetails?.currentClass || 
+                          student.studentDetails?.class ||
+                          student.class;
+                          
+        const rawSection = student.academicInfo?.section ||
+                        student.studentDetails?.academic?.currentSection ||
+                        student.studentDetails?.currentSection || 
+                        student.studentDetails?.section ||
+                        student.section;
+
+        const className = extractString(rawClassName, 'Unknown');
+        const section = extractString(rawSection, 'Not Assigned');
         
         if (!classMap.has(className)) {
           classMap.set(className, {
