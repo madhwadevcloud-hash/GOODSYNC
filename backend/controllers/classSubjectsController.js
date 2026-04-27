@@ -406,21 +406,7 @@ const getAllClassesWithSubjects = async (req, res) => {
         try {
           let classes = await SchoolClassSubjects.getAllClasses(schoolCode, academicYear);
 
-          // --- SMART INHERIT FALLBACK ---
-          if (classes.length === 0 && academicYear) {
-            console.log(`💡 No subjects found for ${academicYear}, searching for latest available year...`);
-            // Find all subject assignments for this school
-            const allAssignments = await SchoolClassSubjects.find({
-              schoolCode: schoolCode,
-              isActive: true
-            }).sort({ academicYear: -1 }).exec();
-
-            if (allAssignments.length > 0) {
-              const latestYear = allAssignments[0].academicYear;
-              console.log(`✨ Found subjects in ${latestYear}. Inheriting for ${academicYear}.`);
-              classes = allAssignments.filter(a => a.academicYear === latestYear);
-            }
-          }
+          // --- SMART INHERIT FALLBACK REMOVED ---
 
           console.log(`[GET ALL CLASSES] Found ${classes.length} classes for school: ${schoolCode}`);
 

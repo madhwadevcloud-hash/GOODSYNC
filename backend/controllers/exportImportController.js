@@ -9,7 +9,7 @@ const csv = require('csv-parse');
 const fs = require('fs');
 const path = require('path');
 const { promisify } = require('util');
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt');
 const { ObjectId } = require('mongodb');
 const SchoolDatabaseManager = require('../utils/databaseManager');
 const { generateSequentialUserId } = require('./userController');
@@ -104,10 +104,17 @@ exports.exportUsers = async (req, res) => {
 // IMPORT FUNCTION (MODIFIED TO INFER ROLE FROM CSV HEADERS)
 // ==================================================================
 exports.importUsers = async (req, res) => {
+  console.log('\n\n========================================');
+  console.log('🚀 IMPORT USERS CONTROLLER HIT');
+  console.log('========================================');
+  
+  try {
   const { schoolCode } = req.params;
   const file = req.file;
   const creatingUserId = req.user?._id;
   const upperSchoolCode = schoolCode.toUpperCase();
+
+  console.log(`📋 School: ${upperSchoolCode}, File: ${file ? file.originalname + ' (' + file.size + ' bytes)' : 'NONE'}, User: ${creatingUserId}`);
 
   // --- Initial Checks ---
   if (!file) { return res.status(400).json({ message: 'No file uploaded' }); }
@@ -162,57 +169,23 @@ exports.importUsers = async (req, res) => {
   } catch (yearError) {
     console.error(`Error fetching academic year from school_info for ${upperSchoolCode}:`, yearError.message);
   }
-  // --- TRACK CLASSES TO CREATE ---
-  const classesToEnsure = new Map(); // className -> { sections: Set }
+  // --- REMOVED: Auto-creation of classes during import ---
+  // We now strictly only import users into classes already defined by the superadmin.
 
-  // --- Fetch all school classes once for robust matching ---
-  let schoolClasses = [];
-  try {
-    const classesCollection = db.collection('classes');
-    schoolClasses = await classesCollection.find({
-      $or: [
-        { schoolCode: upperSchoolCode },
-        { schoolId: school._id.toString() },
-        { schoolId: school._id }
-      ],
-      isActive: true
-    }).toArray();
-    console.log(`Fetched ${schoolClasses.length} active classes for robust matching.`);
-  } catch (classFetchError) {
-    console.error(`Error fetching classes for matching:`, classFetchError.message);
-  }
-
-  // Helper for robust class matching
-  const findMatchingClass = (inputName) => {
-    if (!inputName) return null;
-    const cleanInput = inputName.toString().trim().toLowerCase();
-
-    // Exact match or lowercase match
-    let found = schoolClasses.find(c => c.className.toLowerCase() === cleanInput || c.className === inputName);
-    if (found) return found;
-
-    // Normalize variations: "1st" -> "1", "2nd" -> "2", etc.
-    const normalizedInput = cleanInput.replace(/(st|nd|rd|th)$/, '');
-    found = schoolClasses.find(c => c.className.toLowerCase().replace(/(st|nd|rd|th)$/, '') === normalizedInput);
-    if (found) return found;
-
-    // Roman Numerals handling
-    const romanMap = { 'i': '1', 'ii': '2', 'iii': '3', 'iv': '4', 'v': '5', 'vi': '6', 'vii': '7', 'viii': '8', 'ix': '9', 'x': '10', 'xi': '11', 'xii': '12' };
-    if (romanMap[cleanInput]) {
-      const numeric = romanMap[cleanInput];
-      found = schoolClasses.find(c => c.className.toLowerCase() === numeric);
-      if (found) return found;
-    }
-
-    // Vice versa: input is "1", DB has "1st"
-    found = schoolClasses.find(c => {
-      const dbName = c.className.toLowerCase();
-      return dbName === `${cleanInput}st` || dbName === `${cleanInput}nd` || dbName === `${cleanInput}rd` || dbName === `${cleanInput}th`;
-    });
-
-    return found;
+  // Helper for robust year format matching (e.g. 2024-25 vs 2024-2025)
+  const getPossibleYearFormats = (year) => {
+    if (!year) return [];
+    const formats = [String(year).trim()];
+    const matchShort = String(year).match(/^(\d{4})-(\d{2})$/);
+    if (matchShort) formats.push(`${matchShort[1]}-20${matchShort[2]}`);
+    const matchLong = String(year).match(/^(\d{4})-(\d{4})$/);
+    if (matchLong) formats.push(`${matchLong[1]}-${matchLong[2].substring(2)}`);
+    return [...new Set(formats)];
   };
-  // --- END OF CLASS MATCHING PREP ---
+  const possibleYearFormats = getPossibleYearFormats(currentAcademicYear);
+
+  // Class/section validation is now done strictly from the school DB 'classes' collection (below, after CSV parsing).
+  const totalStartTime = Date.now();
 
   // --- CSV Header Mappings (Combined) ---
   const headerMappings = {
@@ -381,216 +354,268 @@ exports.importUsers = async (req, res) => {
   const userCollection = db.collection(collectionName);
   console.log(`Using database collection: ${collectionName}`);
 
-  // --- Process Rows Serially ---
+  const classesCollection = db.collection('classes');
+  
+  // Fetch active classes using flexible year format matching
+  console.log(`🔍 Querying classes collection for academic year formats: [${possibleYearFormats.join(', ')}]`);
+  const schoolClasses = await classesCollection.find({ 
+    isActive: true,
+    academicYear: { $in: possibleYearFormats }
+  }).toArray();
+  
+  console.log(`📊 Raw classes query returned ${schoolClasses.length} documents.`);
+  if (schoolClasses.length > 0) {
+    console.log(`📊 Sample class: className="${schoolClasses[0].className}", academicYear="${schoolClasses[0].academicYear}", sections=${JSON.stringify(schoolClasses[0].sections)}`);
+  }
+  
+  // Build a strict map of className (uppercase) -> Set of sections (uppercase)
+  const configuredClassesMap = new Map();
+  schoolClasses.forEach(cls => {
+    const className = String(cls.className).trim().toUpperCase();
+    const sections = Array.isArray(cls.sections) ? cls.sections : [];
+    const sectionSet = new Set(sections.map(s => String(s).trim().toUpperCase()));
+    // Merge sections if same className appears in multiple docs
+    if (configuredClassesMap.has(className)) {
+      const existing = configuredClassesMap.get(className);
+      sectionSet.forEach(s => existing.add(s));
+    } else {
+      configuredClassesMap.set(className, sectionSet);
+    }
+  });
+  
+  console.log(`✅ Configured classes for ${upperSchoolCode} (year: ${currentAcademicYear}):`, 
+    configuredClassesMap.size > 0 
+      ? Array.from(configuredClassesMap.entries()).map(([k,v]) => `${k}:[${[...v].join(',')}]`).join(', ')
+      : '⚠️ NONE FOUND — all student rows will be skipped!'
+  );
+
+  // EARLY EXIT: If no classes configured and role is student, skip the entire import
+  if (inferredRole === 'student' && configuredClassesMap.size === 0) {
+    console.error(`❌ No active classes found for ${upperSchoolCode} in year ${currentAcademicYear}. Aborting student import.`);
+    return res.status(400).json({
+      success: false,
+      message: `No classes are configured for school ${upperSchoolCode} for academic year ${currentAcademicYear}. Please create classes in the SuperAdmin panel first.`,
+      results: {
+        successData: [], errors: [], skipped: [],
+        totalRows: csvData.length, insertedCount: 0, skippedCount: csvData.length,
+        skippedSummary: { byClass: {}, bySection: {}, alreadyExistsCount: 0 }
+      }
+    });
+  }
+
+  // Helper for robust class matching (handles: "6" vs "6TH", "1st" vs "1", "Class 10" vs "10", "VI" vs "6" etc.)
+  const romanToNum = { 'I':'1','II':'2','III':'3','IV':'4','V':'5','VI':'6','VII':'7','VIII':'8','IX':'9','X':'10','XI':'11','XII':'12' };
+  const findConfiguredClass = (inputName) => {
+    if (!inputName) return null;
+    const search = String(inputName).trim().toUpperCase();
+    
+    // 1. Exact match
+    if (configuredClassesMap.has(search)) return search;
+    
+    // 2. Strip common prefixes/suffixes: "Class 6" -> "6", "6th" -> "6", "6TH" -> "6"
+    const stripped = search.replace(/^(CLASS|GRADE|STD)\s*/i, '').replace(/(ST|ND|RD|TH)$/i, '').trim();
+    if (stripped && configuredClassesMap.has(stripped)) return stripped;
+    
+    // 3. Extract just the number and try variations
+    const numMatch = search.match(/\d+/);
+    if (numMatch) {
+      const num = numMatch[0];
+      // Try bare number
+      if (configuredClassesMap.has(num)) return num;
+      // Try with common suffixes (DB might store as "6TH", "1ST", etc.)
+      for (const suffix of ['TH', 'ST', 'ND', 'RD']) {
+        const withSuffix = num + suffix;
+        if (configuredClassesMap.has(withSuffix)) return withSuffix;
+      }
+    }
+    
+    // 4. Roman numeral -> number
+    if (romanToNum[search]) {
+      const num = romanToNum[search];
+      if (configuredClassesMap.has(num)) return num;
+      for (const suffix of ['TH', 'ST', 'ND', 'RD']) {
+        if (configuredClassesMap.has(num + suffix)) return num + suffix;
+      }
+    }
+    
+    return null;
+  };
+
+  // --- Process Rows ---
   const results = { success: [], errors: [], skipped: [], total: csvData.length };
-  const usersToInsert = [];
+  const usersToInsertData = []; 
   const processedEmails = new Set();
 
+  // Pre-fetch existing emails for duplicate checking
+  const existingEmails = new Set();
+  const usersWithEmail = await userCollection.find({}, { projection: { email: 1, _id: 0 } }).toArray();
+  for (const u of usersWithEmail) {
+    if (u.email) existingEmails.add(u.email.toLowerCase());
+  }
+  console.log(`✅ Cached ${existingEmails.size} existing emails for duplicate checking.`);
+
   let rowNumber = 1;
-  console.log(`Starting row processing for inferred role: ${inferredRole}...`);
   for (const row of csvData) {
     rowNumber++;
-    const userRole = inferredRole;
-    const email = row['email']?.trim().toLowerCase();
     row.originalRowNumber = rowNumber;
+    usersToInsertData.push(row);
+  }
 
+  // --- OPTIMIZATION: Password Hash Caching ---
+  const passwordHashMap = new Map();
+  const getCachedHash = (password) => {
+    if (passwordHashMap.has(password)) return passwordHashMap.get(password);
+    const hashPromise = bcrypt.hash(password, 6);
+    passwordHashMap.set(password, hashPromise);
+    return hashPromise;
+  };
+
+  let nextSequenceValue = 0;
+  const rolePrefixes = { student: 'S', teacher: 'T', admin: 'A', parent: 'P' };
+  const prefix = rolePrefixes[inferredRole] || 'U';
+
+  if (usersToInsertData.length > 0) {
+    const sequencesCollection = db.collection('id_sequences');
+    const sequenceId = `${inferredRole}_sequence`;
     try {
-      if (!email) throw new Error(`Email is required.`);
-      if (processedEmails.has(email)) throw new Error(`Duplicate email '${email}' found within this CSV file.`);
-      processedEmails.add(email);
-
-      // --- DYNAMIC VALIDATION ---
-      let validationErrors = [];
-      if (userRole === 'student') {
-        validationErrors = validateStudentRowRobust(row, rowNumber);
-
-        // --- CLASS/SECTION AVAILABILITY CHECK ---
-        // Instead of treating missing class/section as a validation error (which causes 400),
-        // we gracefully SKIP these students and track them separately.
-        if (validationErrors.length === 0) {
-          const currentClassInput = row['currentclass']?.toString().trim();
-          const currentSectionInput = row['currentsection']?.toString().trim();
-
-          if (currentClassInput) {
-            const matchedClass = findMatchingClass(currentClassInput);
-            
-            // Standardize class name even if not found in DB (we'll create it)
-            const standardizedClassName = matchedClass ? matchedClass.className : currentClassInput;
-            row['currentclass'] = standardizedClassName;
-
-            // Track for auto-creation/verification in the current year
-            if (!classesToEnsure.has(standardizedClassName)) {
-              classesToEnsure.set(standardizedClassName, {
-                sourceClass: matchedClass,
-                sections: new Set()
-              });
-            }
-            
-            if (currentSectionInput) {
-              classesToEnsure.get(standardizedClassName).sections.add(currentSectionInput.toUpperCase());
-              row['currentsection'] = currentSectionInput.toUpperCase();
-            } else {
-              // Default to 'A' if no section provided
-              classesToEnsure.get(standardizedClassName).sections.add('A');
-              row['currentsection'] = 'A';
-            }
-          }
-        }
-      } else if (userRole === 'teacher') { // inferredRole is 'teacher'
-        // Use simplified validation if it's the new template format
-        if (row['qualification'] && !row['highestqualification']) {
-          validationErrors = validateTeacherRowSimplified(row, rowNumber);
-        } else {
-          validationErrors = validateTeacherRow(row, rowNumber);
-        }
-      } else if (userRole === 'admin') { // <--- NEW: Admin Validation
-        validationErrors = validateAdminRow(row, rowNumber);
-      }
-      // -------------------------
-
-      if (validationErrors.length > 0) {
-        throw new Error(validationErrors.map(e => `${e.field}: ${e.error}`).join('; '));
-      }
-
-      // Check against the correct collection for existing email
-      const existingUser = await userCollection.findOne({ email: email });
-      if (existingUser) {
-        // --- GRACEFUL SKIP: User already exists ---
-        results.skipped.push({
-          row: rowNumber,
-          reason: 'already_exists',
-          studentName: `${row['firstname'] || ''} ${row['lastname'] || ''}`.trim(),
-          email: email,
-          message: `A user with email "${email}" already exists in the ${collectionName} collection. This row was skipped.`
-        });
-        continue; // Skip to next row
-      }
-
-      // Store row data temporarily - will generate userId during bulk insert preparation
-      usersToInsert.push({
-        _tempRowData: row,
-        _tempSchoolId: school._id,
-        _tempSchoolCode: upperSchoolCode,
-        _tempCreatingUserId: creatingUserId,
-        _tempUserRole: userRole,
-        _tempRowNumber: rowNumber,
-        _tempEmail: email
-      });
-
-    } catch (error) {
-      console.error(`❌ Error processing row ${rowNumber}: ${error.message}`);
-      // Add stack trace for debugging if needed
-      // console.error(error.stack);
-      results.errors.push({ row: rowNumber, data: row, error: error.message || 'Unknown error processing row.' });
-    }
-  } // --- End of Loop ---
-  console.log(`Row processing finished. ${usersToInsert.length} ${collectionName} prepared for insertion.`);
-
-  // --- Generate UserIds and Create User Objects (ONLY for validated rows) ---
-  const finalUsersToInsert = [];
-  for (const tempData of usersToInsert) {
-    try {
-      // Generate userId ONLY now, after all validation passed
-      const userId = await generateSequentialUserId(tempData._tempSchoolCode, tempData._tempUserRole);
-
-      // Create actual user data object
-      let userData;
-      if (tempData._tempUserRole === 'student') {
-        // --- MODIFIED: Pass currentAcademicYear ---
-        userData = await createStudentFromRowRobust(
-          tempData._tempRowData,
-          tempData._tempSchoolId,
-          userId,
-          tempData._tempSchoolCode,
-          tempData._tempCreatingUserId,
-          currentAcademicYear // <-- PASSING THE VARIABLE
-        );
-      } else if (tempData._tempUserRole === 'teacher') {
-        userData = await createTeacherFromRow(
-          tempData._tempRowData,
-          tempData._tempSchoolId,
-          userId,
-          tempData._tempSchoolCode,
-          tempData._tempCreatingUserId
-        );
-      } else if (tempData._tempUserRole === 'admin') { // <--- NEW: Admin Creation
-        userData = await createAdminFromRow(
-          tempData._tempRowData,
-          tempData._tempSchoolId,
-          userId,
-          tempData._tempSchoolCode,
-          tempData._tempCreatingUserId
-        );
-      }
-      // --- END OF MODIFICATION ---
-
-      finalUsersToInsert.push(userData);
-      results.success.push({
-        row: tempData._tempRowNumber,
-        userId: userData.userId,
-        email: userData.email,
-        name: userData.name.displayName,
-        password: userData.temporaryPassword
-      });
-    } catch (error) {
-      console.error(`❌ Error creating user object for row ${tempData._tempRowNumber}:`, error.message);
-      results.errors.push({
-        row: tempData._tempRowNumber,
-        data: tempData._tempRowData,
-        error: `Failed to create user: ${error.message}`
-      });
+      const seqResult = await sequencesCollection.findOneAndUpdate(
+        { _id: sequenceId },
+        { 
+          $inc: { sequence_value: usersToInsertData.length },
+          $setOnInsert: { schoolCode: upperSchoolCode, role: inferredRole, createdAt: new Date() }
+        },
+        { upsert: true, returnDocument: 'after' }
+      );
+      const finalVal = seqResult.value?.sequence_value || seqResult.sequence_value;
+      nextSequenceValue = finalVal - usersToInsertData.length + 1;
+    } catch (seqError) {
+      console.error('❌ Error reserving bulk IDs:', seqError.message);
+      throw new Error(`Failed to generate sequential IDs: ${seqError.message}`);
     }
   }
-  console.log(`User objects created. ${finalUsersToInsert.length} ready for bulk insert.`);
+
+  const finalUsersToInsert = [];
+  const concurrencyLimit = 20;
+  const totalToProcess = usersToInsertData.length;
+  const startTime = Date.now();
+
+  for (let i = 0; i < usersToInsertData.length; i += concurrencyLimit) {
+    const chunk = usersToInsertData.slice(i, i + concurrencyLimit);
+    const chunkPromises = chunk.map(async (row, index) => {
+      const currentRowNumber = row.originalRowNumber;
+      const email = row['email']?.trim().toLowerCase();
+
+      try {
+        if (!email) throw new Error(`Email is required.`);
+        if (processedEmails.has(email)) throw new Error(`Duplicate email '${email}' found in CSV.`);
+        processedEmails.add(email);
+
+        let validationErrors = [];
+        if (inferredRole === 'student') {
+          validationErrors = validateStudentRowRobust(row, currentRowNumber);
+          
+          // DEBUG: Log first 3 rows in detail
+          if (currentRowNumber <= 5) {
+            console.log(`\n🔎 DEBUG Row ${currentRowNumber}: class="${row['currentclass']}", section="${row['currentsection']}", year="${row['academicyear']}", email="${email}"`);
+            console.log(`   Validation errors: ${validationErrors.length > 0 ? validationErrors.map(e => e.field + ':' + e.error).join(', ') : 'NONE'}`);
+          }
+          
+          if (validationErrors.length === 0) {
+            const currentClassInput = String(row['currentclass'] || '').trim();
+            const currentSectionInput = String(row['currentsection'] || '').trim();
+            const rowAcademicYear = String(row['academicyear'] || '').trim();
+
+            // 1. Academic Year Flexible Check (handles "2025-26" vs "2025-2026")
+            if (rowAcademicYear) {
+              const rowYearFormats = getPossibleYearFormats(rowAcademicYear);
+              const yearMatches = rowYearFormats.some(f => possibleYearFormats.includes(f));
+              if (!yearMatches) {
+                results.skipped.push({ row: currentRowNumber, reason: 'academic_year_mismatch', studentName: `${row['firstname'] || ''} ${row['lastname'] || ''}`.trim(), email: email, message: `Academic year '${rowAcademicYear}' doesn't match school's current year '${currentAcademicYear}'.` });
+                return null;
+              }
+            }
+
+            // 2. Strict Class Configuration Check (against school DB classes collection)
+            const matchedClassName = findConfiguredClass(currentClassInput);
+            if (!matchedClassName) {
+              results.skipped.push({ row: currentRowNumber, reason: 'class_not_configured', studentName: `${row['firstname'] || ''} ${row['lastname'] || ''}`.trim(), email: email, className: currentClassInput, message: `Class '${currentClassInput}' is NOT configured for this school.` });
+              return null;
+            }
+
+            // 3. Strict Section Configuration Check (against school DB classes collection)
+            const sectionSet = configuredClassesMap.get(matchedClassName);
+            const sectionToUse = currentSectionInput ? currentSectionInput.toUpperCase() : 'A';
+            if (!sectionSet || !sectionSet.has(sectionToUse)) {
+              results.skipped.push({ row: currentRowNumber, reason: 'section_not_configured', studentName: `${row['firstname'] || ''} ${row['lastname'] || ''}`.trim(), email: email, className: matchedClassName, section: sectionToUse, message: `Section '${sectionToUse}' is NOT active for class ${matchedClassName}.` });
+              return null;
+            }
+
+            // Normalize with matched system values
+            row['currentclass'] = matchedClassName;
+            row['currentsection'] = sectionToUse;
+            row['academicyear'] = currentAcademicYear;
+          }
+        } else if (inferredRole === 'teacher') {
+          validationErrors = (row['qualification'] && !row['highestqualification']) ? validateTeacherRowSimplified(row, currentRowNumber) : validateTeacherRow(row, currentRowNumber);
+        } else if (inferredRole === 'admin') {
+          validationErrors = validateAdminRow(row, currentRowNumber);
+        }
+
+        if (validationErrors.length > 0) throw new Error(validationErrors.map(e => e.error).join('; '));
+        if (existingEmails.has(email)) {
+          results.skipped.push({ row: currentRowNumber, reason: 'already_exists', studentName: `${row['firstname'] || ''} ${row['lastname'] || ''}`.trim(), email: email, message: `User already exists.` });
+          return null;
+        }
+
+        const currentIdValue = nextSequenceValue + i + index;
+        const userId = `${upperSchoolCode}-${prefix}-${String(currentIdValue).padStart(4, '0')}`;
+
+        let userData;
+        if (inferredRole === 'student') {
+          userData = await createStudentFromRowRobust(row, school._id, userId, upperSchoolCode, creatingUserId, currentAcademicYear, getCachedHash);
+        } else if (inferredRole === 'teacher') {
+          userData = await createTeacherFromRow(row, school._id, userId, upperSchoolCode, creatingUserId, getCachedHash);
+        } else if (inferredRole === 'admin') {
+          userData = await createAdminFromRow(row, school._id, userId, upperSchoolCode, creatingUserId, getCachedHash);
+        }
+
+        if (userData) {
+          results.success.push({ row: currentRowNumber, userId: userData.userId, email: userData.email, password: row.dateofbirth || '********', data: userData });
+          return userData;
+        }
+        return null;
+      } catch (error) {
+        results.errors.push({ row: currentRowNumber, data: row, error: error.message });
+        return null;
+      }
+    });
+
+    const chunkResults = await Promise.all(chunkPromises);
+    finalUsersToInsert.push(...chunkResults.filter(u => u !== null));
+    
+    // More frequent progress update for large imports
+    if (finalUsersToInsert.length % 20 === 0 || finalUsersToInsert.length >= totalToProcess) {
+      const elapsed = (Date.now() - startTime) / 1000;
+      const rate = (finalUsersToInsert.length / (elapsed || 1)).toFixed(1);
+      console.log(`⚡ Progress: ${finalUsersToInsert.length}/${totalToProcess} (${rate} users/sec)`);
+    }
+  }
+  const prepTime = ((Date.now() - startTime) / 1000).toFixed(1);
+  console.log(`✅ ${finalUsersToInsert.length} user objects created in ${prepTime}s. Starting bulk insert...`);
 
   // --- Perform Bulk Insert ---
   let insertedCount = 0;
   if (finalUsersToInsert.length > 0) {
+    const insertStartTime = Date.now();
     console.log(`Attempting to bulk insert ${finalUsersToInsert.length} processed users into ${collectionName}...`);
     try {
       const insertResult = await userCollection.insertMany(finalUsersToInsert, { ordered: false });
       insertedCount = insertResult.insertedCount;
-      console.log(`✅ Bulk insert attempted for ${upperSchoolCode}. Acknowledged inserts: ${insertedCount}.`);
+      const insertTime = ((Date.now() - insertStartTime) / 1000).toFixed(1);
+      console.log(`✅ Bulk insert SUCCESS for ${upperSchoolCode} in ${insertTime}s. Count: ${insertedCount}.`);
       
-      // --- AUTO-CREATE/UPDATE CLASSES IN 'classes' COLLECTION ---
-      if (classesToEnsure.size > 0) {
-        console.log(`🛠️ Ensuring ${classesToEnsure.size} classes exist for academic year ${currentAcademicYear}`);
-        const classesCollection = db.collection('classes');
-        
-        for (const [className, info] of classesToEnsure.entries()) {
-          try {
-            const sectionsArray = Array.from(info.sections);
-            
-            // Use updateOne with upsert to ensure class exists for the current year
-            await classesCollection.updateOne(
-              { 
-                schoolCode: upperSchoolCode, 
-                className: className, 
-                academicYear: currentAcademicYear 
-              },
-              {
-                $set: {
-                  updatedAt: new Date()
-                },
-                $addToSet: {
-                  sections: { $each: sectionsArray }
-                },
-                $setOnInsert: {
-                  schoolId: school._id,
-                  schoolCode: upperSchoolCode,
-                  className: className,
-                  academicYear: currentAcademicYear,
-                  isActive: true,
-                  createdAt: new Date()
-                }
-              },
-              { upsert: true }
-            );
-          } catch (classError) {
-            console.error(`Error ensuring class ${className}:`, classError.message);
-          }
-        }
-      }
+      // --- AUTO-CREATE CLASSES REMOVED ---
+      // Classes must now be pre-defined by the superadmin.
     } catch (bulkError) {
       console.error(`Bulk insert operation error for ${upperSchoolCode}:`, bulkError);
       results.errors.push({
@@ -605,14 +630,20 @@ exports.importUsers = async (req, res) => {
         const failedEmails = new Set(bulkError.writeErrors.map(err => err.op?.email).filter(Boolean));
         results.success = results.success.filter(s => !failedEmails.has(s.email));
 
+        // --- OPTIMIZATION: Use a map for O(1) lookup of original rows ---
+        const emailToRowMap = new Map();
+        csvData.forEach(r => {
+          if (r.email) emailToRowMap.set(r.email.toLowerCase(), r);
+        });
+
         // Add specific errors from bulk operation to the errors list
         bulkError.writeErrors.forEach(err => {
-          const failedEmail = err.op?.email;
-          const originalRow = csvData.find(r => r.email?.toLowerCase() === failedEmail); // Find original row data if possible
+          const failedEmail = err.op?.email?.toLowerCase();
+          const originalRow = failedEmail ? emailToRowMap.get(failedEmail) : null;
           results.errors.push({
             row: originalRow?.originalRowNumber || `N/A (Index ${err.index})`,
             error: `Insert Error: ${err.errmsg || 'Unknown insert error'}`,
-            data: originalRow // Include original data for context
+            data: originalRow || err.op // Include original data for context
           });
         });
         // Update insertedCount to reflect actual successes reported by bulk result BEFORE write errors were handled
@@ -687,13 +718,26 @@ exports.importUsers = async (req, res) => {
   if (insertedCount > 0) httpStatus = 201;
   if (hasHardErrors && insertedCount === 0) httpStatus = 400;
 
+  // --- Final Cleanup and Response ---
+  const endTime = Date.now();
+  const totalExecutionTime = ((endTime - totalStartTime) / 1000).toFixed(1);
+  console.log(`🏁 Import logic finished for ${upperSchoolCode} in ${totalExecutionTime}s. Total users inserted: ${insertedCount}. Sending response...`);
+  
+  // Explicitly clear heavy local variables to help GC
+  passwordHashMap.clear();
+  existingEmails.clear();
+  processedEmails.clear();
+
+  // --- PERFORMANCE FIX: Limit response size ---
+  // Large JSON responses (e.g., 2000+ users) can hang the browser or hit memory limits.
+  // We only return the first 50 success records as a sample, since the UI only shows 10 anyway.
   res.status(httpStatus).json({
     success: overallSuccess,
     message: finalMessage,
     results: {
-      successData: results.success,
-      errors: results.errors,
-      skipped: results.skipped,
+      successData: results.success.slice(0, 50), // Sample of successes
+      errors: results.errors.slice(0, 500),      // Sample of errors
+      skipped: results.skipped.slice(0, 500),    // Sample of skips
       totalRows: results.total,
       insertedCount: insertedCount,
       skippedCount: skippedCount,
@@ -701,9 +745,21 @@ exports.importUsers = async (req, res) => {
         byClass: skippedByClass,
         bySection: skippedBySection,
         alreadyExistsCount: alreadyExistsCount
-      }
+      },
+      executionTime: `${totalExecutionTime}s`
     }
   });
+
+  } catch (topLevelError) {
+    console.error('❌❌❌ CRITICAL ERROR in importUsers:', topLevelError);
+    console.error('Stack:', topLevelError.stack);
+    if (!res.headersSent) {
+      return res.status(500).json({ 
+        success: false, 
+        message: `Import failed with critical error: ${topLevelError.message}` 
+      });
+    }
+  }
 };
 // ==================================================================
 // END: IMPORT FUNCTION
@@ -754,7 +810,7 @@ exports.generateTemplate = async (req, res) => {
 // REPLACE THE ENTIRE 'copyProfilePicture' FUNCTION WITH THIS
 // REPLACE the old function with this
 async function copyProfilePicture(sourcePath, userId, schoolCode) {
-  console.log(`🔍 copyProfilePicture called with: sourcePath="${sourcePath}", userId="${userId}", schoolCode="${schoolCode}"`);
+  // Suppressed verbose logging for bulk performance
 
   if (!sourcePath || String(sourcePath).trim() === '') {
     console.warn(`Empty profile image path provided. Skipping.`);
@@ -804,16 +860,12 @@ async function copyProfilePicture(sourcePath, userId, schoolCode) {
         }
       }
 
-      console.log(`📸 Downloading image from URL: ${downloadUrl}`);
       const response = await axios.get(downloadUrl, {
         responseType: 'arraybuffer',
-        timeout: 30000, // 30 second timeout
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
+        timeout: 10000, // Reduced to 10s to avoid hanging bulk imports
+        headers: { 'User-Agent': 'Mozilla/5.0' }
       });
       imageBuffer = Buffer.from(response.data);
-      console.log(`✅ Downloaded ${imageBuffer.length} bytes from URL`);
     } else {
       // Handle local file path - but check if we're in production/cloud environment
       const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER;
@@ -871,7 +923,6 @@ async function copyProfilePicture(sourcePath, userId, schoolCode) {
     const cloudinaryFolder = `profiles/${schoolCode.toUpperCase()}`;
     const publicId = `${userId}_${timestamp}`;
 
-    console.log(`☁️ Uploading to Cloudinary: ${cloudinaryFolder}/${publicId}`);
     const uploadResult = await uploadBufferToCloudinary(
       compressedImageBuffer,
       cloudinaryFolder,
@@ -1071,13 +1122,13 @@ function validateTeacherRowSimplified(normalizedRow, rowNumber) {
 }
 
 // --- Helper to create Teacher Data Object ---
-async function createTeacherFromRow(normalizedRow, schoolIdAsObjectId, userId, schoolCode, creatingUserIdAsObjectId) {
+async function createTeacherFromRow(normalizedRow, schoolIdAsObjectId, userId, schoolCode, creatingUserIdAsObjectId, getCachedHash) {
   const email = normalizedRow['email'];
   const finalDateOfBirth = parseFlexibleDate(normalizedRow['dateofbirth'], 'Date of Birth');
   if (!finalDateOfBirth) throw new Error('Date of Birth is required and could not be parsed.');
-  const finalJoiningDate = parseFlexibleDate(normalizedRow['joiningdate'], 'Joining Date') || new Date(); // Default to current date if not provided
+  const finalJoiningDate = parseFlexibleDate(normalizedRow['joiningdate'], 'Joining Date') || new Date(); 
   let temporaryPassword = generateRandomPassword(8);
-  const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
+  const hashedPassword = await getCachedHash(temporaryPassword);
   let gender = normalizedRow['gender']?.toLowerCase();
   if (!['male', 'female', 'other'].includes(gender)) gender = 'other';
   const isActiveValue = normalizedRow['isactive']?.toLowerCase();
@@ -1271,6 +1322,67 @@ async function createTeacherFromRow(normalizedRow, schoolIdAsObjectId, userId, s
   return newTeacher;
 }
 
+// --- Helper to create Admin Data Object ---
+async function createAdminFromRow(normalizedRow, schoolIdAsObjectId, userId, schoolCode, creatingUserIdAsObjectId, getCachedHash) {
+  const email = normalizedRow['email'] || '';
+  const firstName = normalizedRow['firstname'] || '';
+  const lastName = normalizedRow['lastname'] || '';
+  const finalDateOfBirth = parseFlexibleDate(normalizedRow['dateofbirth'], 'Date of Birth');
+  const finalJoiningDate = parseFlexibleDate(normalizedRow['joiningdate'], 'Joining Date') || new Date();
+
+  let temporaryPassword = generateRandomPassword(8);
+  const hashedPassword = await getCachedHash(temporaryPassword);
+
+  const isActiveValue = normalizedRow['isactive']?.toLowerCase();
+  let isActive = true;
+  if (isActiveValue === 'false' || isActiveValue === 'inactive' || isActiveValue === 'no' || isActiveValue === '0') {
+    isActive = false;
+  }
+
+  const newAdmin = {
+    _id: new ObjectId(),
+    userId,
+    schoolCode: schoolCode.toUpperCase(),
+    schoolId: schoolIdAsObjectId,
+    name: {
+      firstName,
+      middleName: normalizedRow['middlename'] || '',
+      lastName,
+      displayName: `${firstName} ${lastName}`.trim()
+    },
+    email: email.toLowerCase(),
+    password: hashedPassword,
+    temporaryPassword: temporaryPassword,
+    passwordChangeRequired: true,
+    role: 'admin',
+    adminDetails: {
+      adminType: normalizedRow['admintype'] || 'Staff',
+      designation: normalizedRow['designation'] || '',
+      department: normalizedRow['department'] || '',
+      permissions: {
+        userManagement: normalizedRow['permissions_usermanagement']?.toLowerCase() === 'true',
+        academicManagement: normalizedRow['permissions_academicmanagement']?.toLowerCase() === 'true',
+        feeManagement: normalizedRow['permissions_feemanagement']?.toLowerCase() === 'true',
+        reportGeneration: normalizedRow['permissions_reportgeneration']?.toLowerCase() === 'true'
+      }
+    },
+    contact: {
+      primaryPhone: normalizedRow['primaryphone'] || '',
+    },
+    isActive,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    schoolAccess: {
+      joinedDate: finalJoiningDate,
+      assignedBy: creatingUserIdAsObjectId,
+      status: 'active',
+      accessLevel: 'full'
+    }
+  };
+
+  return newAdmin;
+}
+
 
 // --- Robust helper to fix scientific notation for numbers like 2.345E+11 ---
 function normalizeNumericValue(val) {
@@ -1349,7 +1461,7 @@ function validateStudentRowRobust(normalizedRow, rowNumber) {
 
 // REPLACE your entire createStudentFromRowRobust function with this one:
 
-async function createStudentFromRowRobust(normalizedRow, schoolIdAsObjectId, userId, schoolCode, creatingUserIdAsObjectId, currentAcademicYear) {
+async function createStudentFromRowRobust(normalizedRow, schoolIdAsObjectId, userId, schoolCode, creatingUserIdAsObjectId, currentAcademicYear, getCachedHash) {
   const email = normalizedRow['email'];
   const dateOfBirthString = normalizedRow['dateofbirth'];
   const finalDateOfBirth = parseFlexibleDate(dateOfBirthString, 'Date of Birth');
@@ -1363,7 +1475,7 @@ async function createStudentFromRowRobust(normalizedRow, schoolIdAsObjectId, use
     temporaryPassword = generateRandomPassword(8);
   }
 
-  const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
+  const hashedPassword = await getCachedHash(temporaryPassword);
   let gender = normalizedRow['gender']?.toLowerCase();
   if (!['male', 'female', 'other'].includes(gender)) {
     gender = 'other';
@@ -1438,7 +1550,7 @@ async function createStudentFromRowRobust(normalizedRow, schoolIdAsObjectId, use
       aadharNumber: cleanedAadhaar || '',
       panNumber: normalizedRow['pannumber'] || ''
     },
-    profileImage: null,
+    profileImage: normalizedRow['profileimage'] || null,
     isActive: isActive,
     createdAt: new Date(),
     updatedAt: new Date(),

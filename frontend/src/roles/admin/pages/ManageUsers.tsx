@@ -21,7 +21,7 @@ import UserForm from '../../../components/forms/UserForm';
 import LocationSelector from '../../../components/LocationSelector';
 import { State, District, Taluka } from '../../../services/locationAPI';
 import { compressImage, validateImageFile, blobToFile } from '../../../utils/schoolConfig';
-import { getAcademicYearToUse, normalizeAcademicYear } from '../../../utils/academicYearUtils';
+import { getAcademicYearToUse, normalizeAcademicYear, getDynamicFallbackYear } from '../../../utils/academicYearUtils';
 interface School {
   _id: string;
   name: string;
@@ -447,7 +447,7 @@ const ManageUsers: React.FC = () => {
     getClassOptions,
     getSectionsByClass,
     hasClasses
-  } = useSchoolClasses();
+  } = useSchoolClasses(viewingAcademicYear || currentAcademicYear);
 
   // State for dynamic sections based on selected class
   const [availableSections, setAvailableSections] = useState<any[]>([]);
@@ -1027,7 +1027,7 @@ const ManageUsers: React.FC = () => {
       // Academic Information
       currentClass: '',
       currentSection: '',
-      academicYear: currentAcademicYear || '2024-25',
+      academicYear: currentAcademicYear || getDynamicFallbackYear(),
       admissionDate: '',
       admissionClass: '',
       rollNumber: '',
@@ -1611,7 +1611,7 @@ const ManageUsers: React.FC = () => {
         // Academic Information
         currentClass: '',
         currentSection: '',
-        academicYear: currentAcademicYear || '2024-25',
+        academicYear: currentAcademicYear || getDynamicFallbackYear(),
         admissionDate: '',
         admissionClass: '',
         rollNumber: '',
@@ -1920,7 +1920,7 @@ const ManageUsers: React.FC = () => {
   useEffect(() => {
     fetchUsers();
     fetchSchoolDetails();
-  }, []); // Fetch once on mount - filtering happens client-side
+  }, [viewingAcademicYear, currentAcademicYear]); // Re-fetch when academic year changes
 
   // Generate ID and password when add modal opens for the first time
   useEffect(() => {
@@ -2057,19 +2057,9 @@ const ManageUsers: React.FC = () => {
 
       try {
         // Fetch all users from the school-specific collections
-        const response = await schoolUserAPI.getAllUsers(schoolCode, token);
-        console.log('🔍 ========== API RESPONSE DEBUG ==========');
-        console.log('🔍 response type:', typeof response);
-        console.log('🔍 response is object:', response !== null && typeof response === 'object');
-        console.log('🔍 response keys:', Object.keys(response || {}));
-        console.log('🔍 response.success:', response?.success);
-        console.log('🔍 response.data type:', typeof response?.data);
-        console.log('🔍 Is response.data an array?', Array.isArray(response?.data));
-        console.log('🔍 response.data length:', (response?.data as any)?.length);
-        console.log('🔍 response.totalCount:', response?.totalCount);
-        console.log('🔍 response.breakdown:', response?.breakdown);
-        console.log('🔍 ========== END DEBUG ==========');
-        console.log('Full response object:', JSON.stringify(response, null, 2));
+        // Pass the academic year to filter students by session
+        const response = await schoolUserAPI.getAllUsers(schoolCode, token, viewingAcademicYear || currentAcademicYear);
+        // Logging suppressed for production performance with large datasets
 
         const allUsers: any[] = [];
 
@@ -2229,23 +2219,8 @@ const ManageUsers: React.FC = () => {
           });
         }
 
-        console.log('Processed users:', allUsers);
-        console.log(`📊 Total processed users: ${allUsers.length}`);
-        if (allUsers.length === 0) {
-          console.warn('⚠️ No users were processed from the API response!');
-          console.log('Full API response:', response);
-        }
-        console.log('Processed Users with Passwords:', allUsers.filter(u => u.role === 'teacher').map(t => ({
-          id: t.userId,
-          name: t.name,
-          pass: t.temporaryPassword,
-          hasPassword: !!t.temporaryPassword
-        }))); // Log teacher IDs and passwords
-        console.log('Raw teacher data from API:', response.data?.filter((u: any) => u.role === 'teacher').map((t: any) => ({
-          userId: t.userId,
-          temporaryPassword: t.temporaryPassword,
-          tempPassword: t.tempPassword
-        })));
+        // Final count log only
+        console.log(`✅ Successfully loaded and processed ${allUsers.length} users.`);
         setUsers(allUsers as unknown as DisplayUser[]);
 
       } catch (apiError) {
@@ -3494,7 +3469,7 @@ const ManageUsers: React.FC = () => {
       studentDetails: {
         currentClass: userData.studentDetails?.currentClass || userData.class || '',
         currentSection: userData.studentDetails?.currentSection || userData.section || '',
-        academicYear: userData.studentDetails?.academicYear || userData.academicYear || '2024-25',
+        academicYear: userData.studentDetails?.academicYear || userData.academicYear || getDynamicFallbackYear(),
         admissionDate: userData.studentDetails?.admissionDate || userData.admissionDate || '',
         admissionClass: userData.studentDetails?.admissionClass || '',
         rollNumber: userData.studentDetails?.rollNumber || userData.rollNumber || '',
@@ -4163,9 +4138,9 @@ const ManageUsers: React.FC = () => {
       (user.studentDetails as any)?.academicYear ||
       (user as any).academicYear ||
       (user as any).academicInfo?.academicYear;
-    // If academic year is not set, don't filter it out (allow it through)
+    // Strict filtering: Student MUST have an academic year set and it MUST match the viewing year
     const matchesAcademicYear = activeTab !== 'student' ||
-      (!studentAcademicYear || normalizeYear(studentAcademicYear) === normalizeYear(viewingAcademicYear));
+      (studentAcademicYear && normalizeYear(studentAcademicYear) === normalizeYear(viewingAcademicYear));
 
     // Debug logging for academic year filtering
     if (activeTab === 'student' && user.userId === 'AVM-S-0063') {
@@ -5376,30 +5351,35 @@ const ManageUsers: React.FC = () => {
     }
 
     setIsImporting(true);
-    setImportProgress(0);
+    setImportProgress(10); // Start at 10%
+
+    // --- Simulated Progress for better UX ---
+    // Start fast, then slow down significantly after 85% to never truly "stop"
+    const progressInterval = setInterval(() => {
+      setImportProgress(prev => {
+        if (prev < 80) return prev + 5;
+        if (prev < 95) return prev + 1;
+        if (prev < 99) return prev + 0.5;
+        return prev; // Stay at 99.9 until done
+      });
+    }, 800);
 
     try {
       const schoolCode = user?.schoolCode || 'SB';
       console.log('Starting import for school:', schoolCode);
 
       const response = await exportImportAPI.importUsers(schoolCode, importFile);
-      console.log('Import response:', response);
-
+      clearInterval(progressInterval);
       setImportProgress(100);
 
-      // Handle different response structures
       const results = response.data?.results || response.data || { successData: [], errors: [], skipped: [] };
-
-      // Backend returns 'successData' not 'success'
       const successArray = Array.isArray(results.successData) ? results.successData :
         Array.isArray(results.success) ? results.success : [];
       const errorsArray = Array.isArray(results.errors) ? results.errors : [];
       const skippedArray = Array.isArray(results.skipped) ? results.skipped : [];
 
-      // Use insertedCount if available (actual DB inserts)
       const actualInserted = results.insertedCount || successArray.length;
 
-      // Ensure results has the expected structure
       const importResultData = {
         success: successArray,
         errors: errorsArray,
@@ -5410,36 +5390,37 @@ const ManageUsers: React.FC = () => {
       setImportResults(importResultData as any);
 
       if (actualInserted > 0) {
-        toast.success(`Successfully imported ${actualInserted} students`);
-        // Force refresh the user list
+        toast.success(`Successfully imported ${actualInserted} users`);
         fetchUsers();
       }
 
       if (skippedArray.length > 0) {
-        // Build a concise skip summary for the toast
         const skippedSummary = results.skippedSummary || {};
         const classMissing = Object.keys(skippedSummary.byClass || {});
         const sectionMissing = Object.keys(skippedSummary.bySection || {});
-        let skipMsg = `${skippedArray.length} students skipped`;
-        if (classMissing.length > 0) skipMsg += ` — classes not configured: ${classMissing.join(', ')}`;
-        if (sectionMissing.length > 0) skipMsg += ` — sections not configured: ${sectionMissing.join(', ')}`;
+        let skipMsg = `${skippedArray.length} records skipped (Classes/Sections not configured)`;
         toast(skipMsg, { icon: '⚠️', duration: 6000 });
       }
 
       if (errorsArray.length > 0) {
-        toast.error(`${errorsArray.length} rows had validation errors`);
+        toast.error(`${errorsArray.length} rows had errors`);
       }
 
-      if (actualInserted === 0 && errorsArray.length === 0 && skippedArray.length === 0) {
-        toast.error('No users were imported. Please check your CSV file.');
+      // AUTO-CLOSE if perfectly successful after 2 seconds
+      if (actualInserted > 0 && errorsArray.length === 0 && skippedArray.length === 0) {
+        setTimeout(() => {
+          setShowImportModal(false);
+          setImportResults(null);
+          setImportFile(null);
+        }, 2500);
       }
 
     } catch (error: any) {
+      clearInterval(progressInterval);
       console.error('Import error:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'Failed to import users. Please try again.';
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to import users.';
       toast.error(errorMessage);
 
-      // Check if there are partial results in the error response
       const partialResults = error.response?.data?.results;
       if (partialResults) {
         setImportResults({

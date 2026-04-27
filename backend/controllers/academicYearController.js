@@ -22,10 +22,19 @@ exports.getAcademicYear = async (req, res) => {
 
     console.log(`📅 [ACADEMIC YEAR] Found school: ${school.name} (${school.code})`);
 
+    // Calculate current academic year dynamically as fallback
+    const now = new Date();
+    const currentMonth = now.getMonth(); // 0-indexed, 3 is April
+    const startYear = currentMonth >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+    const endYear = startYear + 1;
+    const defaultYear = `${startYear}-${endYear.toString().slice(-2)}`;
+    const defaultStartDate = new Date(startYear, 3, 1); // April 1st
+    const defaultEndDate = new Date(endYear, 2, 31);   // March 31st
+
     const academicYear = school.settings?.academicYear || {
-      currentYear: '2024-25',
-      startDate: new Date('2024-04-01'),
-      endDate: new Date('2025-03-31')
+      currentYear: defaultYear,
+      startDate: defaultStartDate,
+      endDate: defaultEndDate
     };
 
     console.log(`📅 [ACADEMIC YEAR] Current academic year: ${academicYear.currentYear}`);

@@ -1,4 +1,7 @@
 // backend/server.js
+// Set thread pool size for optimal parallel processing of CPU-intensive tasks like bcrypt hashing
+process.env.UV_THREADPOOL_SIZE = 16;
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -670,7 +673,7 @@ function startTempFolderCleanup() {
   //Then run every 60 seconds (less aggressive for Windows)
   setInterval(() => {
     cleanupTempFolder();
-  }, 1000); // 60 seconds
+  }, 60000); // 60 seconds
 }
 
 // 404 handler - MUST come before error handler

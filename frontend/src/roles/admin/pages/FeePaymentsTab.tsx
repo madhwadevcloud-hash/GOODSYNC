@@ -3,7 +3,8 @@ import { Search, Plus, X, FileText, Receipt, Eye, Filter } from 'lucide-react';
 import { useAuth } from '../../../auth/AuthContext';
 import { useAcademicYear } from '../../../contexts/AcademicYearContext';
 import ClassSectionSelect from '../components/ClassSectionSelect';
-import { feesAPI, userAPI, schoolAPI } from '../../../services/api';
+import api, { feesAPI, userAPI, schoolAPI } from '../../../services/api';
+import { getDynamicFallbackYear } from '../../../utils/academicYearUtils';
 import toast from 'react-hot-toast';
 import DualCopyReceipt from '../../../components/receipts/DualCopyReceipt';
 import ViewChalan from '../../../components/fees/ViewChalan';
@@ -419,7 +420,8 @@ const FeePaymentsTab: React.FC = () => {
         email: 'info@school.com',
         website: 'www.goodsynk.com',
         hasSchoolLogo: false,
-        schoolLogo: ''
+        schoolLogo: '',
+        principalName: ''
       };
 
       // Try to fetch school info from API first
@@ -1230,7 +1232,7 @@ hasSchoolLogo: !!(data.logoUrl || data.logo || schoolData.schoolLogo),
       userId: student.userId || student.studentId, // User-friendly ID like KVS-S-0003
       className: student.class,
       section: student.section,
-      academicYear: '2024-25',
+      academicYear: getDynamicFallbackYear(),
       // School details
       schoolName: schoolDetails.name || schoolDetails.schoolName || 'School Name',
       schoolAddress: [
@@ -1701,7 +1703,7 @@ return (
                                 userId: student.userId,
                                 className: student.class || 'N/A',
                                 section: student.section || 'N/A',
-                                academicYear: student.academicYear || '2024-25',
+                                academicYear: student.academicYear || getDynamicFallbackYear(),
                                 
                                 // School Information - dynamic from school details
                                 schoolName: schoolDetails.name || schoolDetails.schoolName || 'School Name',
@@ -1719,7 +1721,7 @@ return (
                                   accountNumber: schoolDetails.bankDetails.accountNumber || 'Not specified',
                                   ifscCode: schoolDetails.bankDetails.ifscCode || 'Not specified',
                                   branch: schoolDetails.bankDetails.branch || 'Not specified',
-                                  accountHolderName: schoolDetails.bankDetails.accountHolderName || 
+                                  accountHolderName: (schoolDetails.bankDetails as any).accountHolderName || 
                                                     schoolDetails.bankDetails.accountName || 
                                                     schoolDetails.schoolName || 
                                                     'School Account'
@@ -1737,7 +1739,7 @@ return (
                                     accountNumber: schoolDetails.bankDetails.accountNumber,
                                     ifscCode: schoolDetails.bankDetails.ifscCode,
                                     branch: schoolDetails.bankDetails.branch,
-                                    accountHolderName: schoolDetails.bankDetails.accountHolderName || 
+                                    accountHolderName: (schoolDetails.bankDetails as any).accountHolderName || 
                                                      schoolDetails.bankDetails.accountName
                                   } : null
                                 },

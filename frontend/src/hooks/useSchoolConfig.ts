@@ -28,12 +28,16 @@ export const useSchoolConfig = () => {
         setError(null);
       } catch (err: any) {
         setError(err.message || 'Failed to fetch school configuration');
+        const now = new Date();
+        const startYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+        const currentYearStr = `${startYear}-${(startYear + 1).toString().slice(-2)}`;
+        
         // Set fallback data
         setConfig({
           school: {
             name: 'School Name',
             code: 'SCH',
-            academicYear: '2024-25'
+            academicYear: currentYearStr
           },
           subjects: ['Mathematics', 'Physics', 'Chemistry', 'Biology', 'English', 'History', 'Geography'],
           classes: [
@@ -44,7 +48,11 @@ export const useSchoolConfig = () => {
             { name: 'Grade 5', sections: ['A', 'B', 'C'] }
           ],
           sections: ['A', 'B', 'C', 'D', 'E'],
-          academicYears: ['2024-25', '2025-26', '2026-27'],
+          academicYears: [
+            `${startYear - 1}-${startYear.toString().slice(-2)}`,
+            currentYearStr,
+            `${startYear + 1}-${(startYear + 2).toString().slice(-2)}`
+          ],
           terms: ['Term 1', 'Term 2', 'Term 3']
         });
       } finally {

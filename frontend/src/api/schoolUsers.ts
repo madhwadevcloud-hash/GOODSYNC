@@ -26,14 +26,15 @@ export const schoolUserAPI = {
   },
 
   // Get all users in a school
-  getAllUsers: async (schoolCode: string, token: string) => {
+  getAllUsers: async (schoolCode: string, token: string, academicYear?: string) => {
     try {
-      console.log(`🔍 Calling API: GET /school-users/${schoolCode}/users`);
+      console.log(`🔍 Calling API: GET /school-users/${schoolCode}/users${academicYear ? `?academicYear=${academicYear}` : ''}`);
       console.log(`🔐 Using token: ${token ? token.substring(0, 20) + '...' : 'MISSING'}`);
 
       const response = await api.get(
         `/school-users/${schoolCode}/users`,
         {
+          params: academicYear ? { academicYear } : {},
           headers: {
             'Authorization': `Bearer ${token}`
           }

@@ -4,7 +4,7 @@ import { toast } from 'react-hot-toast';
 import api from '../../../services/api';
 import { useAuth } from '../../../auth/AuthContext';
 import { useAcademicYear } from '../../../contexts/AcademicYearContext';
-import { normalizeAcademicYear } from '../../../utils/academicYearUtils';
+import { normalizeAcademicYear, getDynamicFallbackYear } from '../../../utils/academicYearUtils';
 import PromotionTab from '../components/PromotionTab';
 import UniversalTemplate from '../components/UniversalTemplate';
 
@@ -58,7 +58,7 @@ const SchoolSettings: React.FC = () => {
   // Sync local state from AcademicYearContext
   useEffect(() => {
     if (academicYearReady) {
-      const year = viewingAcademicYear || academicYearFromContext || '2025-26';
+      const year = viewingAcademicYear || academicYearFromContext || getDynamicFallbackYear();
       setCurrentAcademicYear(year);
       setFromYear(year);
       setSavedAcademicYear(year);
@@ -104,9 +104,10 @@ const SchoolSettings: React.FC = () => {
 
     try {
       setLoading(true);
-      const endpoint = `/admin/classes/${schoolCode}/tests`;
+      const yearToFetch = viewingAcademicYear || academicYearFromContext || currentAcademicYear || getDynamicFallbackYear();
+      const endpoint = `/admin/classes/${schoolCode}/tests?academicYear=${yearToFetch}`;
       console.log('📡 Fetching tests from endpoint:', endpoint);
-      console.log('📡 Using school code:', schoolCode);
+      console.log('📡 Using school code:', schoolCode, 'year:', yearToFetch);
 
       const response = await api.get(endpoint);
 
@@ -148,7 +149,7 @@ const SchoolSettings: React.FC = () => {
 
     try {
       setLoading(true);
-      const yearToFetch = viewingAcademicYear || academicYearFromContext || currentAcademicYear || '2025-26';
+      const yearToFetch = viewingAcademicYear || academicYearFromContext || currentAcademicYear || getDynamicFallbackYear();
       const endpoint = `/admin/classes/${schoolCode}/classes-sections?academicYear=${yearToFetch}`;
       console.log('📡 Fetching classes from endpoint:', endpoint);
       console.log('📡 Using school code:', schoolCode, 'year:', yearToFetch);
@@ -374,11 +375,13 @@ const SchoolSettings: React.FC = () => {
       const response = await api.get(`/admin/academic-year/${schoolCode}`);
       if (response.data.success) {
         const { currentYear, startDate, endDate } = response.data.data;
-        setCurrentAcademicYear(currentYear || '2024-2025');
-        setAcademicYearStart(startDate ? startDate.split('T')[0] : '2024-04-01');
-        setAcademicYearEnd(endDate ? endDate.split('T')[0] : '2025-03-31');
-        setFromYear(currentYear || '2024-2025');
-        setSavedAcademicYear(currentYear || '2024-2025');
+        const dynamicYear = getDynamicFallbackYear();
+        const startYearNum = parseInt(dynamicYear.split('-')[0]);
+        setCurrentAcademicYear(currentYear || dynamicYear);
+        setAcademicYearStart(startDate ? startDate.split('T')[0] : `${startYearNum}-04-01`);
+        setAcademicYearEnd(endDate ? endDate.split('T')[0] : `${startYearNum + 1}-03-31`);
+        setFromYear(currentYear || dynamicYear);
+        setSavedAcademicYear(currentYear || dynamicYear);
         setIsAcademicYearSaved(true);
       }
     } catch (error: any) {

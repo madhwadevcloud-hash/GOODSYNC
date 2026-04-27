@@ -130,8 +130,9 @@ exports.getUsersByRole = async (req, res) => {
 exports.getAllSchoolUsers = async (req, res) => {
   try {
     const { schoolCode: schoolIdentifier } = req.params;
+    const { academicYear } = req.query;
 
-    console.log(`🔍 Fetching all users for school identifier: ${schoolIdentifier}`);
+    console.log(`🔍 Fetching all users for school identifier: ${schoolIdentifier}${academicYear ? ` and year: ${academicYear}` : ''}`);
 
     // Resolve school name or code to actual school code
     const schoolCode = await resolveSchoolCode(schoolIdentifier);
@@ -142,7 +143,9 @@ exports.getAllSchoolUsers = async (req, res) => {
 
     for (const role of roles) {
       try {
-        const users = await UserGenerator.getUsersByRole(schoolCode, role);
+        // Only apply academicYear filter to students
+        const yearFilter = (role === 'student') ? academicYear : null;
+        const users = await UserGenerator.getUsersByRole(schoolCode, role, yearFilter);
         // Ensure each user has the correct role field
         const usersWithRole = users.map(user => ({
           ...user,

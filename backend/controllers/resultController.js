@@ -17,7 +17,7 @@ const User = require('../models/User');
 const Subject = require('../models/Subject');
 const Class = require('../models/Class');
 const { gradeSystem, gradeUtils } = require('../utils/gradeSystem');
-const { getCurrentAcademicYear } = require('../utils/academicYearHelper');
+const { getCurrentAcademicYear, getDynamicAcademicYear } = require('../utils/academicYearHelper');
 
 // -----------------------------
 // Core: Create / Update Result
@@ -62,7 +62,7 @@ exports.createOrUpdateResult = async (req, res) => {
       schoolCode,
       grade,
       section,
-      academicYear: academicYear || '2024-25'
+      academicYear: academicYear || getDynamicAcademicYear()
     });
 
     if (!classDoc) {
@@ -85,7 +85,7 @@ exports.createOrUpdateResult = async (req, res) => {
     let result = await Result.findOne({
       schoolCode,
       studentId,
-      academicYear: academicYear || '2024-25',
+      academicYear: academicYear || getDynamicAcademicYear(),
       'examDetails.examType': examType,
       'classDetails.grade': grade,
       'classDetails.section': section
@@ -107,7 +107,7 @@ exports.createOrUpdateResult = async (req, res) => {
         section,
         classSection: `${grade}${section}`,
         stream: classDoc.stream || null,
-        academicYear: academicYear || '2024-25'
+        academicYear: academicYear || getDynamicAcademicYear()
       },
       examDetails: {
         examType,
@@ -151,7 +151,7 @@ exports.createOrUpdateResult = async (req, res) => {
     }
 
     // Calculate rank among classmates (updates all documents in that class & exam)
-    await calculateClassRank(result, schoolCode, grade, section, examType, academicYear || '2024-25');
+    await calculateClassRank(result, schoolCode, grade, section, examType, academicYear || getDynamicAcademicYear());
 
     res.status(result.isNew ? 201 : 200).json({
       success: true,
@@ -413,7 +413,7 @@ exports.generateClassPerformanceReport = async (req, res) => {
       schoolCode,
       'classDetails.grade': grade,
       'classDetails.section': section,
-      'classDetails.academicYear': academicYear || '2024-25',
+      'classDetails.academicYear': academicYear || getDynamicAcademicYear(),
       'examDetails.examType': examType,
       isActive: true
     }).populate('studentId', 'name');
@@ -448,7 +448,7 @@ exports.generateClassPerformanceReport = async (req, res) => {
       classDetails: {
         grade,
         section,
-        academicYear: academicYear || '2024-25',
+        academicYear: academicYear || getDynamicAcademicYear(),
         examType,
         totalStudents: results.length
       },
@@ -586,7 +586,7 @@ exports.saveResults = async (req, res) => {
           schoolCode: schoolCode.toUpperCase(),
           className,
           section,
-          academicYear: academicYear || '2024-25',
+          academicYear: academicYear || getDynamicAcademicYear(),
           studentId
         });
 
@@ -1533,7 +1533,7 @@ exports.getResultsForTeacher = async (req, res) => {
           section,
           subject,
           testType,
-          academicYear: academicYear || '2024-25'
+          academicYear: academicYear || getDynamicAcademicYear()
         }
       }
     });

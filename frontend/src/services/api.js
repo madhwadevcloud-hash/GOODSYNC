@@ -6,6 +6,7 @@ const API_BASE_URL = (import.meta && import.meta.env && import.meta.env.VITE_API
 // Create axios instance with default config
 const api = axios.create({
   baseURL: API_BASE_URL,
+  timeout: 60000, // 60 seconds default timeout
   headers: {
     'Content-Type': 'application/json',
   },
@@ -215,7 +216,8 @@ export const exportImportAPI = {
     return api.post(`/export-import/${schoolCode}/import`, formData, { // <-- Corrected path
       headers: {
         'Content-Type': 'multipart/form-data'
-      }
+      },
+      timeout: 300000 // 5 minutes for bulk imports
       // Add onUploadProgress here if needed
     });
   },

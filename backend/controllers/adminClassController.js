@@ -1,6 +1,7 @@
 const School = require('../models/School');
 const { ObjectId } = require('mongodb');
 const SchoolDatabaseManager = require('../utils/schoolDatabaseManager');
+const { getDynamicAcademicYear } = require('../utils/academicYearHelper');
 
 // Get school database connection with fallback creation
 async function getSchoolConnectionWithFallback(schoolCode) {
@@ -11,6 +12,24 @@ async function getSchoolConnectionWithFallback(schoolCode) {
     throw error;
   }
 }
+
+// Normalize academic year for consistent querying
+const getPossibleYearFormats = (year) => {
+  if (!year) return [];
+  const formats = [String(year).trim()];
+  
+  const matchShort = String(year).match(/^(\d{4})-(\d{2})$/);
+  if (matchShort) {
+    formats.push(`${matchShort[1]}-20${matchShort[2]}`);
+  }
+  
+  const matchLong = String(year).match(/^(\d{4})-(\d{4})$/);
+  if (matchLong) {
+    formats.push(`${matchLong[1]}-${matchLong[2].substring(2)}`);
+  }
+  
+  return [...new Set(formats)];
+};
 
 // Get classes and sections for a school (for admin users)
 exports.getSchoolClassesAndSections = async (req, res) => {
@@ -35,27 +54,8 @@ exports.getSchoolClassesAndSections = async (req, res) => {
     const classesCollection = schoolConnection.collection('classes');
 
     const { academicYear } = req.query;
-    
-    // Normalize academic year for consistent querying
-    // We want to find both "2025-26" and "2025-2026"
-    const getPossibleYearFormats = (year) => {
-      if (!year) return [];
-      const formats = [String(year).trim()];
-      
-      const matchShort = String(year).match(/^(\d{4})-(\d{2})$/);
-      if (matchShort) {
-        formats.push(`${matchShort[1]}-20${matchShort[2]}`);
-      }
-      
-      const matchLong = String(year).match(/^(\d{4})-(\d{4})$/);
-      if (matchLong) {
-        formats.push(`${matchLong[1]}-${matchLong[2].substring(2)}`);
-      }
-      
-      return [...new Set(formats)];
-    };
-    
-    const possibleYears = getPossibleYearFormats(academicYear);
+    const activeYear = academicYear || getDynamicAcademicYear();
+    const possibleYears = getPossibleYearFormats(activeYear);
     
     // Build base query
     const baseQuery = { isActive: true };
@@ -84,26 +84,9 @@ exports.getSchoolClassesAndSections = async (req, res) => {
         }).sort({ academicYear: -1, className: 1 }).toArray();
     }
 
-    // --- SMART INHERIT FALLBACK ---
-    if (classes.length === 0 && academicYear) {
-      console.log(`💡 No classes found for ${possibleYears.join('/')}, searching for latest available year...`);
-      
-      const latestClasses = await classesCollection.find({
-        isActive: true,
-        $or: [
-          { schoolCode: schoolCode.toUpperCase() },
-          { schoolId: school._id.toString() },
-          { schoolId: school._id }
-        ]
-      }).sort({ academicYear: -1, className: 1 }).toArray();
-
-      if (latestClasses.length > 0) {
-        const years = [...new Set(latestClasses.map(c => c.academicYear))].filter(Boolean).sort().reverse();
-        const latestYear = years[0];
-        console.log(`✨ Found classes in ${latestYear}. Inheriting for ${academicYear}.`);
-        classes = latestClasses.filter(c => c.academicYear === latestYear);
-      }
-    }
+    // --- SMART INHERIT FALLBACK REMOVED ---
+    // Strict filtering enforced as per user request. 
+    // No longer falling back to previous years if current year is empty.
 
     // De-duplicate by className
     const seenClassNames = new Set();
@@ -116,70 +99,15 @@ exports.getSchoolClassesAndSections = async (req, res) => {
 
     console.log(`📚 Final (de-duplicated) result: ${classes.length} classes for school ${schoolCode}`);
 
-    // Transform classes for frontend use
-    // --- DISCOVERY FROM STUDENTS (Self-Healing) ---
-    // Find classes/sections mentioned in student records but missing from classes collection
-    try {
-      console.log('🔍 Discovering classes from student records...');
-      const studentDiscovery = await schoolConnection.collection('students').aggregate([
-        { $match: { isActive: { $ne: false } } },
-        {
-          $group: {
-            _id: {
-              class: { $ifNull: ["$academicInfo.class", { $ifNull: ["$studentDetails.academic.currentClass", "$class"] }] },
-              section: { $ifNull: ["$academicInfo.section", { $ifNull: ["$studentDetails.academic.currentSection", "$section"] }] }
-            }
-          }
-        },
-        { $match: { "_id.class": { $ne: null, $ne: "" } } }
-      ]).toArray();
-
-      console.log(`📊 Discovered ${studentDiscovery.length} class-section pairs from students.`);
-
-      // Group discovery by class
-      const discoveredMap = new Map();
-      studentDiscovery.forEach(item => {
-        const className = String(item._id.class).trim();
-        const sectionName = item._id.section ? String(item._id.section).trim().toUpperCase() : 'A';
-        if (!discoveredMap.has(className)) {
-          discoveredMap.set(className, new Set());
-        }
-        discoveredMap.get(className).add(sectionName);
-      });
-
-      // Merge discovery into existing classes list
-      discoveredMap.forEach((sections, className) => {
-        const exists = classes.some(c => c.className.toLowerCase() === className.toLowerCase());
-        if (!exists) {
-          console.log(`➕ Auto-adding discovered class: ${className}`);
-          classes.push({
-            _id: new ObjectId(),
-            className: className,
-            sections: Array.from(sections),
-            academicYear: academicYear || 'Current',
-            isActive: true,
-            isDiscovered: true // Flag for debugging
-          });
-        } else {
-          // Check if sections are missing
-          const existingClass = classes.find(c => c.className.toLowerCase() === className.toLowerCase());
-          sections.forEach(s => {
-            if (!existingClass.sections.includes(s)) {
-              console.log(`➕ Auto-adding discovered section ${s} to class ${className}`);
-              existingClass.sections.push(s);
-            }
-          });
-        }
-      });
-    } catch (discoveryError) {
-      console.warn('⚠️ Class discovery from students failed:', discoveryError.message);
-    }
+    // --- DISCOVERY FROM STUDENTS REMOVED ---
+    // User requested to only display classes defined by superadmin.
+    // Self-healing from student records is now disabled.
 
     const formattedClasses = classes.map(cls => ({
       _id: cls._id,
       className: cls.className,
       sections: cls.sections || [],
-      academicYear: cls.academicYear || '2024-25',
+      academicYear: cls.academicYear || getDynamicAcademicYear(),
       displayName: `Class ${cls.className}`,
       hasMultipleSections: cls.sections && cls.sections.length > 1
     }));
@@ -262,12 +190,24 @@ exports.getSectionsForClass = async (req, res) => {
     const schoolConnection = await getSchoolConnectionWithFallback(schoolCode);
     const classesCollection = schoolConnection.collection('classes');
 
-    // Find the specific class
-    const classData = await classesCollection.findOne({
-      schoolId: school._id.toString(),
+    const { academicYear } = req.query;
+    const activeYear = academicYear || getDynamicAcademicYear();
+    const possibleYears = getPossibleYearFormats(activeYear);
+    
+    // Build base query with strict year filtering
+    const query = {
       className: className,
-      isActive: true
-    });
+      isActive: true,
+      academicYear: { $in: possibleYears },
+      $or: [
+        { schoolCode: schoolCode.toUpperCase() },
+        { schoolId: school._id.toString() },
+        { schoolId: school._id }
+      ]
+    };
+
+    // Find the specific class, sorting by academic year to get the most recent if no year specified
+    const classData = await classesCollection.findOne(query, { sort: { academicYear: -1 } });
 
     if (!classData) {
       return res.status(404).json({
@@ -325,26 +265,8 @@ exports.getSchoolTests = async (req, res) => {
     const testsCollection = schoolConnection.collection('testdetails');
 
     const { academicYear } = req.query;
-    
-    // Normalize academic year for consistent querying
-    const getPossibleYearFormats = (year) => {
-      if (!year) return [];
-      const formats = [String(year).trim()];
-      
-      const matchShort = String(year).match(/^(\d{4})-(\d{2})$/);
-      if (matchShort) {
-        formats.push(`${matchShort[1]}-20${matchShort[2]}`);
-      }
-      
-      const matchLong = String(year).match(/^(\d{4})-(\d{4})$/);
-      if (matchLong) {
-        formats.push(`${matchLong[1]}-${matchLong[2].substring(2)}`);
-      }
-      
-      return [...new Set(formats)];
-    };
-    
-    const possibleYears = getPossibleYearFormats(academicYear);
+    const activeYear = academicYear || getDynamicAcademicYear();
+    const possibleYears = getPossibleYearFormats(activeYear);
     
     // Build base query
     const baseQuery = { isActive: true };
@@ -362,26 +284,7 @@ exports.getSchoolTests = async (req, res) => {
       ]
     }).sort({ name: 1 }).toArray();
 
-    // --- SMART INHERIT FALLBACK FOR TESTS ---
-    if (tests.length === 0 && academicYear) {
-      console.log(`💡 No tests found for ${possibleYears.join('/')}, searching for latest available tests...`);
-      
-      const latestTests = await testsCollection.find({
-        isActive: true,
-        $or: [
-          { schoolId: school._id.toString() },
-          { schoolId: school._id },
-          { schoolCode: schoolCode.toUpperCase() }
-        ]
-      }).sort({ academicYear: -1, name: 1 }).toArray();
-
-      if (latestTests.length > 0) {
-        const years = [...new Set(latestTests.map(t => t.academicYear))].filter(Boolean).sort().reverse();
-        const latestYear = years[0];
-        console.log(`✨ Found tests in ${latestYear}. Inheriting for ${academicYear}.`);
-        tests = latestTests.filter(t => t.academicYear === latestYear);
-      }
-    }
+    // --- SMART INHERIT FALLBACK FOR TESTS REMOVED ---
 
     console.log(`📚 Found ${tests.length} tests for school ${schoolCode}`);
 

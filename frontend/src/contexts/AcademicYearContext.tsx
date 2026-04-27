@@ -69,8 +69,14 @@ export const AcademicYearProvider: React.FC<AcademicYearProviderProps> = ({ chil
       });
 
       if (response.data.success) {
-        const { currentYear, startDate, endDate } = response.data.data;
-        const resolvedYear = currentYear || '2025-26';
+        const { currentYear, startDate, endDate } = response.data.data || {};
+        const now = new Date();
+        const currentMonth = now.getMonth();
+        const startYear = currentMonth >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+        const endYear = startYear + 1;
+        const dynamicFallback = `${startYear}-${endYear.toString().slice(-2)}`;
+        
+        const resolvedYear = currentYear || dynamicFallback;
         setCurrentAcademicYear(resolvedYear);
         setViewingAcademicYear(resolvedYear); // Default to current year
         setAcademicYearStart(startDate ? startDate.split('T')[0] : '');
@@ -88,7 +94,12 @@ export const AcademicYearProvider: React.FC<AcademicYearProviderProps> = ({ chil
       setError(err.message || 'Failed to fetch academic year');
       // Fallback to a sensible default so downstream hooks don't wait forever
       if (!currentAcademicYear) {
-        const fallback = '2025-26';
+        const now = new Date();
+        const currentMonth = now.getMonth();
+        const startYear = currentMonth >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+        const endYear = startYear + 1;
+        const fallback = `${startYear}-${endYear.toString().slice(-2)}`;
+        
         setCurrentAcademicYear(fallback);
         setViewingAcademicYear(fallback);
         setAvailableYears(generateAvailableYears(fallback));

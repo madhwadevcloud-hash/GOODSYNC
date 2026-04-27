@@ -347,9 +347,13 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
               onChange={(e) => setFromYear(e.target.value)}
               className="w-full border border-blue-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500"
             >
-              <option value="2023-24">2023-24</option>
-              <option value="2024-25">2024-25</option>
-              <option value="2025-26">2025-26</option>
+              {[...Array(3)].map((_, i) => {
+                const now = new Date();
+                const baseStart = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+                const start = baseStart - 1 + i;
+                const yearStr = `${start}-${(start + 1).toString().slice(-2)}`;
+                return <option key={yearStr} value={yearStr}>{yearStr}</option>;
+              })}
             </select>
           </div>
           <div className="flex justify-center">

@@ -7,7 +7,7 @@ import { resultsAPI } from '../../../services/api';
 import { toast } from 'react-hot-toast';
 import api from '../../../services/api';
 import { useSchoolClasses } from '../../../hooks/useSchoolClasses';
-import { normalizeAcademicYear } from '../../../utils/academicYearUtils';
+import { normalizeAcademicYear, getDynamicFallbackYear } from '../../../utils/academicYearUtils';
 
 interface StudentResult {
   id: string;
@@ -320,6 +320,7 @@ const Results: React.FC = () => {
         try {
           console.log('🔄 Trying primary API: /class-subjects/classes');
           const resp = await api.get('/class-subjects/classes', {
+            params: { academicYear: viewingAcademicYear },
             headers: {
               'x-school-code': schoolCode
             }
@@ -338,9 +339,9 @@ const Results: React.FC = () => {
 
               console.log('📝 Extracted subject names:', subjectNames);
 
-              const uniqueSubjects = [...new Set(subjectNames)];
+              const uniqueSubjects = [...new Set(subjectNames)] as string[];
               setSubjects(uniqueSubjects);
-              setSelectedSubject(uniqueSubjects[0] || '');
+              setSelectedSubject((uniqueSubjects[0] as string) || '');
               setLoadingSubjects(false);
               return;
             }
@@ -354,7 +355,7 @@ const Results: React.FC = () => {
         try {
           console.log('🔄 Trying fallback API: /direct-test/class-subjects');
           const resp2 = await api.get(`/direct-test/class-subjects/${selectedClass}`, {
-            params: { schoolCode },
+            params: { schoolCode, academicYear: viewingAcademicYear },
             headers: {
               'x-school-code': schoolCode
             }
@@ -369,9 +370,9 @@ const Results: React.FC = () => {
 
             console.log('📝 Extracted subject names from fallback:', subjectNames);
 
-            const uniqueSubjects = [...new Set(subjectNames)];
+            const uniqueSubjects = [...new Set(subjectNames)] as string[];
             setSubjects(uniqueSubjects);
-            setSelectedSubject(uniqueSubjects[0] || '');
+            setSelectedSubject((uniqueSubjects[0] as string) || '');
             setLoadingSubjects(false);
             return;
           }
@@ -443,8 +444,8 @@ const Results: React.FC = () => {
           const normalizedStudentYear = normalizeAcademicYear(String(studentAcademicYear || '').trim());
           const normalizedViewingYear = normalizeAcademicYear(String(viewingAcademicYear || currentAcademicYear || '').trim());
           
-          // If academic year is not set, don't filter it out (allow it through)
-          const matchesAcademicYear = !studentAcademicYear || normalizedStudentYear === normalizedViewingYear;
+          // Strict filtering: Student MUST have an academic year set and it MUST match the viewing year
+          const matchesAcademicYear = studentAcademicYear && normalizedStudentYear === normalizedViewingYear;
           
           return String(sClass).trim() === String(selectedClass).trim() &&
             String(sSection).trim().toUpperCase() === String(selectedSection).trim().toUpperCase() &&
@@ -896,7 +897,7 @@ const Results: React.FC = () => {
               testType: selectedTestType,
               subject: selectedSubject,
               maxMarks: configuredMaxMarks,
-              academicYear: '2024-25',
+              academicYear: getDynamicFallbackYear(),
               results: [
                 {
                   studentId: s.id,
@@ -926,7 +927,7 @@ const Results: React.FC = () => {
           testType: selectedTestType,
           subject: selectedSubject,
           maxMarks: configuredMaxMarks,
-          academicYear: '2024-25',
+          academicYear: getDynamicFallbackYear(),
           results: toCreate.map(student => ({
             studentId: student.id,
             studentName: student.name,

@@ -4,6 +4,7 @@ import { useAuth } from '../../../auth/AuthContext';
 import { useAcademicYear } from '../../../contexts/AcademicYearContext';
 import ClassSectionSelect from '../components/ClassSectionSelect';
 import { feesAPI } from '../../../services/api';
+import { getDynamicFallbackYear } from '../../../utils/academicYearUtils';
 
 interface Installment {
   name: string;
@@ -22,7 +23,7 @@ const FeeStructureTab: React.FC = () => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [totalAmount, setTotalAmount] = useState('');
-  const [academicYear, setAcademicYear] = useState(currentAcademicYear || '2024-25');
+  const [academicYear, setAcademicYear] = useState(currentAcademicYear || getDynamicFallbackYear());
   const [installments, setInstallments] = useState<Installment[]>([
     {
       name: '',
@@ -299,7 +300,7 @@ const FeeStructureTab: React.FC = () => {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="e.g., Annual Fee 2024-25"
+                placeholder={`e.g., Annual Fee ${getDynamicFallbackYear()}`}
               />
             </div>
 

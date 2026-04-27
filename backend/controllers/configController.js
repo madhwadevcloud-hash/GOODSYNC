@@ -2,10 +2,21 @@ const School = require('../models/School');
 const User = require('../models/User');
 const Subject = require('../models/Subject');
 
+const { getDynamicAcademicYear } = require('../utils/academicYearHelper');
+
 // Get school configuration data (subjects, classes, sections)
 exports.getSchoolConfig = async (req, res) => {
   try {
     const schoolId = req.user.schoolId;
+    const dynamicYear = getDynamicAcademicYear();
+    const startYear = parseInt(dynamicYear.split('-')[0]);
+    
+    // Generate a range of years: current and next 2
+    const academicYears = [
+      `${startYear-1}-${startYear.toString().slice(-2)}`,
+      dynamicYear,
+      `${startYear+1}-${(startYear+2).toString().slice(-2)}`
+    ];
     
     // Get school details
     const school = await School.findById(schoolId);
@@ -46,15 +57,15 @@ exports.getSchoolConfig = async (req, res) => {
       school: {
         name: school.name,
         code: school.code,
-        academicYear: school.academicYear || '2024-25'
+        academicYear: school.academicYear || dynamicYear
       },
       subjects: subjects.sort(),
       classes: classesAndSections.map(item => ({
         name: item._id,
         sections: item.sections.sort()
-      })).sort((a, b) => a.name.localeCompare(b.name)),
+      })).sort((a, b) => (a.name || '').localeCompare(b.name || '')),
       sections: allSections.sort(),
-      academicYears: ['2024-25', '2025-26', '2026-27'],
+      academicYears: academicYears,
       terms: ['Term 1', 'Term 2', 'Term 3']
     });
 

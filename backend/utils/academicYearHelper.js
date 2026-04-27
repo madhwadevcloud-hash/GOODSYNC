@@ -1,9 +1,21 @@
 const School = require('../models/School');
 
 /**
+ * Synchronously calculates the dynamic academic year based on current date.
+ * Returns short format: YYYY-YY (e.g., 2024-25)
+ */
+const getDynamicAcademicYear = () => {
+  const now = new Date();
+  const currentMonth = now.getMonth(); // 0-indexed, 3 is April
+  const startYear = currentMonth >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+  const endYear = startYear + 1;
+  return `${startYear}-${endYear.toString().slice(-2)}`;
+};
+
+/**
  * Get the current academic year for a school
  * @param {String} schoolCode - School code (e.g., 'P', 'NPS')
- * @returns {Promise<String>} - Academic year (e.g., '2024-2025')
+ * @returns {Promise<String>} - Academic year (e.g., '2024-25')
  */
 const getCurrentAcademicYear = async (schoolCode) => {
   try {
@@ -13,23 +25,10 @@ const getCurrentAcademicYear = async (schoolCode) => {
       return school.settings.academicYear.currentYear;
     }
     
-    // Fallback to current year if not set
-    const currentDate = new Date();
-    const currentYear = currentDate.getFullYear();
-    const currentMonth = currentDate.getMonth() + 1; // Jan is 0
-    
-    // If current month is April or later, academic year is current-next
-    // Otherwise, it's previous-current
-    if (currentMonth >= 4) {
-      return `${currentYear}-${currentYear + 1}`;
-    } else {
-      return `${currentYear - 1}-${currentYear}`;
-    }
+    return getDynamicAcademicYear();
   } catch (error) {
     console.error('Error fetching academic year:', error);
-    // Return default fallback
-    const currentYear = new Date().getFullYear();
-    return `${currentYear}-${currentYear + 1}`;
+    return getDynamicAcademicYear();
   }
 };
 
@@ -46,24 +45,15 @@ const getCurrentAcademicYearById = async (schoolId) => {
       return school.settings.academicYear.currentYear;
     }
     
-    // Fallback
-    const currentDate = new Date();
-    const currentYear = currentDate.getFullYear();
-    const currentMonth = currentDate.getMonth() + 1;
-    
-    if (currentMonth >= 4) {
-      return `${currentYear}-${currentYear + 1}`;
-    } else {
-      return `${currentYear - 1}-${currentYear}`;
-    }
+    return getDynamicAcademicYear();
   } catch (error) {
     console.error('Error fetching academic year by ID:', error);
-    const currentYear = new Date().getFullYear();
-    return `${currentYear}-${currentYear + 1}`;
+    return getDynamicAcademicYear();
   }
 };
 
 module.exports = {
   getCurrentAcademicYear,
-  getCurrentAcademicYearById
+  getCurrentAcademicYearById,
+  getDynamicAcademicYear
 };

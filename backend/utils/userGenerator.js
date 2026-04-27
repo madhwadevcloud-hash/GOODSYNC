@@ -837,9 +837,9 @@ class UserGenerator {
   /**
    * Get all users from a school by role
    */
-  static async getUsersByRole(schoolCode, role) {
+  static async getUsersByRole(schoolCode, role, academicYear = null) {
     try {
-      console.log(`🔍 Getting ${role}s from school_${schoolCode.toLowerCase()}`);
+      console.log(`🔍 Getting ${role}s from school_${schoolCode.toLowerCase()}${academicYear ? ` for year ${academicYear}` : ''}`);
 
       const connection = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
       const collectionMap = {
@@ -857,8 +857,34 @@ class UserGenerator {
       console.log(`📂 Accessing collection: ${collectionName} in school_${schoolCode.toLowerCase()}`);
 
       const collection = connection.collection(collectionName);
+      
+      // Build query
+      const query = { _placeholder: { $ne: true } };
+      
+      // Apply academic year filtering for students if provided
+      if (role.toLowerCase() === 'student' && academicYear) {
+        // Handle different formats (2025-26 vs 2025-2026)
+        const yearFormats = [academicYear];
+        const matchShort = academicYear.match(/^(\d{4})-(\d{2})$/);
+        if (matchShort) {
+          yearFormats.push(`${matchShort[1]}-20${matchShort[2]}`);
+        }
+        const matchLong = academicYear.match(/^(\d{4})-(\d{4})$/);
+        if (matchLong) {
+          yearFormats.push(`${matchLong[1]}-${matchLong[2].substring(2)}`);
+        }
+        const uniqueYears = [...new Set(yearFormats)];
+
+        query.$or = [
+          { "studentDetails.academic.academicYear": { $in: uniqueYears } },
+          { "academicInfo.academicYear": { $in: uniqueYears } },
+          { "academicYear": { $in: uniqueYears } },
+          { "studentDetails.academicYear": { $in: uniqueYears } }
+        ];
+      }
+
       const users = await collection.find(
-        { _placeholder: { $ne: true } },
+        query,
         { projection: { password: 0 } } // Exclude hashed password only, keep temporaryPassword
       ).toArray();
 

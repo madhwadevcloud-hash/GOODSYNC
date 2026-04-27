@@ -20,8 +20,14 @@ const TEST_DETAILS_ENDPOINTS = {
   // Legacy endpoint
   getBySchoolId: (schoolId: string) => `/test-details/${schoolId}`
 };// Configuration for test details operations
+const getDynamicYear = () => {
+  const now = new Date();
+  const year = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+  return `${year}-${(year + 1).toString().slice(-2)}`;
+};
+
 const TEST_DETAILS_CONFIG = {
-  defaultAcademicYear: import.meta.env.VITE_DEFAULT_ACADEMIC_YEAR || '2024-25',
+  defaultAcademicYear: import.meta.env.VITE_DEFAULT_ACADEMIC_YEAR || getDynamicYear(),
   defaultMaxMarks: parseInt(import.meta.env.VITE_DEFAULT_MAX_MARKS || '100'),
   defaultWeightage: parseFloat(import.meta.env.VITE_DEFAULT_WEIGHTAGE || '0.1'),
   maxGrade: parseInt(import.meta.env.VITE_MAX_GRADE || '12'),

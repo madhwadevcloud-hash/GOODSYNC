@@ -130,7 +130,8 @@ export const useSchoolClasses = (academicYear?: string) => {
     }
 
     try {
-      const response = await api.get(`/admin/classes/${schoolCode}/classes/${className}/sections`);
+      const params = targetYear ? { academicYear: targetYear } : {};
+      const response = await api.get(`/admin/classes/${schoolCode}/classes/${className}/sections`, { params });
       const result = response.data;
       
       if (result.success) {

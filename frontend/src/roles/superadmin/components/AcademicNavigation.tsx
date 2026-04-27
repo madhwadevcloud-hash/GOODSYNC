@@ -169,10 +169,14 @@ const AcademicNavigation: React.FC = () => {
       return;
     }
 
+    const now = new Date();
+    const startYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+    const currentYearStr = `${startYear}-${String(startYear + 1).slice(-2)}`;
+
     try {
       const response = await classAPI.addClass(selectedSchoolId, {
         className: newClassName.trim(),
-        academicYear: '2024-25'
+        academicYear: currentYearStr
       });
 
       if (response.success) {
@@ -333,11 +337,15 @@ const AcademicNavigation: React.FC = () => {
     }
 
     try {
+      const now = new Date();
+      const startYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+      const currentYearStr = `${startYear}-${String(startYear + 1).slice(-2)}`;
+
       let testData: any = {
         name: newTestName.trim(),
         description: allClasses ? `Test for all classes` : `Test for Class ${classes.find(c => c._id === selectedClass)?.className}`,
         isActive: true,
-        academicYear: '2024-25',
+        academicYear: currentYearStr,
         allSections: allSections,
         allClasses: allClasses
       };

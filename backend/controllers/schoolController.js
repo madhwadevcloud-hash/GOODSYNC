@@ -9,6 +9,7 @@ const sharp = require('sharp');
 const { uploadToCloudinary, deleteFromCloudinary, extractPublicId, deleteLocalFile } = require('../config/cloudinary');
 const path = require('path');
 const fs = require('fs');
+const { getDynamicAcademicYear } = require('../utils/academicYearHelper');
 
 // Helper to normalize a provided name into schema-compliant fields
 function normalizeName(inputName, fallbackLast = 'User') {
@@ -179,7 +180,7 @@ exports.getSchoolStatsByLevel = async (req, res) => {
       {
         $match: {
           schoolId: schoolId,
-          academicYear: academicYear || '2024-25',
+          academicYear: academicYear || getDynamicAcademicYear(),
           'settings.isActive': true
         }
       },
@@ -243,7 +244,7 @@ exports.getSchoolStatsByLevel = async (req, res) => {
     res.json({
       success: true,
       schoolId,
-      academicYear: academicYear || '2024-25',
+      academicYear: academicYear || getDynamicAcademicYear(),
       levelStatistics: levelStats,
       totalClasses: classStats.reduce((sum, stat) => sum + stat.totalClasses, 0),
       totalStudents: classStats.reduce((sum, stat) => sum + stat.totalStudents, 0),
@@ -307,24 +308,24 @@ exports.createClassesForGrade = async (req, res) => {
           schoolId,
           grade,
           section,
-          academicYear: academicYear || '2024-25'
+          academicYear: academicYear || getDynamicAcademicYear()
         });
 
         if (existingClass) {
           errors.push({
             section,
-            error: `Class ${grade}${section} already exists for academic year ${academicYear || '2024-25'}`
+            error: `Class ${grade}${section} already exists for academic year ${academicYear || getDynamicAcademicYear()}`
           });
           continue;
         }
 
         const classData = {
-          classId: `${school.code}_${grade}${section}_${academicYear || '2024-25'}`,
+          classId: `${school.code}_${grade}${section}_${academicYear || getDynamicAcademicYear()}`,
           grade,
           section,
           schoolId,
           schoolCode: school.code,
-          academicYear: academicYear || '2024-25',
+          academicYear: academicYear || getDynamicAcademicYear(),
           stream,
           subjects: subjects.map(subject => ({
             subjectName: subject,
@@ -901,11 +902,17 @@ exports.createSchool = async (req, res) => {
       settings: (() => {
         try {
           const parsedSettings = typeof settings === 'string' ? JSON.parse(settings) : settings;
+          const now = new Date();
+          const currentMonth = now.getMonth();
+          const startYear = currentMonth >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+          const endYear = startYear + 1;
+          const currentYearStr = `${startYear}-${endYear.toString().slice(-2)}`;
+
           const defaultSettings = {
             academicYear: {
-              currentYear: new Date().getFullYear().toString(),
-              startDate: new Date(`${new Date().getFullYear()}-04-01`),
-              endDate: new Date(`${new Date().getFullYear() + 1}-03-31`)
+              currentYear: currentYearStr,
+              startDate: new Date(startYear, 3, 1),
+              endDate: new Date(endYear, 2, 31)
             },
             classes: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'],
             sections: ['A', 'B', 'C', 'D'],
@@ -925,9 +932,9 @@ exports.createSchool = async (req, res) => {
           console.error('Error parsing settings:', error, 'Raw settings:', settings);
           return {
             academicYear: {
-              currentYear: new Date().getFullYear().toString(),
-              startDate: new Date(`${new Date().getFullYear()}-04-01`),
-              endDate: new Date(`${new Date().getFullYear() + 1}-03-31`)
+              currentYear: `${new Date().getMonth() >= 3 ? new Date().getFullYear() : new Date().getFullYear() - 1}-${(new Date().getMonth() >= 3 ? new Date().getFullYear() + 1 : new Date().getFullYear()).toString().slice(-2)}`,
+              startDate: new Date(new Date().getMonth() >= 3 ? new Date().getFullYear() : new Date().getFullYear() - 1, 3, 1),
+              endDate: new Date(new Date().getMonth() >= 3 ? new Date().getFullYear() + 1 : new Date().getFullYear(), 2, 31)
             },
             classes: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'],
             sections: ['A', 'B', 'C', 'D'],
