@@ -162,6 +162,9 @@ exports.importUsers = async (req, res) => {
   } catch (yearError) {
     console.error(`Error fetching academic year from school_info for ${upperSchoolCode}:`, yearError.message);
   }
+  // --- TRACK CLASSES TO CREATE ---
+  const classesToEnsure = new Map(); // className -> { sections: Set }
+
   // --- Fetch all school classes once for robust matching ---
   let schoolClasses = [];
   try {
@@ -410,44 +413,26 @@ exports.importUsers = async (req, res) => {
 
           if (currentClassInput) {
             const matchedClass = findMatchingClass(currentClassInput);
+            
+            // Standardize class name even if not found in DB (we'll create it)
+            const standardizedClassName = matchedClass ? matchedClass.className : currentClassInput;
+            row['currentclass'] = standardizedClassName;
 
-            if (!matchedClass) {
-              // Class not created by SuperAdmin — skip this student gracefully
-              results.skipped.push({
-                row: rowNumber,
-                reason: 'class_not_found',
-                className: currentClassInput,
-                section: currentSectionInput || 'N/A',
-                studentName: `${row['firstname'] || ''} ${row['lastname'] || ''}`.trim(),
-                email: row['email'] || '',
-                message: `Class "${currentClassInput}" has not been created by the SuperAdmin. This student was skipped.`
+            // Track for auto-creation/verification in the current year
+            if (!classesToEnsure.has(standardizedClassName)) {
+              classesToEnsure.set(standardizedClassName, {
+                sourceClass: matchedClass,
+                sections: new Set()
               });
-              continue; // Skip to next row — do NOT add to errors
+            }
+            
+            if (currentSectionInput) {
+              classesToEnsure.get(standardizedClassName).sections.add(currentSectionInput.toUpperCase());
+              row['currentsection'] = currentSectionInput.toUpperCase();
             } else {
-              // Standardize the class name from the DB value
-              row['currentclass'] = matchedClass.className;
-
-              if (currentSectionInput) {
-                const sections = matchedClass.sections || [];
-                const matchedSection = sections.find(s => s.toString().trim().toLowerCase() === currentSectionInput.toLowerCase());
-
-                if (!matchedSection) {
-                  // Section not created by SuperAdmin for this class — skip gracefully
-                  results.skipped.push({
-                    row: rowNumber,
-                    reason: 'section_not_found',
-                    className: matchedClass.className,
-                    section: currentSectionInput,
-                    availableSections: sections,
-                    studentName: `${row['firstname'] || ''} ${row['lastname'] || ''}`.trim(),
-                    email: row['email'] || '',
-                    message: `Section "${currentSectionInput}" does not exist in Class "${matchedClass.className}". Available sections: [${sections.join(', ') || 'None'}]. This student was skipped.`
-                  });
-                  continue; // Skip to next row — do NOT add to errors
-                } else {
-                  row['currentsection'] = matchedSection; // Use exact case from DB
-                }
-              }
+              // Default to 'A' if no section provided
+              classesToEnsure.get(standardizedClassName).sections.add('A');
+              row['currentsection'] = 'A';
             }
           }
         }
@@ -566,6 +551,46 @@ exports.importUsers = async (req, res) => {
       const insertResult = await userCollection.insertMany(finalUsersToInsert, { ordered: false });
       insertedCount = insertResult.insertedCount;
       console.log(`✅ Bulk insert attempted for ${upperSchoolCode}. Acknowledged inserts: ${insertedCount}.`);
+      
+      // --- AUTO-CREATE/UPDATE CLASSES IN 'classes' COLLECTION ---
+      if (classesToEnsure.size > 0) {
+        console.log(`🛠️ Ensuring ${classesToEnsure.size} classes exist for academic year ${currentAcademicYear}`);
+        const classesCollection = db.collection('classes');
+        
+        for (const [className, info] of classesToEnsure.entries()) {
+          try {
+            const sectionsArray = Array.from(info.sections);
+            
+            // Use updateOne with upsert to ensure class exists for the current year
+            await classesCollection.updateOne(
+              { 
+                schoolCode: upperSchoolCode, 
+                className: className, 
+                academicYear: currentAcademicYear 
+              },
+              {
+                $set: {
+                  updatedAt: new Date()
+                },
+                $addToSet: {
+                  sections: { $each: sectionsArray }
+                },
+                $setOnInsert: {
+                  schoolId: school._id,
+                  schoolCode: upperSchoolCode,
+                  className: className,
+                  academicYear: currentAcademicYear,
+                  isActive: true,
+                  createdAt: new Date()
+                }
+              },
+              { upsert: true }
+            );
+          } catch (classError) {
+            console.error(`Error ensuring class ${className}:`, classError.message);
+          }
+        }
+      }
     } catch (bulkError) {
       console.error(`Bulk insert operation error for ${upperSchoolCode}:`, bulkError);
       results.errors.push({

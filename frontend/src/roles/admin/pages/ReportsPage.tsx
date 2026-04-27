@@ -45,6 +45,15 @@ const StatusBadge = ({ status }: { status: string }) => {
   );
 };
 
+const extractString = (val: any): string => {
+  if (!val) return '';
+  if (typeof val === 'string') return val;
+  if (typeof val === 'object') {
+    return val.name || val.value || val.label || val.className || val.toString();
+  }
+  return String(val);
+};
+
 const ReportsPage: React.FC = () => {
   const { user } = useAuth();
   const { currentAcademicYear, viewingAcademicYear, isViewingHistoricalYear, setViewingYear, availableYears, loading: academicYearLoading } = useAcademicYear();
@@ -509,12 +518,12 @@ const ReportsPage: React.FC = () => {
     try {
       setLoadingStudents(prev => new Set(prev).add(key));
       
-      console.log(`🔍 Fetching students with stats for class ${className}, section: ${section}, academicYear: ${viewingAcademicYear}`);
+      console.log(`🔍 Fetching students with stats for class ${extractString(className)}, section: ${extractString(section)}, academicYear: ${viewingAcademicYear}`);
       
       // Use the backend API that returns students with their avgMarks and avgAttendance
       const response = await getStudentsByClassSection({
-        className: className,
-        section: section,
+        className: extractString(className),
+        section: extractString(section),
         academicYear: viewingAcademicYear
       });
       
@@ -580,8 +589,8 @@ const ReportsPage: React.FC = () => {
             // Fetch student data with marks and attendance from backend API
             try {
               const response = await getStudentsByClassSection({
-                className: classItem.className,
-                section: section.name,
+                className: extractString(classItem.className),
+                section: extractString(section.name),
                 academicYear: viewingAcademicYear
               });
               

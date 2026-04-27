@@ -117,6 +117,64 @@ exports.getSchoolClassesAndSections = async (req, res) => {
     console.log(`📚 Final (de-duplicated) result: ${classes.length} classes for school ${schoolCode}`);
 
     // Transform classes for frontend use
+    // --- DISCOVERY FROM STUDENTS (Self-Healing) ---
+    // Find classes/sections mentioned in student records but missing from classes collection
+    try {
+      console.log('🔍 Discovering classes from student records...');
+      const studentDiscovery = await schoolConnection.collection('students').aggregate([
+        { $match: { isActive: { $ne: false } } },
+        {
+          $group: {
+            _id: {
+              class: { $ifNull: ["$academicInfo.class", { $ifNull: ["$studentDetails.academic.currentClass", "$class"] }] },
+              section: { $ifNull: ["$academicInfo.section", { $ifNull: ["$studentDetails.academic.currentSection", "$section"] }] }
+            }
+          }
+        },
+        { $match: { "_id.class": { $ne: null, $ne: "" } } }
+      ]).toArray();
+
+      console.log(`📊 Discovered ${studentDiscovery.length} class-section pairs from students.`);
+
+      // Group discovery by class
+      const discoveredMap = new Map();
+      studentDiscovery.forEach(item => {
+        const className = String(item._id.class).trim();
+        const sectionName = item._id.section ? String(item._id.section).trim().toUpperCase() : 'A';
+        if (!discoveredMap.has(className)) {
+          discoveredMap.set(className, new Set());
+        }
+        discoveredMap.get(className).add(sectionName);
+      });
+
+      // Merge discovery into existing classes list
+      discoveredMap.forEach((sections, className) => {
+        const exists = classes.some(c => c.className.toLowerCase() === className.toLowerCase());
+        if (!exists) {
+          console.log(`➕ Auto-adding discovered class: ${className}`);
+          classes.push({
+            _id: new ObjectId(),
+            className: className,
+            sections: Array.from(sections),
+            academicYear: academicYear || 'Current',
+            isActive: true,
+            isDiscovered: true // Flag for debugging
+          });
+        } else {
+          // Check if sections are missing
+          const existingClass = classes.find(c => c.className.toLowerCase() === className.toLowerCase());
+          sections.forEach(s => {
+            if (!existingClass.sections.includes(s)) {
+              console.log(`➕ Auto-adding discovered section ${s} to class ${className}`);
+              existingClass.sections.push(s);
+            }
+          });
+        }
+      });
+    } catch (discoveryError) {
+      console.warn('⚠️ Class discovery from students failed:', discoveryError.message);
+    }
+
     const formattedClasses = classes.map(cls => ({
       _id: cls._id,
       className: cls.className,

@@ -471,7 +471,17 @@ class ReportService {
 
       // Add class filter - PRIORITY: academicInfo.class > studentDetails.currentClass > class
       if (className) {
-        const classRegex = { $regex: `^${className.toString().trim()}$`, $options: 'i' };
+        // Create a robust regex: "10" matches "10", "10th", "10th Class", "Class 10"
+        const cleanName = className.toString().trim();
+        const numericPart = cleanName.match(/\d+/)?.[0];
+        
+        let regexStr = `^${cleanName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`; // Escape special chars for exact match
+        if (numericPart) {
+           // If it's numeric like "10", match "10", "10th", "10th Class", "Class 10"
+           regexStr = `^(${cleanName}|${numericPart}|${numericPart}(st|nd|rd|th)|(Class|Grade)\\s*${numericPart})(\\s+Class|\\s+Grade)?$`;
+        }
+        
+        const classRegex = { $regex: regexStr, $options: 'i' };
         studentsMatchQuery.$or = [
           { 'academicInfo.class': classRegex },
           { 'studentDetails.academic.currentClass': classRegex },
