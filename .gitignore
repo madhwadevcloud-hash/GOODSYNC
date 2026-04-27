@@ -1,2 +1,11 @@
 node_modules
 
+# Local environment overrides (never push to production)
+.env.local
+frontend/.env.local
+backend/.env.local
+*.env.local
+
+# Scratch files
+scratch/
+backend/scratch_*
