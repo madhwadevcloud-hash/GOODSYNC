@@ -15,14 +15,16 @@ const previewIDCard = async (req, res) => {
     const { 
       studentId, 
       orientation = 'landscape',
-      side = 'front'
-    } = req.query;
+      side = 'front',
+      principalSign
+    } = req.method === 'POST' ? req.body : req.query;
 
     console.log('🔍 ID Card Preview Request:', {
       schoolId,
       studentId,
       orientation,
-      side
+      side,
+      hasPrincipalSign: !!principalSign
     });
 
     if (!studentId) {
@@ -60,12 +62,14 @@ const previewIDCard = async (req, res) => {
       name: student.name?.displayName || `${student.name?.firstName || ''} ${student.name?.lastName || ''}`.trim(),
       sequenceId: student.userId,
       rollNumber: student.studentDetails?.rollNumber || 'N/A',
-      className: student.studentDetails?.currentClass || 'N/A',
-      section: student.studentDetails?.currentSection || 'N/A',
-      dateOfBirth: student.studentDetails?.dateOfBirth ? new Date(student.studentDetails.dateOfBirth).toLocaleDateString('en-GB') : 'N/A',
-      bloodGroup: student.studentDetails?.bloodGroup || 'N/A',
+      className: student.studentDetails?.academic?.currentClass || student.academicInfo?.class || student.studentDetails?.currentClass || 'N/A',
+      section: student.studentDetails?.academic?.currentSection || student.academicInfo?.section || student.studentDetails?.currentSection || 'N/A',
+      dateOfBirth: (student.studentDetails?.personal?.dateOfBirth || student.personal?.dateOfBirth || student.studentDetails?.dateOfBirth) 
+        ? new Date(student.studentDetails?.personal?.dateOfBirth || student.personal?.dateOfBirth || student.studentDetails?.dateOfBirth).toLocaleDateString('en-GB') 
+        : 'N/A',
+      bloodGroup: student.studentDetails?.personal?.bloodGroup || student.personal?.bloodGroup || student.studentDetails?.bloodGroup || 'N/A',
       address: formatStudentAddress(student),
-      phone: student.contact?.primaryPhone || student.studentDetails?.fatherPhone || student.studentDetails?.motherPhone || 'N/A',
+      phone: student.contact?.primaryPhone || student.studentDetails?.family?.father?.phone || student.studentDetails?.fatherPhone || 'N/A',
       profileImage: student.profileImage
     };
 
@@ -78,7 +82,8 @@ const previewIDCard = async (req, res) => {
       address: formatSchoolAddress(school),
       logoUrl: school?.logoUrl || null,
       phone: school?.contact?.phone || school?.phone || '',
-      email: school?.contact?.email || school?.email || ''
+      email: school?.contact?.email || school?.email || '',
+      principalSign: principalSign || null
     };
 
     // Generate ID card in memory
@@ -188,7 +193,8 @@ const generateAndDownloadIDCards = async (req, res) => {
       address: formatSchoolAddress(school),
       logoUrl: school?.logoUrl || null,
       phone: school?.contact?.phone || school?.phone || '',
-      email: school?.contact?.email || school?.email || ''
+      email: school?.contact?.email || school?.email || '',
+      principalSign: req.body.principalSign || null
     };
 
     // Create ZIP file name
@@ -342,7 +348,8 @@ const previewIDCardBase64 = async (req, res) => {
       address: formatSchoolAddress(school),
       logoUrl: school?.logoUrl || null,
       phone: school?.contact?.phone || school?.phone || '',
-      email: school?.contact?.email || school?.email || ''
+      email: school?.contact?.email || school?.email || '',
+      principalSign: req.method === 'POST' ? req.body.principalSign : req.query.principalSign || null
     };
 
     // Generate ID card in memory
@@ -530,7 +537,8 @@ const generateBulkPreview = async (req, res) => {
       address: formatSchoolAddress(school),
       logoUrl: school?.logoUrl || null,
       phone: school?.contact?.phone || school?.phone || '',
-      email: school?.contact?.email || school?.email || ''
+      email: school?.contact?.email || school?.email || '',
+      principalSign: req.body.principalSign || null
     };
 
     // Generate previews

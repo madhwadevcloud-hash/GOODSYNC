@@ -5,9 +5,10 @@ import api from '../../../api/axios';
 import { schoolUserAPI } from '../../../api/schoolUsers';
 import AcademicTestConfiguration from './AcademicTestConfiguration';
 import { ImportUsersDialog } from './ImportUsersDialog'; // Import the dialog
+import { getDynamicFallbackYear, normalizeAcademicYear } from '../../../utils/academicYearUtils';
 
 // Define proper types for the component
-type TabType = 'overview' | 'users' | 'academics' | 'settings';
+type TabType = 'overview' | 'users' | 'academics' | 'academic-year' | 'settings';
 type UserRole = 'admin' | 'teacher' | 'student' | 'parent';
 
 interface User {
@@ -191,6 +192,10 @@ function SchoolDetailsContent() {
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
+  const [currentAcademicYear, setCurrentAcademicYear] = useState('');
+  const [academicYearStart, setAcademicYearStart] = useState('');
+  const [academicYearEnd, setAcademicYearEnd] = useState('');
+  const [savingAcademicYear, setSavingAcademicYear] = useState(false);
 
 
   // Find the selected school
@@ -276,8 +281,10 @@ function SchoolDetailsContent() {
         }
 
         setSchoolCode(currentSchoolCode); // Set school code in state
-
-        console.log('Fetching users for school code:', currentSchoolCode);
+        
+        // Determine the academic year to filter by
+        const academicYearFilter = schoolInfo?.settings?.academicYear?.currentYear;
+        console.log('Fetching users for school code:', currentSchoolCode, 'Year:', academicYearFilter);
 
         const token = getAuthToken();
 
@@ -285,7 +292,7 @@ function SchoolDetailsContent() {
           throw new Error('No authentication token found');
         }
 
-        const usersRes = await schoolUserAPI.getAllUsers(currentSchoolCode, token);
+        const usersRes = await schoolUserAPI.getAllUsers(currentSchoolCode, token, academicYearFilter);
 
         if (!isMounted) return;
         clearTimeout(timeoutId);
@@ -384,6 +391,25 @@ function SchoolDetailsContent() {
           }, {})
         });
         setFetchedData(processed);
+        
+        // Initialize academic year state from school settings
+        if (schoolInfo?.settings?.academicYear) {
+          const dynamicYear = getDynamicFallbackYear();
+          const startYearNum = parseInt(dynamicYear.split('-')[0]);
+          
+          setCurrentAcademicYear(schoolInfo.settings.academicYear.currentYear || dynamicYear);
+          setAcademicYearStart(schoolInfo.settings.academicYear.startDate?.split('T')[0] || `${startYearNum}-04-01`);
+          setAcademicYearEnd(schoolInfo.settings.academicYear.endDate?.split('T')[0] || `${startYearNum + 1}-03-31`);
+        } else {
+          // Fallback if settings not found
+          const dynamicYear = getDynamicFallbackYear();
+          const startYearNum = parseInt(dynamicYear.split('-')[0]);
+          
+          setCurrentAcademicYear(dynamicYear);
+          setAcademicYearStart(`${startYearNum}-04-01`);
+          setAcademicYearEnd(`${startYearNum + 1}-03-31`);
+        }
+        
         setLoading(false);
       } catch (err: any) {
         if (!isMounted) return;
@@ -543,6 +569,33 @@ function SchoolDetailsContent() {
       console.error('Failed to reset password:', err);
       setResettingPassword(null);
       alert('Failed to reset password: ' + err.message);
+    }
+  };
+
+  const handleSaveAcademicYear = async () => {
+    if (!schoolCode) {
+      alert('School code not available. Please wait for data to load.');
+      return;
+    }
+    
+    setSavingAcademicYear(true);
+    try {
+      // 1. Update Academic Year
+      const response = await api.put(`/admin/academic-year/${schoolCode}`, {
+        currentYear: currentAcademicYear,
+        startDate: academicYearStart,
+        endDate: academicYearEnd
+      });
+
+      if (response.data.success) {
+        alert('Academic year settings updated successfully!');
+        setReloadKey(prev => prev + 1); // Refresh data
+      }
+    } catch (err: any) {
+      console.error('Failed to update academic year:', err);
+      alert('Failed to update academic year: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setSavingAcademicYear(false);
     }
   };
 
@@ -784,6 +837,16 @@ function SchoolDetailsContent() {
           >
             <GraduationCap className="h-4 w-4" />
             <span>Academics</span>
+          </button>
+          <button
+            className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${activeTab === 'academic-year'
+                ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-md'
+                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+            }`}
+            onClick={() => setActiveTab('academic-year')}
+          >
+            <Calendar className="h-4 w-4" />
+            <span>Academic Year</span>
           </button>
         </nav>
       </div>
@@ -1064,7 +1127,6 @@ function SchoolDetailsContent() {
         </div>
       )}
 
-
       {activeTab === 'academics' && (
         <div className="bg-white p-6 rounded-lg shadow-md">
           <div className="flex justify-between items-center mb-6">
@@ -1075,6 +1137,95 @@ function SchoolDetailsContent() {
           </div>
 
           <AcademicTestConfiguration />
+        </div>
+      )}
+
+      {activeTab === 'academic-year' && (
+        <div className="bg-white p-6 rounded-lg shadow-md w-full">
+          <div className="flex items-center space-x-3 mb-6">
+            <div className="bg-purple-100 p-3 rounded-xl">
+              <Calendar className="h-6 w-6 text-purple-600" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold">Academic Year Settings</h2>
+              <p className="text-sm text-gray-500">Set the active academic year and date range for this school.</p>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Current Academic Year
+                </label>
+                <input
+                  type="text"
+                  value={currentAcademicYear}
+                  onChange={(e) => setCurrentAcademicYear(e.target.value)}
+                  placeholder="e.g., 2024-25 or 2024-2025"
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+                />
+                <p className="mt-1 text-xs text-gray-500">This will be the default academic year for all new student registrations.</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Start Date
+                </label>
+                <input
+                  type="date"
+                  value={academicYearStart}
+                  onChange={(e) => setAcademicYearStart(e.target.value)}
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  End Date
+                </label>
+                <input
+                  type="date"
+                  value={academicYearEnd}
+                  onChange={(e) => setAcademicYearEnd(e.target.value)}
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="pt-4 border-t flex justify-end">
+              <button
+                onClick={handleSaveAcademicYear}
+                disabled={savingAcademicYear || !currentAcademicYear}
+                className="flex items-center space-x-2 px-6 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 transition-all duration-200"
+              >
+                {savingAcademicYear ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4" />
+                    <span>Save Academic Year</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6">
+              <div className="flex space-x-3">
+                <Settings className="h-5 w-5 text-blue-500 mt-0.5" />
+                <div>
+                  <h4 className="text-sm font-bold text-blue-800">Note on Synchronization</h4>
+                  <p className="text-xs text-blue-700 mt-1">
+                    Updating the academic year here will automatically synchronize it with the Admin panel. 
+                    All students will be mapped to this new academic year for reporting and attendance.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

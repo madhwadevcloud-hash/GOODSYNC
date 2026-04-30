@@ -36,6 +36,18 @@ const SimpleIDCardGenerator: React.FC<SimpleIDCardGeneratorProps> = ({
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [orientationLocked, setOrientationLocked] = useState(lockOrientation);
+  const [principalSign, setPrincipalSign] = useState<string | null>(null);
+
+  const handleSignUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPrincipalSign(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5050/api';
 
@@ -78,7 +90,8 @@ const SimpleIDCardGenerator: React.FC<SimpleIDCardGeneratorProps> = ({
         {
           studentIds,
           orientation,
-          includeBack
+          includeBack,
+          principalSign
         },
         {
           headers: { 
@@ -153,7 +166,8 @@ const SimpleIDCardGenerator: React.FC<SimpleIDCardGeneratorProps> = ({
         {
           studentIds,
           orientation,
-          includeBack
+          includeBack,
+          principalSign
         },
         {
           headers: { 
@@ -209,7 +223,8 @@ const SimpleIDCardGenerator: React.FC<SimpleIDCardGeneratorProps> = ({
         {
           studentIds: [student._id || student.id],
           orientation,
-          includeBack
+          includeBack,
+          principalSign
         },
         {
           headers: { 
@@ -245,14 +260,22 @@ const SimpleIDCardGenerator: React.FC<SimpleIDCardGeneratorProps> = ({
 
       console.log('🔍 Previewing ID card:', { studentId, side, orientation });
 
-      // Use the new in-memory preview endpoint
-      const previewUrl = `${API_BASE_URL}/id-card-templates/preview?studentId=${studentId}&orientation=${orientation}&side=${side}`;
+      // Use POST for preview to support passing large base64 strings
+      const previewUrl = `${API_BASE_URL}/id-card-templates/preview`;
       
       const response = await fetch(previewUrl, {
+        method: 'POST',
         headers: { 
           'Authorization': `Bearer ${token}`,
-          'X-School-Code': schoolCode
-        }
+          'X-School-Code': schoolCode,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          studentId,
+          orientation,
+          side,
+          principalSign
+        })
       });
 
       if (response.ok) {
@@ -353,6 +376,29 @@ const SimpleIDCardGenerator: React.FC<SimpleIDCardGeneratorProps> = ({
                       <p className="text-xs text-blue-600 mt-2">
                         ℹ️ Orientation is locked as selected from the previous page
                       </p>
+                    )}
+                  </div>
+
+                  <div className="mt-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Principal Sign (Front side only)
+                    </label>
+                    <input 
+                      type="file" 
+                      accept="image/*"
+                      onChange={handleSignUpload}
+                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                    />
+                    {principalSign && (
+                      <div className="mt-2">
+                        <img src={principalSign} alt="Principal Sign" className="h-16 object-contain border rounded p-1" />
+                        <button 
+                          onClick={() => setPrincipalSign(null)}
+                          className="text-xs text-red-500 hover:text-red-700 mt-1 block"
+                        >
+                          Remove sign
+                        </button>
+                      </div>
                     )}
                   </div>
 

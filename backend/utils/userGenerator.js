@@ -231,6 +231,7 @@ class UserGenerator {
           },
 
           profileImage: userData.profileImage || null, // <-- FIX
+          academicYear: academicYear, // ROOT LEVEL
           isActive: true,
           createdAt: new Date(),
           updatedAt: new Date(),
@@ -250,6 +251,7 @@ class UserGenerator {
           // studentDetails EXACT as SchoolUser()
           studentDetails: {
             studentId,
+            academicYear: academicYear, // FLAT FIELD
             admissionNumber: studentId,
             rollNumber: `${className}${section}${Date.now().toString().slice(-3)}`,
 

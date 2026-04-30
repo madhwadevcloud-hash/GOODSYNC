@@ -180,7 +180,7 @@ const UniversalTemplate: React.FC = () => {
           componentHTML = `
             <div style="text-align: center; padding: 20px;">
               <h2>ID Card Template - Landscape Back</h2>
-              <img src="https://res.cloudinary.com/dbcutmb0z/image/upload/v1762088066/landscape-back_fqroxh.png" 
+              <img src="https://res.cloudinary.com/ddylg2kw3/image/upload/v1777546702/erp-templates/landscape-back-new.jpg" 
                    alt="Landscape Back Template" 
                    style="max-width: 100%; height: auto;" />
             </div>
@@ -200,7 +200,7 @@ const UniversalTemplate: React.FC = () => {
           componentHTML = `
             <div style="text-align: center; padding: 20px;">
               <h2>ID Card Template - Portrait Back</h2>
-              <img src="https://res.cloudinary.com/dbcutmb0z/image/upload/v1762088066/portrait-back_m5wxzh.png" 
+              <img src="https://res.cloudinary.com/ddylg2kw3/image/upload/v1777546701/erp-templates/portrait-back-new.jpg" 
                    alt="Portrait Back Template" 
                    style="max-width: 100%; height: auto;" />
             </div>
@@ -426,12 +426,12 @@ const UniversalTemplate: React.FC = () => {
             <h3 className="text-lg font-semibold mb-4 text-gray-900">ID Card Template - Landscape Back</h3>
             <div className="bg-white p-4 rounded-lg shadow-sm flex items-center justify-center" style={{ minHeight: '400px' }}>
               <img
-                src="https://res.cloudinary.com/dbcutmb0z/image/upload/v1762088066/landscape-back_fqroxh.png"
+                src="https://res.cloudinary.com/ddylg2kw3/image/upload/v1777546702/erp-templates/landscape-back-new.jpg"
                 alt="Landscape Back Template"
                 className="max-w-full h-auto"
                 style={{ maxHeight: '500px', objectFit: 'contain' }}
                 onError={(e) => {
-                  (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2Y1ZjVmNSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTgiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5UZW1wbGF0ZSBOb3QgRm91bmQ8L3RleHQ+PC9zdmc+';
+                  (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2Y1ZjVmNSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTgiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5UZW1wbGF0ZSBOb3QwRm91bmQ8L3RleHQ+PC9zdmc+';
                 }}
               />
             </div>
@@ -462,7 +462,7 @@ const UniversalTemplate: React.FC = () => {
             <h3 className="text-lg font-semibold mb-4 text-gray-900">ID Card Template - Portrait Back</h3>
             <div className="bg-white p-4 rounded-lg shadow-sm flex items-center justify-center" style={{ minHeight: '400px' }}>
               <img
-                src="https://res.cloudinary.com/dbcutmb0z/image/upload/v1762088066/portrait-back_m5wxzh.png"
+                src="https://res.cloudinary.com/ddylg2kw3/image/upload/v1777546701/erp-templates/portrait-back-new.jpg"
                 alt="Portrait Back Template"
                 className="max-w-full h-auto"
                 style={{ maxHeight: '500px', objectFit: 'contain' }}

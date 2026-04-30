@@ -104,11 +104,12 @@ exports.addUserToSchool = async (req, res) => {
 exports.getUsersByRole = async (req, res) => {
   try {
     const { schoolCode: schoolIdentifier, role } = req.params;
+    const { academicYear } = req.query;
 
     // Resolve school name or code to actual school code
     const schoolCode = await resolveSchoolCode(schoolIdentifier);
 
-    const users = await UserGenerator.getUsersByRole(schoolCode, role);
+    const users = await UserGenerator.getUsersByRole(schoolCode, role, academicYear);
 
     res.json({
       success: true,

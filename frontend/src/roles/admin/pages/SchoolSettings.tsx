@@ -35,6 +35,8 @@ const SchoolSettings: React.FC = () => {
   const { 
     currentAcademicYear: academicYearFromContext, 
     viewingAcademicYear, 
+    academicYearStart: startFromContext,
+    academicYearEnd: endFromContext,
     ready: academicYearReady,
     refreshAcademicYear 
   } = useAcademicYear();
@@ -63,12 +65,13 @@ const SchoolSettings: React.FC = () => {
       setFromYear(year);
       setSavedAcademicYear(year);
       setIsAcademicYearSaved(!!academicYearFromContext);
-      // Derive start/end dates from year string
+      
+      // Use dates from context, otherwise fallback to dynamic
       const startYearNum = parseInt(year.split('-')[0]);
-      setAcademicYearStart(`${startYearNum}-04-01`);
-      setAcademicYearEnd(`${startYearNum + 1}-03-31`);
+      setAcademicYearStart(startFromContext || `${startYearNum}-04-01`);
+      setAcademicYearEnd(endFromContext || `${startYearNum + 1}-03-31`);
     }
-  }, [academicYearReady, viewingAcademicYear, academicYearFromContext]);
+  }, [academicYearReady, viewingAcademicYear, academicYearFromContext, startFromContext, endFromContext]);
 
   // Reset saved state when academic year is modified
   useEffect(() => {
@@ -408,23 +411,10 @@ const SchoolSettings: React.FC = () => {
       });
 
       if (response.data.success) {
-        // Migrate existing students to add academic year
-        const migrationResponse = await api.post(`/admin/migration/${schoolCode}/students/academic-year`, {
-          academicYear: currentAcademicYear
-        });
-
-        if (migrationResponse.data.success) {
-          const updatedCount = migrationResponse.data.data?.updated || 0;
-          toast.success(`Academic year updated! ${updatedCount} student(s) updated.`);
-          setFromYear(currentAcademicYear);
-          setSavedAcademicYear(currentAcademicYear);
-          setIsAcademicYearSaved(true);
-        } else {
-          toast.success('Academic year updated successfully!');
-          setFromYear(currentAcademicYear);
-          setSavedAcademicYear(currentAcademicYear);
-          setIsAcademicYearSaved(true);
-        }
+        toast.success('Academic year updated successfully!');
+        setFromYear(currentAcademicYear);
+        setSavedAcademicYear(currentAcademicYear);
+        setIsAcademicYearSaved(true);
 
         // Refresh academic year context so all pages get the new year
         await refreshAcademicYear();

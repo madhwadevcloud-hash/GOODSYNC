@@ -2090,10 +2090,14 @@ const ManageUsers: React.FC = () => {
             const processedUser: any = {
               _id: userData._id || userData.userId,
               userId: userData.userId,
-              name: userData.name?.displayName ||
-                (userData.name?.firstName && userData.name?.lastName
-                  ? `${userData.name.firstName} ${userData.name.lastName}`
-                  : userData.name?.firstName || userData.name?.lastName || userData.name || 'Unknown'),
+              name: userData.name?.displayName || 
+                userData.displayName || 
+                (userData.name?.firstName ? `${userData.name.firstName} ${userData.name.lastName || ''}`.trim() : null) ||
+                (userData.firstName ? `${userData.firstName} ${userData.lastName || ''}`.trim() : null) ||
+                userData.studentNameEnglish?.displayName ||
+                (userData.studentNameEnglish?.firstName ? `${userData.studentNameEnglish.firstName} ${userData.studentNameEnglish.lastName || ''}`.trim() : null) ||
+                (typeof userData.name === 'string' ? userData.name : null) ||
+                'Unknown',
               email: userData.email || 'No email',
               role: userData.role,
               phone: userData.contact?.primaryPhone || userData.contact?.phone || userData.phone,
@@ -2167,10 +2171,14 @@ const ManageUsers: React.FC = () => {
                 const processedUser: any = {
                   _id: userData._id || userData.userId,
                   userId: userData.userId, // Add the userId field
-                  name: userData.name?.displayName ||
-                    (userData.name?.firstName && userData.name?.lastName
-                      ? `${userData.name.firstName} ${userData.name.lastName}`
-                      : userData.name?.firstName || userData.name?.lastName || userData.name || 'Unknown'),
+                  name: userData.name?.displayName || 
+                    userData.displayName || 
+                    (userData.name?.firstName ? `${userData.name.firstName} ${userData.name.lastName || ''}`.trim() : null) ||
+                    (userData.firstName ? `${userData.firstName} ${userData.lastName || ''}`.trim() : null) ||
+                    userData.studentNameEnglish?.displayName ||
+                    (userData.studentNameEnglish?.firstName ? `${userData.studentNameEnglish.firstName} ${userData.studentNameEnglish.lastName || ''}`.trim() : null) ||
+                    (typeof userData.name === 'string' ? userData.name : null) ||
+                    'Unknown',
                   email: userData.email || 'No email',
                   role: role,
                   phone: userData.contact?.primaryPhone || userData.contact?.phone || userData.phone,
@@ -2352,10 +2360,13 @@ const ManageUsers: React.FC = () => {
               return {
                 exists: true,
                 role: emailConflict.role,
-                name: emailConflict.name?.displayName ||
-                  (emailConflict.name?.firstName && emailConflict.name?.lastName
-                    ? `${emailConflict.name.firstName} ${emailConflict.name.lastName}`
-                    : emailConflict.name?.firstName || emailConflict.name?.lastName || emailConflict.name || 'Unknown')
+                name: emailConflict.name?.displayName || 
+                       emailConflict.displayName ||
+                       (emailConflict.name?.firstName ? `${emailConflict.name.firstName} ${emailConflict.name.lastName || ''}`.trim() : null) ||
+                       (emailConflict.firstName ? `${emailConflict.firstName} ${emailConflict.lastName || ''}`.trim() : null) ||
+                       emailConflict.studentNameEnglish?.displayName ||
+                       (emailConflict.studentNameEnglish?.firstName ? `${emailConflict.studentNameEnglish.firstName} ${emailConflict.studentNameEnglish.lastName || ''}`.trim() : null) ||
+                       'Unknown'
               };
             }
           }
@@ -6312,7 +6323,7 @@ const ManageUsers: React.FC = () => {
                   onClick={exportUsers}
                   className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
                 >
-                  <Download className="h-4 w-4" />
+                  <Upload className="h-4 w-4" />
                   <span>Export</span>
                 </button>
                 <button
@@ -6327,7 +6338,7 @@ const ManageUsers: React.FC = () => {
                   }}
                   className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
                 >
-                  <Upload className="h-4 w-4" />
+                  <Download className="h-4 w-4" />
                   <span>Import</span>
                 </button>
                 <button
@@ -6443,12 +6454,24 @@ const ManageUsers: React.FC = () => {
                                       <div className="flex-shrink-0">
                                         <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
                                           <span className="text-sm font-medium text-blue-600">
-                                            {(student.name as any)?.displayName?.charAt(0) || (student.name as any)?.firstName?.charAt(0) || 'U'}
+                                            {(student.name as any)?.displayName?.charAt(0) || 
+                                              (student.name as any)?.firstName?.charAt(0) || 
+                                              (student as any).studentNameEnglish?.displayName?.charAt(0) ||
+                                              (student as any).studentNameEnglish?.firstName?.charAt(0) || 'U'}
                                           </span>
                                         </div>
                                       </div>
                                       <div className="flex-1 min-w-0">
-                                        <div className="text-sm font-medium text-gray-900 break-words">{(student.name as any)?.displayName || (student.name as any)?.firstName || 'Unknown'}</div>
+                                        <div className="text-sm font-medium text-gray-900 break-words">
+                                          {(student.name as any)?.displayName || 
+                                            (student as any).displayName ||
+                                            ((student.name as any)?.firstName ? `${(student.name as any).firstName} ${(student.name as any).lastName || ''}`.trim() : null) ||
+                                            ((student as any).firstName ? `${(student as any).firstName} ${(student as any).lastName || ''}`.trim() : null) ||
+                                            (student as any).studentNameEnglish?.displayName ||
+                                            ((student as any).studentNameEnglish?.firstName ? `${(student as any).studentNameEnglish.firstName} ${(student as any).studentNameEnglish.lastName || ''}`.trim() : null) ||
+                                            (typeof student.name === 'string' ? student.name : null) ||
+                                            'Unknown'}
+                                        </div>
                                         <div className="text-sm text-gray-500 break-words">{student.email}</div>
                                         {((student as any).userId || student._id) && (
                                           <div className="text-xs text-gray-400 truncate">ID: {(student as any).userId || student._id}</div>

@@ -10,12 +10,12 @@ const axios = require('axios'); // <-- Make sure axios is at the top
  */
 const TEMPLATE_PATHS = {
   landscape: {
-    front: 'https://res.cloudinary.com/dbcutmb0z/image/upload/v1762088066/landscape-front_m59zcq.png', // <-- PASTE YOUR URL
-    back: 'https://res.cloudinary.com/dbcutmb0z/image/upload/v1762088066/landscape-back_fqroxh.png',  // <-- PASTE YOUR URL
+    front: 'https://res.cloudinary.com/dbcutmb0z/image/upload/v1762088066/landscape-front_m59zcq.png',
+    back: 'https://res.cloudinary.com/ddylg2kw3/image/upload/v1777546702/erp-templates/landscape-back-new.jpg', 
   },
   portrait: {
-    front: 'https://res.cloudinary.com/dbcutmb0z/image/upload/v1762088066/portrait-front_iqllye.png', // <-- PASTE YOUR URL
-    back: 'https://res.cloudinary.com/dbcutmb0z/image/upload/v1762088066/portrait-back_m5wxzh.png',  // <-- PASTE YOUR URL
+    front: 'https://res.cloudinary.com/dbcutmb0z/image/upload/v1762088066/portrait-front_iqllye.png',
+    back: 'https://res.cloudinary.com/ddylg2kw3/image/upload/v1777546701/erp-templates/portrait-back-new.jpg',
   },
 };
 
@@ -200,10 +200,10 @@ class SimpleIDCardGenerator {
 
       // Calculate x position based on alignment
       let x = 0;
+      let textAnchor = 'start';
       if (textAlign === 'center') {
-        // Approximate text width (rough estimation: 0.6 * fontSize per character)
-        const estimatedWidth = line.length * fontSize * 0.6;
-        x = (maxWidth - estimatedWidth) / 2;
+        x = Math.floor(maxWidth / 2);
+        textAnchor = 'middle';
       }
 
       return `<text 
@@ -213,6 +213,7 @@ class SimpleIDCardGenerator {
         font-size="${fontSize}px" 
         font-weight="${fontWeight}"
         fill="${color}"
+        text-anchor="${textAnchor}"
       >${escapedLine}</text>`;
     }).join('\n');
 
@@ -245,15 +246,24 @@ class SimpleIDCardGenerator {
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&apos;');
 
+    // Calculate x position based on alignment
+    let x = 0;
+    let textAnchor = 'start';
+    if (options.textAlign === 'center') {
+      x = Math.floor(maxWidth / 2);
+      textAnchor = 'middle';
+    }
+
     const svg = `
       <svg width="${maxWidth}" height="${fontSize + 10}">
         <text 
-          x="0" 
+          x="${x}" 
           y="${fontSize}" 
           font-family="${fontFamily}" 
           font-size="${fontSize}px" 
           font-weight="${fontWeight}"
           fill="${color}"
+          text-anchor="${textAnchor}"
         >${escapedText}</text>
       </svg>
     `;
@@ -267,53 +277,75 @@ class SimpleIDCardGenerator {
   getFieldPositions(orientation, side) {
     if (orientation === 'landscape' && side === 'front') {
       return {
-        schoolLogo: { x: 130, y: 80, width: 80, height: 80 },
-        schoolName: { x: 230, y: 80, fontSize: 30, fontWeight: 'bold', maxWidth: 700, multiLine: true, maxCharsPerLine: 70, lineHeight: 1.1, minFontSize: 18, maxLines: 2, autoSize: true, dynamicHeight: true },
-        schoolAddress: { x: 230, y: 130, fontSize: 16, fontWeight: 'normal', maxWidth: 700, multiLine: true, maxCharsPerLine: 90, lineHeight: 1.0, minFontSize: 12, maxLines: 2, autoSize: true, dynamicY: true, baseY: 105, dependsOn: 'schoolName' },
+        schoolLogo: { x: 50, y: 35, width: 130, height: 130 },
+        schoolName: { x: 200, y: 35, fontSize: 44, fontWeight: 'bold', maxWidth: 760, multiLine: true, maxCharsPerLine: 50, lineHeight: 1.1, minFontSize: 24, maxLines: 2, autoSize: true, dynamicHeight: true },
+        schoolAddress: { x: 200, y: 85, fontSize: 20, fontWeight: 'normal', maxWidth: 760, multiLine: true, maxCharsPerLine: 80, lineHeight: 1.0, minFontSize: 14, maxLines: 2, autoSize: true, dynamicY: true, baseY: 85, dependsOn: 'schoolName' },
         photo: { x: 75, y: 185, width: 235, height: 300 },
         nameLabel: { x: 330, y: 203, fontSize: 24, fontWeight: 'bold', dynamicX: true },
-        name: { x: 530, y: 203, fontSize: 24, fontWeight: 'bold', maxWidth: 550, multiLine: true, maxCharsPerLine: 30, lineHeight: 1.2, maxLines: 3, dynamicX: true },
+        name: { x: 530, y: 203, fontSize: 26, fontWeight: 'bold', maxWidth: 450, multiLine: true, maxCharsPerLine: 25, lineHeight: 1.2, maxLines: 3, dynamicX: true },
         idNumberLabel: { x: 330, y: 253, fontSize: 24, fontWeight: 'bold', dynamicX: true },
         idNumber: { x: 530, y: 253, fontSize: 24, dynamicX: true },
         classSectionLabel: { x: 330, y: 302, fontSize: 24, fontWeight: 'bold', dynamicX: true },
         classSection: { x: 530, y: 302, fontSize: 24, dynamicX: true },
         dobLabel: { x: 330, y: 348, fontSize: 24, fontWeight: 'bold', dynamicX: true },
         dob: { x: 530, y: 348, fontSize: 24, dynamicX: true },
-        bloodGroup: { x: 415, y: 480, fontSize: 20, fontWeight: 'bold', color: '#000000', textAlign: 'center', maxWidth: 60, centerX: true }
+        bloodGroup: { x: 415, y: 480, fontSize: 22, fontWeight: 'bold', color: '#000000', textAlign: 'center', maxWidth: 60, centerX: true },
+        principalSign: { x: 750, y: 530, width: 200, height: 60 },
+        principalSignTitle: { x: 750, y: 600, fontSize: 20, fontWeight: 'bold', color: '#000000', maxWidth: 200, textAlign: 'center' }
       };
     } else if (orientation === 'landscape' && side === 'back') {
+      // LANDSCAPE BACK (1578x997)
       return {
-        address: { x: 400, y: 116, fontSize: 20, fontWeight: 'bold', maxWidth: 650, multiLine: true, maxCharsPerLine: 52, lineHeight: 1.3, minFontSize: 16, maxLines: 4, autoSize: false },
-        mobile: { x: 520, y: 183, fontSize: 23, fontWeight: 'bold', maxWidth: 200 },
-        returnSchoolName: { x: 170, y: 415, fontSize: 23, fontWeight: 'bold', maxWidth: 750, multiLine: true, maxCharsPerLine: 50, lineHeight: 1.2, minFontSize: 16, maxLines: 2, autoSize: true, textAlign: 'center' },
-        returnAddress: { x: 170, y: 450, fontSize: 23, fontWeight: 'bold', maxWidth: 750, multiLine: true, maxCharsPerLine: 50, lineHeight: 1.2, minFontSize: 16, maxLines: 2, autoSize: true, textAlign: 'center' },
-        schoolPhone: { x: 270, y: 510, fontSize: 20, fontWeight: 'bold', maxWidth: 650 },
-        schoolEmail: { x: 470, y: 510, fontSize: 20, fontWeight: 'bold', maxWidth: 650 }
+        // Labels (we will render these and mask the template ones to ensure alignment)
+        addressLabel: { x: 75, y: 190, fontSize: 32, fontWeight: 'bold', text: 'Local Address :' },
+        mobileLabel: { x: 75, y: 293, fontSize: 32, fontWeight: 'bold', text: 'Mobile No. :' },
+        
+        // Values (aligned to x: 630)
+        address: { x: 630, y: 190, fontSize: 32, fontWeight: 'bold', maxWidth: 900, multiLine: true, maxCharsPerLine: 50, lineHeight: 1.2, minFontSize: 28, maxLines: 2, autoSize: false, textAlign: 'left' },
+        mobile: { x: 630, y: 293, fontSize: 32, fontWeight: 'bold', maxWidth: 700, textAlign: 'left' },
+        
+        // Footer info
+        returnSchoolName: { x: 220, y: 650, fontSize: 30, fontWeight: 'bold', maxWidth: 1190, textAlign: 'center', color: '#000000' },
+        returnAddress: { x: 220, y: 690, fontSize: 26, fontWeight: 'bold', maxWidth: 1190, multiLine: true, maxCharsPerLine: 80, lineHeight: 1.2, textAlign: 'center', color: '#000000' },
+        schoolPhone: { x: 220, y: 740, fontSize: 24, fontWeight: 'bold', maxWidth: 580, textAlign: 'center', color: '#000000' },
+        schoolEmail: { x: 810, y: 740, fontSize: 24, fontWeight: 'bold', maxWidth: 600, textAlign: 'center', color: '#000000' },
+        schoolLogo: null 
       };
     } else if (orientation === 'portrait' && side === 'front') {
       return {
-        schoolLogo: { x: 30, y: 60, width: 80, height: 80 },
-        schoolName: { x: 125, y: 55, fontSize: 24, fontWeight: 'bold', maxWidth: 400, multiLine: true, maxCharsPerLine: 25, lineHeight: 1.2, minFontSize: 24, maxLines: 3, autoSize: false, dynamicHeight: true },
-        schoolAddress: { x: 125, y: 95, fontSize: 12, fontWeight: 'normal', maxWidth: 500, multiLine: true, maxCharsPerLine: 65, lineHeight: 1.2, minFontSize: 12, maxLines: 3, autoSize: false, dynamicY: true, baseY: 95, dependsOn: 'schoolName' },
+        schoolLogo: { x: 30, y: 40, width: 110, height: 110 },
+        schoolName: { x: 155, y: 40, fontSize: 30, fontWeight: 'bold', maxWidth: 450, multiLine: true, maxCharsPerLine: 25, lineHeight: 1.2, minFontSize: 24, maxLines: 3, autoSize: false, dynamicHeight: true },
+        schoolAddress: { x: 155, y: 85, fontSize: 16, fontWeight: 'normal', maxWidth: 450, multiLine: true, maxCharsPerLine: 65, lineHeight: 1.2, minFontSize: 12, maxLines: 3, autoSize: false, dynamicY: true, baseY: 85, dependsOn: 'schoolName' },
         photo: { x: 175, y: 195, width: 240, height: 300 },
-        nameLabel: { x: 50, y: 557, fontSize: 22, fontWeight: 'bold', baseValueX: 140 },
-        name: { x: 170, y: 557, fontSize: 22, fontWeight: 'bold', maxWidth: 500, multiLine: true, maxCharsPerLine: 35, lineHeight: 1.2, maxLines: 3, dynamicX: true },
-        idNumberLabel: { x: 50, y: 605, fontSize: 22, fontWeight: 'bold', baseValueX: 140 },
-        idNumber: { x: 170, y: 605, fontSize: 22, fontWeight: 'bold', dynamicX: true },
-        classSectionLabel: { x: 50, y: 655, fontSize: 22, fontWeight: 'bold', baseValueX: 140 },
-        classSection: { x: 170, y: 655, fontSize: 22, fontWeight: 'bold', dynamicX: true },
-        dobLabel: { x: 50, y: 700, fontSize: 22, fontWeight: 'bold', baseValueX: 140 },
-        dob: { x: 170, y: 700, fontSize: 22, fontWeight: 'bold', dynamicX: true },
-        bloodGroup: { x: 80, y: 345, fontSize: 22, fontWeight: 'bold', color: '#000000', textAlign: 'center', maxWidth: 60, centerX: true }
+        nameLabel: { x: 50, y: 557, fontSize: 24, fontWeight: 'bold', baseValueX: 140 },
+        name: { x: 170, y: 557, fontSize: 24, fontWeight: 'bold', maxWidth: 420, multiLine: true, maxCharsPerLine: 35, lineHeight: 1.2, maxLines: 3, dynamicX: true },
+        idNumberLabel: { x: 50, y: 605, fontSize: 24, fontWeight: 'bold', baseValueX: 140 },
+        idNumber: { x: 170, y: 605, fontSize: 24, fontWeight: 'bold', dynamicX: true },
+        classSectionLabel: { x: 50, y: 655, fontSize: 24, fontWeight: 'bold', baseValueX: 140 },
+        classSection: { x: 170, y: 655, fontSize: 24, fontWeight: 'bold', dynamicX: true },
+        dobLabel: { x: 50, y: 700, fontSize: 24, fontWeight: 'bold', baseValueX: 140 },
+        dob: { x: 170, y: 700, fontSize: 24, fontWeight: 'bold', dynamicX: true },
+        bloodGroup: { x: 80, y: 345, fontSize: 24, fontWeight: 'bold', color: '#000000', textAlign: 'center', maxWidth: 60, centerX: true },
+        principalSign: { x: 380, y: 880, width: 150, height: 60 },
+        principalSignTitle: { x: 380, y: 950, fontSize: 20, fontWeight: 'bold', color: '#000000', maxWidth: 150, textAlign: 'center' }
       };
     } else if (orientation === 'portrait' && side === 'back') {
+      // PORTRAIT BACK (602x1024)
+      // Template labels measured via pixel scan:
+      //   "Local Address" label: y=86-104, x=203-400 (centered)
+      //   "Mobile No. :" label: y=228-246, x=128-290
+      //   "Terms And Conditions": y=313-332
+      //   "If lost please return to": y=524-543
+      //   Rectangle box: top=577-579, bottom=825-827, x=26-576
+      //   Box interior: y=580 to y=825, x=30 to x=572
       return {
-        address: { x: 50, y: 106, fontSize: 22, fontWeight: 'bold', maxWidth: 550, multiLine: true, maxCharsPerLine: 40, lineHeight: 1.3, minFontSize: 22, maxLines: 5, autoSize: false, textAlign: 'center', dynamicHeight: true },
-        mobile: { x: 295, y: 202, fontSize: 22, fontWeight: 'bold' },
-        returnSchoolName: { x: 50, y: 540, fontSize: 20, fontWeight: 'bold', maxWidth: 500, multiLine: true, maxCharsPerLine: 35, lineHeight: 1.15, minFontSize: 20, maxLines: 3, autoSize: false, dynamicHeight: true, dynamicY: true, baseY: 540, textAlign: 'center' },
-        returnAddress: { x: 50, y: 600, fontSize: 20, fontWeight: 'bold', maxWidth: 500, multiLine: true, maxCharsPerLine: 35, lineHeight: 1.15, minFontSize: 20, maxLines: 3, autoSize: false, dynamicHeight: true, dynamicY: true, baseY: 600, dependsOn: 'returnSchoolName', textAlign: 'center' },
-        schoolPhone: { x: 50, y: 650, fontSize: 20, fontWeight: 'bold', maxWidth: 500, multiLine: true, maxCharsPerLine: 35, lineHeight: 1.15, dynamicY: true, baseY: 650, dependsOn: 'returnAddress', textAlign: 'center' },
-        schoolEmail: { x: 50, y: 690, fontSize: 20, fontWeight: 'bold', maxWidth: 500, multiLine: true, maxCharsPerLine: 35, lineHeight: 1.15, dynamicY: true, baseY: 690, dependsOn: 'schoolPhone', textAlign: 'center' }
+        address: { x: 0, y: 115, fontSize: 22, fontWeight: 'bold', maxWidth: 602, multiLine: true, maxCharsPerLine: 40, lineHeight: 1.3, minFontSize: 20, maxLines: 2, autoSize: false, textAlign: 'center' },
+        mobile: { x: 295, y: 230, fontSize: 22, fontWeight: 'bold', maxWidth: 300, textAlign: 'left' },
+        returnSchoolName: { x: 35, y: 600, fontSize: 20, fontWeight: 'bold', maxWidth: 530, textAlign: 'center', color: '#000000' },
+        returnAddress: { x: 35, y: 640, fontSize: 16, fontWeight: 'bold', maxWidth: 530, multiLine: true, maxCharsPerLine: 50, lineHeight: 1.2, minFontSize: 14, maxLines: 3, autoSize: false, textAlign: 'center', color: '#000000' },
+        schoolPhone: { x: 35, y: 720, fontSize: 16, fontWeight: 'bold', maxWidth: 530, textAlign: 'center', color: '#000000' },
+        schoolEmail: { x: 35, y: 750, fontSize: 16, fontWeight: 'bold', maxWidth: 530, textAlign: 'center', color: '#000000' },
+        schoolLogo: null // User added logo themselves in template
       };
     }
     return {};
@@ -338,9 +370,28 @@ class SimpleIDCardGenerator {
         throw new Error(`Template URL not found for ${orientation} ${side}. Check TEMPLATE_PATHS constant.`);
       }
 
-      console.log(`✅ Fetching template from: ${templateUrl}`);
-      const templateResponse = await axios.get(templateUrl, { responseType: 'arraybuffer' });
-      const templateBuffer = Buffer.from(templateResponse.data);
+      // --- HOSTING FIX: DOWNLOAD FROM URL OR READ FROM DISK ---
+      let templateBuffer;
+      if (templateUrl.startsWith('http')) {
+        console.log(`✅ Fetching template from: ${templateUrl}`);
+        const templateResponse = await axios.get(templateUrl, { responseType: 'arraybuffer' });
+        templateBuffer = Buffer.from(templateResponse.data);
+      } else {
+        // Local file (new user-provided templates)
+        const localPath = path.join(process.cwd(), templateUrl);
+        const parentPath = path.join(process.cwd(), '..', templateUrl);
+        const fsSync = require('fs');
+        
+        if (fsSync.existsSync(localPath)) {
+          console.log(`✅ Using local template: ${localPath}`);
+          templateBuffer = fsSync.readFileSync(localPath);
+        } else if (fsSync.existsSync(parentPath)) {
+          console.log(`✅ Using local template (parent): ${parentPath}`);
+          templateBuffer = fsSync.readFileSync(parentPath);
+        } else {
+          throw new Error(`Template not found: ${templateUrl}`);
+        }
+      }
       // --- END FIX ---
 
       // Get field positions
@@ -353,25 +404,75 @@ class SimpleIDCardGenerator {
       const compositeImages = [];
 
       // --- HOSTING FIX: DOWNLOAD LOGO FROM URL ---
-      // Add school logo (FRONT SIDE ONLY)
-      if (side === 'front' && positions.schoolLogo && schoolInfo.logoUrl) {
+      // Add school logo (FRONT OR BACK SIDE IF POSITIONED)
+      if (positions.schoolLogo) {
         try {
-          const logoBuffer = await this.downloadImage(schoolInfo.logoUrl); // Use helper
-          const resizedLogoBuffer = await sharp(logoBuffer)
-            .resize(positions.schoolLogo.width, positions.schoolLogo.height, {
-              fit: 'contain',
-              background: { r: 255, g: 255, b: 255, alpha: 0 }
-            })
-            .toBuffer();
+          let logoBuffer;
+          
+          // SPECIAL CASE: Use GoodSync logo for back side if it exists locally
+          const BRANDING_LOGO_NAME = 'Gemini_Generated_Image_xye7pxye7pxye7px-removebg-preview.png';
+          const pathsToTry = [
+            path.join(process.cwd(), BRANDING_LOGO_NAME),
+            path.join(process.cwd(), '..', BRANDING_LOGO_NAME),
+            path.join(process.cwd(), 'Gemini_Generated_Image_xye7pxye7pxye7px.png'),
+            path.join(process.cwd(), '..', 'Gemini_Generated_Image_xye7pxye7pxye7px.png')
+          ];
+          
+          if (side === 'back') {
+            const fsSync = require('fs');
+            let foundPath = pathsToTry.find(p => fsSync.existsSync(p));
+            if (foundPath) {
+              console.log(`🔄 [ID Card] Using GoodSync logo from: ${foundPath}`);
+              logoBuffer = fsSync.readFileSync(foundPath);
+            } else {
+              console.warn('⚠️ [ID Card] GoodSync logo not found');
+            }
+          } else if (schoolInfo.logoUrl) {
+            // FRONT SIDE: Use school logo if provided
+            logoBuffer = await this.downloadImage(schoolInfo.logoUrl);
+          }
 
-          compositeImages.push({
-            input: resizedLogoBuffer,
-            top: positions.schoolLogo.y,
-            left: positions.schoolLogo.x
-          });
-          console.log(`✅ Fetched and resized school logo`);
+          if (logoBuffer) {
+            // Create a white background rectangle to mask any old logo in the template
+            const maskWidth = Math.round(positions.schoolLogo.width + 20);
+            const maskHeight = Math.round(positions.schoolLogo.height + 20);
+            const maskX = Math.round(positions.schoolLogo.x - 10);
+            const maskY = Math.round(positions.schoolLogo.y - 10);
+
+            const whiteMask = await sharp({
+              create: {
+                width: maskWidth,
+                height: maskHeight,
+                channels: 4,
+                background: { r: 255, g: 255, b: 255, alpha: 1 }
+              }
+            }).png().toBuffer();
+
+            // Add the white mask layer first
+            compositeImages.push({
+              input: whiteMask,
+              top: maskY,
+              left: maskX
+            });
+
+            // Then add the branding logo on top of the mask
+            const resizedLogoBuffer = await sharp(logoBuffer)
+              .resize(Math.round(positions.schoolLogo.width), Math.round(positions.schoolLogo.height), {
+                fit: 'contain',
+                background: { r: 255, g: 255, b: 255, alpha: 0 }
+              })
+              .toBuffer();
+
+            compositeImages.push({
+              input: resizedLogoBuffer,
+              top: Math.round(positions.schoolLogo.y),
+              left: Math.round(positions.schoolLogo.x)
+            });
+            
+            console.log(`✅ [ID Card] Added ${side} logo layer`);
+          }
         } catch (logoError) {
-          console.warn('⚠️ School logo processing skipped:', logoError.message);
+          console.warn('⚠️ [ID Card] Logo processing failed:', logoError.message);
         }
       }
       // --- END FIX ---
@@ -761,8 +862,94 @@ class SimpleIDCardGenerator {
             left: positions.bloodGroup.x
           });
         }
+
+        // Add principal sign
+        if (positions.principalSign && schoolInfo.principalSign) {
+          try {
+            const base64Data = schoolInfo.principalSign.replace(/^data:image\/\w+;base64,/, '');
+            const signBuffer = Buffer.from(base64Data, 'base64');
+            const resizedSignBuffer = await sharp(signBuffer)
+              .resize(Math.round(positions.principalSign.width), Math.round(positions.principalSign.height), {
+                fit: 'contain',
+                background: { r: 255, g: 255, b: 255, alpha: 0 }
+              })
+              .toBuffer();
+
+            compositeImages.push({
+              input: resizedSignBuffer,
+              top: Math.round(positions.principalSign.y),
+              left: Math.round(positions.principalSign.x)
+            });
+
+            // Add principal sign title
+            if (positions.principalSignTitle) {
+              compositeImages.push({
+                input: this.createTextSVG('Principal Sign', {
+                  fontSize: positions.principalSignTitle.fontSize,
+                  color: positions.principalSignTitle.color || '#000000',
+                  fontWeight: positions.principalSignTitle.fontWeight || 'bold',
+                  maxWidth: positions.principalSignTitle.maxWidth,
+                  textAlign: positions.principalSignTitle.textAlign || 'center'
+                }),
+                top: Math.round(positions.principalSignTitle.y),
+                left: Math.round(positions.principalSignTitle.x)
+              });
+            }
+          } catch (signError) {
+            console.warn('⚠️ [ID Card] Principal sign processing failed:', signError.message);
+          }
+        }
       } else {
-        // Back side fields (labels already on template)
+        // Back side fields 
+        
+        // --- LANDSCAPE ALIGNMENT FIX ---
+        // If landscape back, mask the old labels and render new aligned ones
+        if (orientation === 'landscape' && side === 'back') {
+          try {
+            // Mask 1: Old Address label area (template has it at 75-353, colon at 601)
+            const addressMask = await sharp({
+              create: { width: 550, height: 50, channels: 4, background: { r: 255, g: 255, b: 255, alpha: 1 } }
+            }).png().toBuffer();
+            
+            // Mask 2: Old Mobile label area (template has it at 602-794)
+            const mobileMask = await sharp({
+              create: { width: 300, height: 50, channels: 4, background: { r: 255, g: 255, b: 255, alpha: 1 } }
+            }).png().toBuffer();
+
+            compositeImages.push(
+              { input: addressMask, top: 185, left: 70 },
+              { input: mobileMask, top: 288, left: 600 }
+            );
+
+            // Render new aligned labels
+            if (positions.addressLabel) {
+              compositeImages.push({
+                input: this.createTextSVG(positions.addressLabel.text, {
+                  fontSize: positions.addressLabel.fontSize,
+                  color: '#000000',
+                  fontWeight: positions.addressLabel.fontWeight
+                }),
+                top: positions.addressLabel.y,
+                left: positions.addressLabel.x
+              });
+            }
+            
+            if (positions.mobileLabel) {
+              compositeImages.push({
+                input: this.createTextSVG(positions.mobileLabel.text, {
+                  fontSize: positions.mobileLabel.fontSize,
+                  color: '#000000',
+                  fontWeight: positions.mobileLabel.fontWeight
+                }),
+                top: positions.mobileLabel.y,
+                left: positions.mobileLabel.x
+              });
+            }
+          } catch (maskError) {
+            console.warn('⚠️ [ID Card] Alignment masking failed:', maskError.message);
+          }
+        }
+        // --- END FIX ---
 
         // Student Address value (starts from leftmost position, directly under the template label)
         if (positions.address && student.address) {
@@ -882,7 +1069,9 @@ class SimpleIDCardGenerator {
             input: this.createTextSVG(student.phone || student.contactNumber, {
               fontSize: positions.mobile.fontSize,
               color: '#000000',
-              fontWeight: 'normal'
+              fontWeight: 'normal',
+              maxWidth: positions.mobile.maxWidth || 400,
+              textAlign: positions.mobile.textAlign || 'left'
             }),
             top: Math.round(mobileY),
             left: positions.mobile.x
@@ -922,7 +1111,7 @@ class SimpleIDCardGenerator {
           compositeImages.push({
             input: this[textMethod](schoolInfo.schoolName, {
               fontSize: fontSize,
-              color: '#000000',
+              color: positions.returnSchoolName.color || '#000000',
               fontWeight: positions.returnSchoolName.fontWeight || 'bold',
               maxWidth: positions.returnSchoolName.maxWidth || 600,
               maxCharsPerLine: maxCharsPerLine,
@@ -976,7 +1165,7 @@ class SimpleIDCardGenerator {
           compositeImages.push({
             input: this[textMethod](schoolInfo.address, {
               fontSize: fontSize,
-              color: '#000000',
+              color: positions.returnAddress.color || '#000000',
               fontWeight: positions.returnAddress.fontWeight || 'normal',
               maxWidth: positions.returnAddress.maxWidth || 600,
               maxCharsPerLine: maxCharsPerLine,
@@ -1015,7 +1204,7 @@ class SimpleIDCardGenerator {
           compositeImages.push({
             input: this[textMethod](phoneText, {
               fontSize: positions.schoolPhone.fontSize,
-              color: '#000000',
+              color: positions.schoolPhone.color || '#000000',
               fontWeight: positions.schoolPhone.fontWeight || 'normal',
               maxWidth: positions.schoolPhone.maxWidth || 600,
               maxCharsPerLine: positions.schoolPhone.maxCharsPerLine || 35,
@@ -1050,7 +1239,7 @@ class SimpleIDCardGenerator {
           compositeImages.push({
             input: this[textMethod](emailText, {
               fontSize: positions.schoolEmail.fontSize,
-              color: '#000000',
+              color: positions.schoolEmail.color || '#000000',
               fontWeight: positions.schoolEmail.fontWeight || 'normal',
               maxWidth: positions.schoolEmail.maxWidth || 600,
               maxCharsPerLine: positions.schoolEmail.maxCharsPerLine || 35,
@@ -1070,6 +1259,14 @@ class SimpleIDCardGenerator {
       const studentId = student.sequenceId || student.rollNumber || student._id;
       const outputFilename = `${studentId}_${side}.png`;
       const outputPath = path.join(this.outputDir, outputFilename);
+
+      // Log metadata for debugging if requested
+      const metadata = await sharp(templateBuffer).metadata();
+      console.log(`🖼️ Template metadata [${orientation} ${side}]:`, {
+        width: metadata.width,
+        height: metadata.height,
+        format: metadata.format
+      });
 
       // Composite everything on template
       await sharp(templateBuffer)

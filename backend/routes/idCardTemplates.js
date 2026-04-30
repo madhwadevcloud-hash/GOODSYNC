@@ -34,6 +34,7 @@ module.exports = (upload) => {
   router.post('/generate', generateIDCards);
   router.post('/download', downloadIDCards);
   router.get('/preview', previewIDCard);
+  router.post('/preview', previewIDCard);
   router.get('/preview-base64', previewIDCardBase64);
   router.post('/bulk-preview', generateBulkPreview);
 

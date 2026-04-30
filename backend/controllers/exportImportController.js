@@ -1551,6 +1551,7 @@ async function createStudentFromRowRobust(normalizedRow, schoolIdAsObjectId, use
       panNumber: normalizedRow['pannumber'] || ''
     },
     profileImage: normalizedRow['profileimage'] || null,
+    academicYear: normalizedRow['academicyear'] || currentAcademicYear, // ROOT LEVEL
     isActive: isActive,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -1566,6 +1567,7 @@ async function createStudentFromRowRobust(normalizedRow, schoolIdAsObjectId, use
     },
     studentDetails: {
       studentId: userId,
+      academicYear: normalizedRow['academicyear'] || currentAcademicYear, // FLAT FIELD IN DETAILS
       admissionNumber: normalizedRow['admissionnumber'] || '',
       rollNumber: normalizedRow['rollnumber'] || '',
       academic: {

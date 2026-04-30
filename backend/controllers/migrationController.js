@@ -32,16 +32,28 @@ exports.migrateStudentAcademicYear = async (req, res) => {
     // Build filter
     let filter = { isActive: true };
     if (!forceAll) {
-      filter.$or = [
-        { 'studentDetails.academic.academicYear': { $exists: false } },
-        { 'studentDetails.academic.academicYear': null },
-        { 'studentDetails.academic.academicYear': '' },
-        { 'studentDetails.academicYear': { $exists: false } },
-        { 'studentDetails.academicYear': null },
-        { 'studentDetails.academicYear': '' },
-        { 'academicYear': { $exists: false } },
-        { 'academicYear': null },
-        { 'academicYear': '' }
+      filter.$and = [
+        { 
+          $or: [
+            { 'studentDetails.academic.academicYear': { $exists: false } },
+            { 'studentDetails.academic.academicYear': null },
+            { 'studentDetails.academic.academicYear': '' }
+          ]
+        },
+        { 
+          $or: [
+            { 'studentDetails.academicYear': { $exists: false } },
+            { 'studentDetails.academicYear': null },
+            { 'studentDetails.academicYear': '' }
+          ]
+        },
+        { 
+          $or: [
+            { 'academicYear': { $exists: false } },
+            { 'academicYear': null },
+            { 'academicYear': '' }
+          ]
+        }
       ];
     }
 

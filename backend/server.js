@@ -301,8 +301,8 @@ app.use(cors({
   // Allow both header casings for full robustness
   allowedHeaders: ['Content-Type', 'Authorization', 'x-school-code', 'X-School-Code']
 }));
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true })); // Added for handling form data potentially from import
+app.use(bodyParser.json({ limit: '50mb' }));
+app.use(bodyParser.urlencoded({ limit: '50mb', extended: true })); // Added for handling form data potentially from import
 
 // Configure multer for file uploads
 // Make sure the 'uploads/' directory exists in your backend folder

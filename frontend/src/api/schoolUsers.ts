@@ -60,11 +60,12 @@ export const schoolUserAPI = {
   },
 
   // Get users by role
-  getUsersByRole: async (schoolCode: string, role: string, token: string) => {
+  getUsersByRole: async (schoolCode: string, role: string, token: string, academicYear?: string) => {
     try {
       const response = await api.get(
         `/school-users/${schoolCode}/users/role/${role}`,
         {
+          params: academicYear ? { academicYear } : {},
           headers: {
             'Authorization': `Bearer ${token}`
           }
