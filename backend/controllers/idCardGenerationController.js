@@ -57,21 +57,7 @@ const previewIDCard = async (req, res) => {
     }
 
     // Map student data
-    const mappedStudent = {
-      _id: student._id,
-      name: student.name?.displayName || `${student.name?.firstName || ''} ${student.name?.lastName || ''}`.trim(),
-      sequenceId: student.userId,
-      rollNumber: student.studentDetails?.rollNumber || 'N/A',
-      className: student.studentDetails?.academic?.currentClass || student.academicInfo?.class || student.studentDetails?.currentClass || 'N/A',
-      section: student.studentDetails?.academic?.currentSection || student.academicInfo?.section || student.studentDetails?.currentSection || 'N/A',
-      dateOfBirth: (student.studentDetails?.personal?.dateOfBirth || student.personal?.dateOfBirth || student.studentDetails?.dateOfBirth) 
-        ? new Date(student.studentDetails?.personal?.dateOfBirth || student.personal?.dateOfBirth || student.studentDetails?.dateOfBirth).toLocaleDateString('en-GB') 
-        : 'N/A',
-      bloodGroup: student.studentDetails?.personal?.bloodGroup || student.personal?.bloodGroup || student.studentDetails?.bloodGroup || 'N/A',
-      address: formatStudentAddress(student),
-      phone: student.contact?.primaryPhone || student.studentDetails?.family?.father?.phone || student.studentDetails?.fatherPhone || 'N/A',
-      profileImage: student.profileImage
-    };
+    const mappedStudent = mapStudentDataForIdCard(student);
 
     // Get school info
     const School = require('../models/School');
@@ -170,19 +156,7 @@ const generateAndDownloadIDCards = async (req, res) => {
     }
 
     // Map students
-    const mappedStudents = students.map(s => ({
-      _id: s._id,
-      name: s.name?.displayName || `${s.name?.firstName || ''} ${s.name?.lastName || ''}`.trim(),
-      sequenceId: s.userId,
-      rollNumber: s.studentDetails?.rollNumber || 'N/A',
-      className: s.studentDetails?.currentClass || 'N/A',
-      section: s.studentDetails?.currentSection || 'N/A',
-      dateOfBirth: s.studentDetails?.dateOfBirth ? new Date(s.studentDetails.dateOfBirth).toLocaleDateString('en-GB') : 'N/A',
-      bloodGroup: s.studentDetails?.bloodGroup || 'N/A',
-      address: formatStudentAddress(s),
-      phone: s.contact?.primaryPhone || s.studentDetails?.fatherPhone || s.studentDetails?.motherPhone || 'N/A',
-      profileImage: s.profileImage
-    }));
+    const mappedStudents = students.map(s => mapStudentDataForIdCard(s));
 
     // Get school info
     const School = require('../models/School');
@@ -325,19 +299,7 @@ const previewIDCardBase64 = async (req, res) => {
     }
 
     // Map student data
-    const mappedStudent = {
-      _id: student._id,
-      name: student.name?.displayName || `${student.name?.firstName || ''} ${student.name?.lastName || ''}`.trim(),
-      sequenceId: student.userId,
-      rollNumber: student.studentDetails?.rollNumber || 'N/A',
-      className: student.studentDetails?.currentClass || 'N/A',
-      section: student.studentDetails?.currentSection || 'N/A',
-      dateOfBirth: student.studentDetails?.dateOfBirth ? new Date(student.studentDetails.dateOfBirth).toLocaleDateString('en-GB') : 'N/A',
-      bloodGroup: student.studentDetails?.bloodGroup || 'N/A',
-      address: formatStudentAddress(student),
-      phone: student.contact?.primaryPhone || student.studentDetails?.fatherPhone || student.studentDetails?.motherPhone || 'N/A',
-      profileImage: student.profileImage
-    };
+    const mappedStudent = mapStudentDataForIdCard(student);
 
     // Get school info
     const School = require('../models/School');
@@ -514,19 +476,7 @@ const generateBulkPreview = async (req, res) => {
     }
 
     // Map students
-    const mappedStudents = students.map(s => ({
-      _id: s._id,
-      name: s.name?.displayName || `${s.name?.firstName || ''} ${s.name?.lastName || ''}`.trim(),
-      sequenceId: s.userId,
-      rollNumber: s.studentDetails?.rollNumber || 'N/A',
-      className: s.studentDetails?.currentClass || 'N/A',
-      section: s.studentDetails?.currentSection || 'N/A',
-      dateOfBirth: s.studentDetails?.dateOfBirth ? new Date(s.studentDetails.dateOfBirth).toLocaleDateString('en-GB') : 'N/A',
-      bloodGroup: s.studentDetails?.bloodGroup || 'N/A',
-      address: formatStudentAddress(s),
-      phone: s.contact?.primaryPhone || s.studentDetails?.fatherPhone || s.studentDetails?.motherPhone || 'N/A',
-      profileImage: s.profileImage
-    }));
+    const mappedStudents = students.map(s => mapStudentDataForIdCard(s));
 
     // Get school info
     const School = require('../models/School');
@@ -594,6 +544,42 @@ const generateBulkPreview = async (req, res) => {
   }
 };
 
+// Helper function to robustly map student data for ID cards
+function mapStudentDataForIdCard(student) {
+  const dateOfBirthRaw = student.studentDetails?.personal?.dateOfBirth || 
+                         student.personalDetails?.dateOfBirth || 
+                         student.personal?.dateOfBirth || 
+                         student.studentDetails?.dateOfBirth || 
+                         student.dateOfBirth || 
+                         student.dob;
+
+  let formattedDob = 'N/A';
+  if (dateOfBirthRaw) {
+    try {
+      const dateObj = new Date(dateOfBirthRaw);
+      if (!isNaN(dateObj.getTime())) {
+        formattedDob = dateObj.toLocaleDateString('en-GB');
+      }
+    } catch (e) {
+      formattedDob = dateOfBirthRaw;
+    }
+  }
+
+  return {
+    _id: student._id,
+    name: student.name?.displayName || `${student.name?.firstName || ''} ${student.name?.lastName || ''}`.trim() || student.name || 'Unknown Student',
+    sequenceId: student.userId || student.studentDetails?.admissionNumber,
+    rollNumber: student.studentDetails?.rollNumber || student.rollNumber || 'N/A',
+    className: student.studentDetails?.academic?.currentClass || student.academicInfo?.class || student.studentDetails?.currentClass || student.class || student.className || 'N/A',
+    section: student.studentDetails?.academic?.currentSection || student.academicInfo?.section || student.studentDetails?.currentSection || student.section || 'N/A',
+    dateOfBirth: formattedDob,
+    bloodGroup: student.studentDetails?.personal?.bloodGroup || student.personalDetails?.bloodGroup || student.personal?.bloodGroup || student.studentDetails?.bloodGroup || student.bloodGroup || 'N/A',
+    address: formatStudentAddress(student),
+    phone: student.contact?.primaryPhone || student.contact?.phone || student.phone || student.studentDetails?.family?.father?.phone || student.studentDetails?.fatherPhone || student.studentDetails?.motherPhone || 'N/A',
+    profileImage: student.profileImage || student.profilePicture
+  };
+}
+
 // Helper function to format student address
 function formatStudentAddress(student) {
   let formattedAddress = '';
@@ -610,6 +596,8 @@ function formatStudentAddress(student) {
     const addr = student.contact.address;
     const parts = [addr.street || addr.houseNo, addr.area || addr.locality, addr.city, addr.state, addr.pinCode || addr.zipCode].filter(Boolean);
     formattedAddress = parts.join(', ');
+  } else if (student.personalDetails?.address) {
+    formattedAddress = student.personalDetails.address;
   } else if (student.address) {
     if (typeof student.address === 'string') {
       formattedAddress = student.address;
