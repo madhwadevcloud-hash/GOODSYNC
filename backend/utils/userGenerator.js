@@ -837,11 +837,14 @@ class UserGenerator {
   }
 
   /**
-   * Get all users from a school by role
+   * Get all users from a school by role with pagination
    */
-  static async getUsersByRole(schoolCode, role, academicYear = null) {
+  static async getUsersByRole(schoolCode, role, academicYear = null, filters = {}) {
     try {
-      console.log(`🔍 Getting ${role}s from school_${schoolCode.toLowerCase()}${academicYear ? ` for year ${academicYear}` : ''}`);
+      const { className, section, limit = 0, page = 1, skip: providedSkip } = filters;
+      const skip = providedSkip !== undefined ? parseInt(providedSkip) : (parseInt(page) - 1) * parseInt(limit);
+      
+      console.log(`🔍 Getting ${role}s from school_${schoolCode.toLowerCase()}${academicYear ? ` for year ${academicYear}` : ''}${className ? ` class ${className}` : ''}${section ? ` section ${section}` : ''} (Skip: ${skip}, Limit: ${limit})`);
 
       const connection = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
       const collectionMap = {
@@ -856,13 +859,13 @@ class UserGenerator {
         throw new Error(`Invalid role: ${role}`);
       }
 
-      console.log(`📂 Accessing collection: ${collectionName} in school_${schoolCode.toLowerCase()}`);
-
       const collection = connection.collection(collectionName);
       
       // Build query
-      const query = { _placeholder: { $ne: true } };
+      const query = { isActive: { $ne: false } };
       
+      const andConditions = [];
+
       // Apply academic year filtering for students if provided
       if (role.toLowerCase() === 'student' && academicYear) {
         // Handle different formats (2025-26 vs 2025-2026)
@@ -877,28 +880,115 @@ class UserGenerator {
         }
         const uniqueYears = [...new Set(yearFormats)];
 
-        query.$or = [
-          { "studentDetails.academic.academicYear": { $in: uniqueYears } },
-          { "academicInfo.academicYear": { $in: uniqueYears } },
-          { "academicYear": { $in: uniqueYears } },
-          { "studentDetails.academicYear": { $in: uniqueYears } }
-        ];
+        andConditions.push({
+          $or: [
+            { "studentDetails.academic.academicYear": { $in: uniqueYears } },
+            { "academicInfo.academicYear": { $in: uniqueYears } },
+            { "academicYear": { $in: uniqueYears } },
+            { "studentDetails.academicYear": { $in: uniqueYears } }
+          ]
+        });
       }
 
-      const users = await collection.find(
-        query,
-        { projection: { password: 0 } } // Exclude hashed password only, keep temporaryPassword
-      ).toArray();
+      // Apply class filter if provided
+      if (role.toLowerCase() === 'student' && className) {
+        andConditions.push({
+          $or: [
+            { "studentDetails.academic.currentClass": String(className).trim() },
+            { "studentDetails.currentClass": String(className).trim() },
+            { "academicInfo.class": String(className).trim() },
+            { "studentDetails.class": String(className).trim() },
+            { "class": String(className).trim() }
+          ]
+        });
+      }
 
-      console.log(`✅ Found ${users.length} ${role}s in ${collectionName} collection`);
-      console.log(`🔑 Sample user fields:`, users.length > 0 ? Object.keys(users[0]) : 'No users');
+      // Apply section filter if provided
+      if (role.toLowerCase() === 'student' && section) {
+        const sec = String(section).trim().toUpperCase();
+        andConditions.push({
+          $or: [
+            { "studentDetails.academic.currentSection": sec },
+            { "studentDetails.currentSection": sec },
+            { "academicInfo.section": sec },
+            { "studentDetails.section": sec },
+            { "section": sec }
+          ]
+        });
+      }
 
-      return users;
+      if (andConditions.length > 0) {
+        query.$and = andConditions;
+      }
+
+      // Build and execute query with limit and skip
+      let cursor = collection.find(query).sort({ createdAt: -1 });
+      
+      if (parseInt(limit) > 0) {
+        cursor = cursor.limit(parseInt(limit));
+      }
+      
+      if (parseInt(skip) > 0) {
+        cursor = cursor.skip(parseInt(skip));
+      }
+      
+      return await cursor.toArray();
     } catch (error) {
-      console.error(`❌ Error getting ${role}s from school_${schoolCode.toLowerCase()}:`, error);
+      console.error(`Error in getUsersByRole for ${role}:`, error);
       throw error;
     }
   }
+
+  /**
+   * Get count of users by role
+   */
+  static async getUserCountByRole(schoolCode, role, academicYear = null, filters = {}) {
+    try {
+      const { className, section } = filters;
+      const connection = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
+      const collectionMap = {
+        'admin': 'admins',
+        'teacher': 'teachers',
+        'student': 'students',
+        'parent': 'parents'
+      };
+
+      const collectionName = collectionMap[role.toLowerCase()];
+      if (!collectionName) return 0;
+
+      const collection = connection.collection(collectionName);
+      const query = { isActive: { $ne: false } };
+      const andConditions = [];
+
+      if (role.toLowerCase() === 'student' && academicYear) {
+        andConditions.push({
+          $or: [
+            { "studentDetails.academic.academicYear": academicYear },
+            { "academicInfo.academicYear": academicYear },
+            { "academicYear": academicYear }
+          ]
+        });
+      }
+
+      if (role.toLowerCase() === 'student' && className) {
+        andConditions.push({ "studentDetails.academic.currentClass": String(className).trim() });
+      }
+
+      if (role.toLowerCase() === 'student' && section) {
+        andConditions.push({ "studentDetails.academic.currentSection": String(section).trim().toUpperCase() });
+      }
+
+      if (andConditions.length > 0) {
+        query.$and = andConditions;
+      }
+
+      return await collection.countDocuments(query);
+    } catch (error) {
+      console.error(`Error in getUserCountByRole for ${role}:`, error);
+      return 0;
+    }
+  }
+
 
   /**
    * Update user information

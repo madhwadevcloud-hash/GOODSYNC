@@ -131,9 +131,11 @@ exports.getUsersByRole = async (req, res) => {
 exports.getAllSchoolUsers = async (req, res) => {
   try {
     const { schoolCode: schoolIdentifier } = req.params;
-    const { academicYear } = req.query;
+    const { academicYear, limit, skip } = req.query;
+    const parsedLimit = limit ? parseInt(limit) : 0; // 0 means no limit (legacy behavior)
+    const parsedSkip = skip ? parseInt(skip) : 0;
 
-    console.log(`🔍 Fetching all users for school identifier: ${schoolIdentifier}${academicYear ? ` and year: ${academicYear}` : ''}`);
+    console.log(`🔍 Fetching users for school identifier: ${schoolIdentifier}${academicYear ? ` and year: ${academicYear}` : ''} (limit: ${parsedLimit})`);
 
     // Resolve school name or code to actual school code
     const schoolCode = await resolveSchoolCode(schoolIdentifier);
@@ -146,30 +148,44 @@ exports.getAllSchoolUsers = async (req, res) => {
       try {
         // Only apply academicYear filter to students
         const yearFilter = (role === 'student') ? academicYear : null;
-        const users = await UserGenerator.getUsersByRole(schoolCode, role, yearFilter);
+        
+        // Get total count for breakdown
+        const count = await UserGenerator.getUserCountByRole(schoolCode, role, yearFilter);
+        breakdown[role] = count;
+
+        // If we have a limit and we already have enough users, skip fetching more details
+        // but we still need the breakdown for all roles
+        if (parsedLimit > 0 && allUsers.length >= parsedLimit) {
+            continue;
+        }
+
+        // Fetch users with limit if provided
+        const fetchLimit = parsedLimit > 0 ? (parsedLimit - allUsers.length) : null;
+        const users = await UserGenerator.getUsersByRole(schoolCode, role, yearFilter, {}, fetchLimit, parsedSkip);
+        
         // Ensure each user has the correct role field
         const usersWithRole = users.map(user => ({
           ...user,
           role: role // Ensure role is explicitly set
         }));
+        
         allUsers.push(...usersWithRole);
-        breakdown[role] = users.length;
-        console.log(`✅ Found ${users.length} ${role}s in ${role}s collection`);
+        console.log(`✅ Found ${users.length} ${role}s for this page (total ${count})`);
       } catch (error) {
         console.error(`❌ Error getting ${role}s:`, error);
         breakdown[role] = 0;
       }
     }
 
-    const totalCount = allUsers.length;
+    const totalCount = Object.values(breakdown).reduce((a, b) => a + b, 0);
 
-    console.log(`📊 Total users found: ${totalCount}`, {
+    console.log(`📊 Total users found: ${totalCount}, Returning: ${allUsers.length}`, {
       breakdown: breakdown
     });
 
     res.json({
       success: true,
-      data: allUsers, // Now returning flat array instead of nested object
+      data: allUsers,
       totalCount,
       breakdown: breakdown
     });

@@ -18,6 +18,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../../auth/AuthContext';
 import AcademicYearCard from './AcademicYearCard';
+import StudentDetails from './StudentDetails/StudentDetails';
+import ViewAssignmentModal from './Assignments/ViewAssignmentModal';
 import api from '../../../services/api';
 import { useAcademicYear } from '../../../contexts/AcademicYearContext'; // *** MODIFICATION: Import useAcademicYear ***
 
@@ -52,6 +54,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   const [assignments, setAssignments] = useState<any[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
   const [latestMessage, setLatestMessage] = useState<any>(null);
+  const [selectedAssignmentId, setSelectedAssignmentId] = useState<string | null>(null);
 
   useEffect(() => {
     // *** MODIFICATION: Pass currentAcademicYear to fetchDashboardData ***
@@ -70,13 +73,17 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
       // Fetch assignments ses in the current academic year
       // The backend (assignmentController) removes teacher-specific filtering for teachers
       let assignmentsData: any = { assignments: [] };
+      let totalAssignments = 0;
       try {
-        // Fetch all assignments for the current year. Increased limit to 1000.
+        // Fetch all assignments for the current year.
         const assignmentsRes = await api.get(
-          `/assignments?limit=1000&page=1&academicYear=${academicYear}`
+          `/assignments?limit=10&page=1&academicYear=${academicYear}`
         );
         assignmentsData = assignmentsRes.data;
-        console.log('✅ Assignments data (all school, current year):', assignmentsData);
+        console.log('✅ Assignments data:', assignmentsData);
+        
+        // Use total from response if available, otherwise array length
+        totalAssignments = assignmentsData.total || (assignmentsData.assignments || []).length;
       } catch (error) {
         console.warn('⚠️ Assignments API failed:', error);
       }
@@ -109,20 +116,29 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
         console.warn('⚠️ Messages API failed:', error);
       }
 
-      // Calculate stats
-      // `assignmentsArray` now contains all assignments for the school this year
-      const assignmentsArray = assignmentsData.assignments || [];
+      // Filter and validate in frontend only as a secondary check
+      const assignmentsArray = (assignmentsData.assignments || []).filter((assignment: any) => {
+        if (!assignment || typeof assignment !== 'object') return false;
+        
+        // Trust backend for academic year filtering if it was passed, 
+        // otherwise perform a loose check
+        if (!academicYear) return true;
+        
+        const assignmentAY = assignment.academicYear;
+        if (!assignmentAY) return true; // Show if year is missing (legacy)
+
+        // Robust matching for formats like "2024-25" vs "2024-2025"
+        const normalize = (ay: string) => ay.replace(/20(\d{2})$/, '$1'); // Normalize 2025 to 25
+        return normalize(assignmentAY) === normalize(academicYear) || 
+               assignmentAY.includes(academicYear) || 
+               academicYear.includes(assignmentAY);
+      });
+
       const leaveRequestsArray = leaveData.data?.leaveRequests || [];
-
-      console.log('📦 Extracted assignments:', assignmentsArray.length);
-      console.log('📦 Extracted leave requests:', leaveRequestsArray.length);
-
-      // Store in state for widgets (only store recent ones for the UI widget)
       setAssignments(assignmentsArray.slice(0, 4));
       setLeaveRequests(leaveRequestsArray);
 
-      // This totalAssignments is now the total ses this year
-      const totalAssignments = assignmentsArray.length;
+      // totalAssignments was already calculated from the API response above
 
       // Active assignments can still be calculated from the full list
       const activeAssignments = assignmentsArray.filter((a: any) => {
@@ -303,8 +319,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                 {assignments.slice(0, 4).map((assignment: any, index: number) => {
                   const deadline = getDeadlineStatus(assignment.dueDate);
                   return (
-                    <div key={index} className="p-4 hover:bg-gray-50 transition-colors">
-                      <div className="flex items-start justify-between">
+                    <div key={index} className="p-4 hover:bg-gray-50 transition-colors group">
+                      <div className="flex items-center justify-between">
                         <div className="flex-1">
                           <h4 className="font-medium text-gray-900 text-sm mb-1">
                             {assignment.title}
@@ -320,9 +336,18 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                             </span>
                           </div>
                         </div>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${deadline.bgColor} ${deadline.color}`}>
-                          {deadline.text}
-                        </span>
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => setSelectedAssignmentId(assignment._id)}
+                            className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+                            title="View Assignment"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                          <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-tight ${deadline.bgColor} ${deadline.color}`}>
+                            {deadline.text}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   );
@@ -470,6 +495,20 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
           </div>
         </div>
       </div>
+      
+      {/* Student Details Section - Added below the grid for better layout */}
+      <div className="mt-8 pt-8 border-t border-gray-100">
+        <StudentDetails />
+      </div>
+
+      {/* Assignment View Modal */}
+      {selectedAssignmentId && (
+        <ViewAssignmentModal
+          isOpen={!!selectedAssignmentId}
+          onClose={() => setSelectedAssignmentId(null)}
+          assignmentId={selectedAssignmentId}
+        />
+      )}
     </div>
   );
 };

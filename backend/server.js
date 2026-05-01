@@ -375,10 +375,10 @@ const idCardTemplateRoutes = require('./routes/idCardTemplates')(upload);
 const permissionsRoutes = require('./routes/permissions');
 
 // Serve uploads statically
-// app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Serve ID card templates statically
-// app.use('/idcard-templates', express.static(path.join(__dirname, 'idcard-templates')));
+app.use('/idcard-templates', express.static(path.join(__dirname, 'idcard-templates')));
 
 // Test endpoint for debugging
 app.get('/api/test-endpoint', (req, res) => {

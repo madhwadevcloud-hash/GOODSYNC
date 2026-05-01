@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Edit, Trash2, Calendar, X, Plus } from 'lucide-react';
+import { Search, Edit, Trash2, Calendar, X, Plus, Eye } from 'lucide-react';
+import ViewAssignmentModal from './ViewAssignmentModal';
 import { useAuth } from '../../../../auth/AuthContext';
 import { useSchoolClasses } from '../../../../hooks/useSchoolClasses';
 import { useAcademicYear } from '../../../../contexts/AcademicYearContext';
@@ -36,6 +37,8 @@ const ViewAssignments: React.FC = () => {
   const [availableSubjects, setAvailableSubjects] = useState<string[]>([]);
   const [editingAssignment, setEditingAssignment] = useState<Assignment | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [selectedAssignmentId, setSelectedAssignmentId] = useState<string>('');
 
   const classList = classesData?.classes?.map(c => c.className) || [];
 
@@ -70,94 +73,78 @@ const ViewAssignments: React.FC = () => {
   const fetchAssignments = async () => {
     try {
       setLoading(true);
-      console.log('🔍 Fetching assignments...');
+      console.log('🔍 Fetching assignments for:', currentAcademicYear);
 
       let data;
       let assignmentsArray = [];
 
       try {
-        // Try the regular endpoint first
-        const response = await api.get('/assignments');
+        // Pass currentAcademicYear to the API for backend-side filtering
+        const response = await api.get('/assignments', {
+          params: {
+            academicYear: currentAcademicYear,
+            limit: 50 // Fetch more to ensure we see them all
+          }
+        });
         data = response.data;
 
         // Handle different response structures
-        if (data.data && Array.isArray(data.data)) {
-          assignmentsArray = data.data;
-        } else if (data.assignments && Array.isArray(data.assignments)) {
+        if (data.assignments && Array.isArray(data.assignments)) {
           assignmentsArray = data.assignments;
+        } else if (data.data && Array.isArray(data.data)) {
+          assignmentsArray = data.data;
         } else if (Array.isArray(data)) {
           assignmentsArray = data;
         }
 
-        console.log('✅ Extracted assignments array:', assignmentsArray);
+        console.log('✅ Extracted assignments array:', assignmentsArray.length);
       } catch (regularError) {
         console.error('❌ Error with regular endpoint:', regularError);
 
-        // If the regular endpoint fails, try the direct endpoint
+        // Fallback for direct endpoint
         const schoolCode = localStorage.getItem('erp.schoolCode') || user?.schoolCode || '';
-        console.log('🔍 Trying direct endpoint with schoolCode:', schoolCode);
-
-        const response = await api.get(`/direct-test/assignments?schoolCode=${schoolCode}`);
+        const response = await api.get(`/direct-test/assignments`, {
+          params: { 
+            schoolCode,
+            academicYear: currentAcademicYear 
+          }
+        });
         data = response.data;
 
-        if (data && data.success) {
-          throw new Error(`Direct endpoint failed with status: ${response.status}`);
-        }
-
-        console.log('✅ Direct endpoint response:', data);
-
-        // Handle different response structures
-        if (data.data && Array.isArray(data.data)) {
-          assignmentsArray = data.data;
-        } else if (data.assignments && Array.isArray(data.assignments)) {
+        if (data.assignments && Array.isArray(data.assignments)) {
           assignmentsArray = data.assignments;
-        } else if (Array.isArray(data)) {
-          assignmentsArray = data;
+        } else if (data.data && Array.isArray(data.data)) {
+          assignmentsArray = data.data;
         }
       }
 
-      console.log(`📊 Total assignments before filtering: ${assignmentsArray.length}`);
-
-      // Validate each assignment has required fields and filter by academic year
+      // Filter and validate in frontend only as a secondary check
       const validAssignments = assignmentsArray.filter((assignment: any) => {
-        if (!assignment || typeof assignment !== 'object') {
-          console.log('❌ Invalid assignment (not an object):', assignment);
-          return false;
-        }
+        if (!assignment || typeof assignment !== 'object') return false;
+        
         const hasTitle = assignment.title && assignment.title.trim() !== '';
         const hasClass = assignment.class && assignment.class.trim() !== '';
         const hasSubject = assignment.subject && assignment.subject.trim() !== '';
 
-        if (!hasTitle || !hasClass || !hasSubject) {
-          console.log('❌ Invalid assignment (missing fields):', {
-            title: assignment.title,
-            class: assignment.class,
-            subject: assignment.subject
-          });
-          return false;
-        }
+        if (!hasTitle || !hasClass || !hasSubject) return false;
 
-        // Filter by current academic year
+        // Trust backend for academic year filtering if it was passed, 
+        // otherwise perform a loose check
+        if (!currentAcademicYear) return true;
+        
         const assignmentAY = assignment.academicYear;
-        const matchesAcademicYear = !currentAcademicYear || !assignmentAY || assignmentAY === currentAcademicYear;
+        if (!assignmentAY) return true; // Show if year is missing (legacy)
 
-        if (!matchesAcademicYear) {
-          console.log('⏭️ Skipping assignment from different academic year:', {
-            title: assignment.title,
-            academicYear: assignmentAY,
-            currentAcademicYear
-          });
-        }
-
-        return matchesAcademicYear;
+        // Robust matching for formats like "2024-25" vs "2024-2025"
+        const normalize = (ay: string) => ay.replace(/20(\d{2})$/, '$1'); // Normalize 2025 to 25
+        return normalize(assignmentAY) === normalize(currentAcademicYear) || 
+               assignmentAY.includes(currentAcademicYear) || 
+               currentAcademicYear.includes(assignmentAY);
       });
 
-      console.log(`✅ Loaded ${validAssignments.length} valid assignments out of ${assignmentsArray.length} total`);
-      console.log('📋 Valid assignments:', validAssignments);
       setAssignments(validAssignments);
     } catch (err: any) {
       console.error('❌ Error fetching assignments:', err);
-      console.error('Error details:', err.message, err.response);
       setAssignments([]);
     } finally {
       setLoading(false);
@@ -217,6 +204,11 @@ const ViewAssignments: React.FC = () => {
   const handleEdit = (assignment: Assignment) => {
     setEditingAssignment(assignment);
     setShowEditModal(true);
+  };
+
+  const handleView = (assignmentId: string) => {
+    setSelectedAssignmentId(assignmentId);
+    setShowViewModal(true);
   };
 
   const handleUpdateAssignment = async (updatedData: any) => {
@@ -386,20 +378,30 @@ const ViewAssignments: React.FC = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleView(assignment._id)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg font-semibold text-xs hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
+                        title="View details"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                        View
+                      </button>
                       <button
                         onClick={() => handleEdit(assignment)}
-                        className="text-blue-600 hover:text-blue-900"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg font-semibold text-xs hover:bg-blue-600 hover:text-white transition-all shadow-sm"
                         title="Edit"
                       >
-                        <Edit className="h-4 w-4" />
+                        <Edit className="h-3.5 w-3.5" />
+                        Edit
                       </button>
                       <button
                         onClick={() => handleDelete(assignment._id)}
-                        className="text-red-600 hover:text-red-900"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-700 rounded-lg font-semibold text-xs hover:bg-red-600 hover:text-white transition-all shadow-sm"
                         title="Delete"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Delete
                       </button>
                     </div>
                   </td>
@@ -419,6 +421,18 @@ const ViewAssignments: React.FC = () => {
             setEditingAssignment(null);
           }}
           onUpdate={handleUpdateAssignment}
+        />
+      )}
+
+      {/* View Assignment Modal */}
+      {showViewModal && selectedAssignmentId && (
+        <ViewAssignmentModal
+          isOpen={showViewModal}
+          onClose={() => {
+            setShowViewModal(false);
+            setSelectedAssignmentId('');
+          }}
+          assignmentId={selectedAssignmentId}
         />
       )}
     </div>

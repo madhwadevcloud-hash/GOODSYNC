@@ -90,7 +90,7 @@ const StudentAssignments: React.FC = () => {
         
         // Try direct endpoint with the user's school code
         const response = await api.get(`/direct-test/assignments?schoolCode=${userSchoolCode}`);
-        const data = response.data;
+        data = response.data;
         console.log('✅ Student: Assignments fetched from direct endpoint:', data);
       }
       
@@ -200,6 +200,44 @@ const StudentAssignments: React.FC = () => {
     // For now, showing all assignments in pending
     return true;
   });
+
+  const getFileUrl = (f: any) => {
+    const url = f.url || f.path;
+    if (!url) return '#';
+    if (typeof url !== 'string') return '#';
+    if (url.startsWith('http')) return url;
+    
+    const apiBase = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:5050/api';
+    const baseUrl = apiBase.replace(/\/api\/?$/, '');
+    const cleanPath = url.startsWith('/') ? url : `/${url}`;
+    return `${baseUrl}${cleanPath}`;
+  };
+
+  const handleDownload = async (e: React.MouseEvent, file: any) => {
+    e.preventDefault();
+    const fileUrl = getFileUrl(file);
+    const fileName = file.originalName || file.filename;
+
+    try {
+      if (fileUrl.startsWith('http')) {
+        const response = await fetch(fileUrl);
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else {
+        window.open(fileUrl, '_blank');
+      }
+    } catch (err) {
+      console.error('Download failed:', err);
+      window.open(fileUrl, '_blank');
+    }
+  };
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -354,7 +392,7 @@ const StudentAssignments: React.FC = () => {
                     <h3 className="text-lg font-semibold text-gray-900 mb-3">Assignment Files</h3>
                     <div className="space-y-2">
                       {selectedAssignment.attachments.map((file, index) => (
-                        <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg group hover:bg-white hover:shadow-sm border border-transparent hover:border-gray-100 transition-all">
                           <div className="flex items-center">
                             <FileText className="w-5 h-5 text-gray-400 mr-3" />
                             <div>
@@ -362,7 +400,11 @@ const StudentAssignments: React.FC = () => {
                               <p className="text-xs text-gray-500">{formatFileSize(file.size || 0)}</p>
                             </div>
                           </div>
-                          <button className="text-blue-600 hover:text-blue-700">
+                          <button 
+                            onClick={(e) => handleDownload(e, file)}
+                            className="text-blue-600 hover:text-blue-700 p-2 rounded-full hover:bg-blue-50 transition-colors"
+                            title="Download attachment"
+                          >
                             <Download className="w-4 h-4" />
                           </button>
                         </div>

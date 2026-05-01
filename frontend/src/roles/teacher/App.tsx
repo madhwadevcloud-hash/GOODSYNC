@@ -10,6 +10,7 @@ import ViewAssignments from './components/Assignments/ViewAssignments';
 import ViewResults from './components/Results/ViewResults';
 import Messages from './components/Messages/Messages';
 import LeaveRequestManagement from './components/LeaveRequest/LeaveRequestManagement';
+import StudentDetails from './components/StudentDetails/StudentDetails';
 import { PermissionProvider } from '../../hooks/usePermissions';
 import { PermissionGuard } from '../../components/PermissionGuard';
 import { AcademicYearProvider } from '../../contexts/AcademicYearContext';
@@ -59,6 +60,8 @@ function App() {
             <LeaveRequestManagement onNavigate={handleNavigate} />
           </PermissionGuard>
         );
+      case 'student-details':
+        return <StudentDetails />;
       default:
         return <Dashboard onNavigate={handleNavigate} />;
     }

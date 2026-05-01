@@ -1679,8 +1679,11 @@ exports.getUsersByRole = async (req, res) => {
   try {
     const { role } = req.params; // 'admin' | 'teacher' | 'student' | 'parent' | 'all'
     const pageNum = parseInt(req.query.page, 10) || 1;
-    const limitNum = Math.min(parseInt(req.query.limit, 10) || 10, 200);
+    const limitNum = parseInt(req.query.limit, 10) || 1000; // Default to 1000 for class lists, but support custom limits
     const search = String(req.query.search || '').trim();
+    const className = req.query.class;
+    const section = req.query.section;
+    const academicYear = req.query.academicYear;
 
     // Check access
     if (!['admin', 'teacher', 'superadmin'].includes(req.user.role)) {
@@ -1716,6 +1719,19 @@ exports.getUsersByRole = async (req, res) => {
     const query = {};
     if (role && role !== 'all') {
       query.role = role;
+    }
+
+    // Apply class/section/academicYear filters for students
+    if (role === 'student' || role === 'all') {
+        if (className) {
+            query['studentDetails.academic.currentClass'] = className;
+        }
+        if (section) {
+            query['studentDetails.academic.currentSection'] = section;
+        }
+        if (academicYear) {
+            query['studentDetails.academic.academicYear'] = academicYear;
+        }
     }
 
     if (search) {
@@ -1797,27 +1813,43 @@ exports.getUsersByRole = async (req, res) => {
 exports.getUserById = async (req, res) => {
   try {
     const { userId } = req.params;
+    // Get schoolCode from school context middleware or fallback to user's schoolCode
+    const schoolCode = req.schoolCode || req.user.schoolCode;
 
-    // Check if user has access
-    if (!['admin', 'superadmin'].includes(req.user.role)) {
-      return res.status(403).json({ message: 'Access denied' });
+    if (!schoolCode) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'School context is required to fetch user details' 
+      });
     }
 
-    const user = await User.findById(userId).select('-password');
+    console.log(`🔍 Fetching user ${userId} from school database: ${schoolCode}`);
+
+    // Check if user has access - allow admin, superadmin, and teacher
+    if (!['admin', 'superadmin', 'teacher'].includes(req.user.role)) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    // Use UserGenerator to fetch from school-specific collections
+    const UserGenerator = require('../utils/userGenerator');
+    const user = await UserGenerator.getUserByIdOrEmail(schoolCode, userId);
+    
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      console.log(`❌ User ${userId} not found in school ${schoolCode}`);
+      return res.status(404).json({ success: false, message: 'User not found' });
     }
 
     // Check if user has access to this user's school
-    if (req.user.role === 'admin' && req.user.schoolId?.toString() !== user.schoolId?.toString()) {
-      return res.status(403).json({ message: 'Access denied' });
+    if (req.user.role !== 'superadmin' && 
+        req.user.schoolCode?.toLowerCase() !== schoolCode.toLowerCase()) {
+      return res.status(403).json({ success: false, message: 'Access denied to this school' });
     }
 
     res.json(user);
 
   } catch (error) {
     console.error('Error fetching user:', error);
-    res.status(500).json({ message: 'Error fetching user', error: error.message });
+    res.status(500).json({ success: false, message: 'Error fetching user', error: error.message });
   }
 };
 
@@ -2118,81 +2150,8 @@ exports.getUsersByRole = async (req, res) => {
     console.log('📋 Querying users with role:', role);
 
     // Get users from role-specific collection (students, teachers, etc.)
-    let users = await UserGenerator.getUsersByRole(schoolCode, role);
-
-    // Helper function to normalize academic year format (handles both 2024-2025 and 2024-25)
-    const normalizeAcademicYear = (year) => {
-      if (!year) return null;
-      const yearStr = String(year).trim();
-      // If format is already 2024-25, convert to 2024-2025
-      const match = yearStr.match(/^(\d{4})-(\d{2})$/);
-      if (match) {
-        return `${match[1]}-20${match[2]}`;
-      }
-      // If format is 2024-2025, keep as is
-      if (yearStr.match(/^\d{4}-\d{4}$/)) {
-        return yearStr;
-      }
-      return yearStr;
-    };
-
-    // Filter by class, section, and academic year if provided (for students)
-    if (role === 'student' && (className || section || academicYear)) {
-      const normalizedFilterAY = normalizeAcademicYear(academicYear);
-      console.log(`🔍 Filtering ${users.length} students by class: ${className}, section: ${section}, academicYear: ${academicYear} (normalized: ${normalizedFilterAY})`);
-
-      users = users.filter(user => {
-        // Extract class from multiple possible locations
-        const userClass = String(
-          user.studentDetails?.academic?.currentClass ||
-          user.studentDetails?.currentClass ||
-          user.academicInfo?.class ||
-          user.studentDetails?.class ||
-          user.class ||
-          ''
-        ).trim();
-
-        // Extract section from multiple possible locations
-        const userSection = String(
-          user.studentDetails?.academic?.currentSection ||
-          user.studentDetails?.currentSection ||
-          user.academicInfo?.section ||
-          user.studentDetails?.section ||
-          user.section ||
-          ''
-        ).trim();
-
-        // Extract academic year from multiple possible locations
-        const userAcademicYear = String(
-          user.studentDetails?.academic?.academicYear ||
-          user.studentDetails?.academicYear ||
-          user.academicInfo?.academicYear ||
-          user.academicYear ||
-          ''
-        ).trim();
-
-        const normalizedUserAY = normalizeAcademicYear(userAcademicYear);
-
-        const classMatch = !className || userClass === String(className).trim();
-        const sectionMatch = !section || userSection.toUpperCase() === String(section).trim().toUpperCase();
-        
-        // Year match is only enforced if academicYear is provided in query
-        const academicYearMatch = !academicYear || normalizedUserAY === normalizedFilterAY;
-
-        // Verbose logging for mismatches to help debugging
-        if (className && !classMatch) {
-          // Skip logging every mismatch to avoid spam, but useful for one-off checks
-        }
-
-        if (academicYear && !academicYearMatch && classMatch && sectionMatch) {
-          console.log(`   ❌ Student ${user.userId} excluded by year: has "${userAcademicYear}" (norm: ${normalizedUserAY}), requested "${academicYear}" (norm: ${normalizedFilterAY})`);
-        }
-
-        return classMatch && sectionMatch && academicYearMatch;
-      });
-
-      console.log(`📊 Filtered to ${users.length} students`);
-    }
+    // Pass filters down to avoid fetching all users for a large school
+    let users = await UserGenerator.getUsersByRole(schoolCode, role, academicYear, { className, section });
 
     console.log(`✅ Found ${users.length} ${role}s in school ${schoolCode}`);
 
@@ -2210,6 +2169,83 @@ exports.getUsersByRole = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error fetching users',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Get student counts grouped by class and section
+ */
+exports.getStudentCountsByClass = async (req, res) => {
+  try {
+    const { schoolCode } = req; // From school context middleware
+    const { academicYear } = req.query;
+
+    console.log(`📊 Fetching student counts for school: ${schoolCode}, year: ${academicYear}`);
+
+    const SchoolDatabaseManager = require('../utils/schoolDatabaseManager');
+    const connection = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
+    
+    if (!connection) {
+       return res.status(500).json({ success: false, message: 'Could not connect to school database' });
+    }
+
+    const studentsCollection = connection.collection('students');
+
+    // Build aggregate pipeline
+    const pipeline = [
+      {
+        $match: {
+          role: 'student',
+          isActive: true,
+          ...(academicYear ? { 
+            $or: [
+              { 'studentDetails.academic.academicYear': academicYear },
+              { 'academicYear': academicYear }
+            ]
+          } : {})
+        }
+      },
+      {
+        $group: {
+          _id: {
+            class: { $ifNull: ["$studentDetails.academic.currentClass", "$academicInfo.class"] },
+            section: { $ifNull: ["$studentDetails.academic.currentSection", "$academicInfo.section"] }
+          },
+          count: { $sum: 1 }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          className: "$_id.class",
+          section: "$_id.section",
+          count: 1
+        }
+      },
+      {
+        $sort: { className: 1, section: 1 }
+      }
+    ];
+
+    const results = await studentsCollection.aggregate(pipeline).toArray();
+    
+    // Filter out null/empty class names
+    const filteredResults = results.filter(r => r.className);
+
+    console.log(`✅ Found counts for ${filteredResults.length} class-section combinations`);
+
+    res.json({
+      success: true,
+      data: filteredResults
+    });
+
+  } catch (error) {
+    console.error('❌ Error getting student counts:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error getting student counts',
       error: error.message
     });
   }

@@ -3,7 +3,8 @@ import * as assignmentAPI from '../../../api/assignment';
 import * as configAPI from '../../../api/config';
 import CreateAssignmentModal from '../components/CreateAssignmentModal';
 import EditAssignmentModal from '../components/EditAssignmentModal';
-import { Plus, Search, Download, Calendar, Clock, FileText, Users, Edit, Trash2 } from 'lucide-react';
+import ViewAssignmentModal from '../components/ViewAssignmentModal';
+import { Plus, Search, Download, Calendar, Clock, FileText, Users, Edit, Trash2, Eye } from 'lucide-react';
 import { useSchoolClasses } from '../../../hooks/useSchoolClasses';
 import { useAcademicYear } from '../../../contexts/AcademicYearContext';
 import api from '../../../services/api';
@@ -44,6 +45,7 @@ const Assignments: React.FC = () => {
   const [selectedSubject, setSelectedSubject] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
   const [selectedAssignmentId, setSelectedAssignmentId] = useState<string>('');
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(false);
@@ -315,6 +317,12 @@ const Assignments: React.FC = () => {
     setSelectedAssignmentId('');
   };
 
+  const handleViewAssignment = (assignmentId: string) => {
+    console.log('👁️ View assignment:', assignmentId);
+    setSelectedAssignmentId(assignmentId);
+    setShowViewModal(true);
+  };
+
   const handleDeleteAssignment = async (assignmentId: string, assignmentTitle: string) => {
     const confirmed = window.confirm(
       `Are you sure you want to delete "${assignmentTitle}"?\n\nThis action cannot be undone.`
@@ -546,20 +554,30 @@ const Assignments: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleViewAssignment(assignment._id)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg font-semibold text-xs hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
+                          title="View assignment details"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          View
+                        </button>
                         <button
                           onClick={() => handleEditAssignment(assignment._id)}
-                          className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg font-semibold text-xs hover:bg-blue-600 hover:text-white transition-all shadow-sm"
                           title="Edit assignment"
                         >
-                          <Edit className="h-4 w-4" />
+                          <Edit className="h-3.5 w-3.5" />
+                          Edit
                         </button>
                         <button
                           onClick={() => handleDeleteAssignment(assignment._id, assignment.title)}
-                          className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-700 rounded-lg font-semibold text-xs hover:bg-red-600 hover:text-white transition-all shadow-sm"
                           title="Delete assignment"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Delete
                         </button>
                       </div>
                     </td>
@@ -587,6 +605,18 @@ const Assignments: React.FC = () => {
             setSelectedAssignmentId('');
           }}
           onSuccess={handleEditSuccess}
+          assignmentId={selectedAssignmentId}
+        />
+      )}
+
+      {/* View Assignment Modal */}
+      {selectedAssignmentId && (
+        <ViewAssignmentModal
+          isOpen={showViewModal}
+          onClose={() => {
+            setShowViewModal(false);
+            setSelectedAssignmentId('');
+          }}
           assignmentId={selectedAssignmentId}
         />
       )}

@@ -425,6 +425,7 @@ const sendAssignmentNotifications = async (assignment, schoolId) => {
 exports.getAssignments = async (req, res) => {
   try {
     const { page = 1, limit = 10, status, subject, class: className, search = '', academicYear } = req.query;
+    const startIndex = (parseInt(page) - 1) * parseInt(limit);
 
     // Check if user has access
     if (!['admin', 'teacher', 'student', 'parent'].includes(req.user.role)) {
@@ -578,8 +579,11 @@ exports.getAssignments = async (req, res) => {
         
         const SchoolAssignment = AssignmentMultiTenant.getModelForConnection(schoolConn);
 
+        // Apply pagination at DB level for school database
         schoolAssignments = await SchoolAssignment.find(query)
           .sort({ createdAt: -1 })
+          .skip(startIndex)
+          .limit(parseInt(limit))
           .lean();
 
         schoolTotal = await SchoolAssignment.countDocuments(query);
@@ -609,6 +613,8 @@ exports.getAssignments = async (req, res) => {
         console.log(`[GET ASSIGNMENTS] 🔍 Checking main database for legacy assignments`);
         mainAssignments = await Assignment.find(query)
           .sort({ createdAt: -1 })
+          .skip(startIndex)
+          .limit(parseInt(limit))
           .lean();
 
         mainTotal = await Assignment.countDocuments(query);
@@ -639,7 +645,6 @@ exports.getAssignments = async (req, res) => {
 
     // Apply pagination to merged results
     total = uniqueAssignments.length;
-    const startIndex = (page - 1) * limit;
     const endIndex = startIndex + parseInt(limit);
     assignments = uniqueAssignments.slice(startIndex, endIndex);
 

@@ -207,9 +207,10 @@ const Dashboard: React.FC = () => {
             // Fetch school users using the correct API
             // Use schoolCode (P) for the API call, not schoolId (ObjectId)
             const schoolCodeForAPI = user?.schoolCode || 'P';
-            console.log('📡 Fetching users for school code:', schoolCodeForAPI);
-            const usersResponse = await schoolUserAPI.getAllUsers(schoolCodeForAPI, token);
-            console.log('✅ Users response:', usersResponse);
+            console.log('📡 Fetching limited users for dashboard:', schoolCodeForAPI);
+            // Limit to 5 for the dashboard recent users list
+            const usersResponse = await api.get(`/school-users/${schoolCodeForAPI}/users?limit=5&academicYear=${user?.academicYear || ''}`);
+            console.log('✅ Limited users response:', usersResponse);
 
             // Handle the new flat array format
             let allUsers: any[] = [];

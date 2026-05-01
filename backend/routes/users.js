@@ -88,6 +88,7 @@ router.get('/next-id/:role', validateSchoolAccess(['admin', 'superadmin']), user
 
 // Get users by role (accessible by admin and teachers for their school)
 router.get('/role/:role', validateSchoolAccess(['admin', 'teacher']), userController.getUsersByRole);
+router.get('/stats/student-counts', validateSchoolAccess(['admin', 'teacher']), userController.getStudentCountsByClass);
 router.get('/:userId', validateSchoolAccess(['admin', 'teacher']), userController.getUserById);
 
 // Update and manage users (admin only) - require explicit school context
