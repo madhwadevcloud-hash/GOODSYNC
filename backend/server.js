@@ -41,6 +41,8 @@ const io = new Server(server, {
       'https://goodsync-f91a7.firebaseapp.com',
       'https://erp-backend-1jtx.onrender.com',
       'https://goodsync-8x4v.onrender.com',
+      'https://erp.goodsynk.com',
+      'https://www.erp.goodsynk.com',
       // Expo mobile app origins
       'exp://localhost:8081',
       'exp://*',
@@ -281,6 +283,8 @@ app.use(cors({
       'https://goodsync-f91a7.firebaseapp.com',
       'https://erp-backend-1jtx.onrender.com',// Add the production backend URL
       'https://goodsync-8x4v.onrender.com',
+      'https://erp.goodsynk.com',
+      'https://www.erp.goodsynk.com',
       'http://localhost:5173',
       'http://localhost:5174',
       // Expo mobile app origins
