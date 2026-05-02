@@ -5,6 +5,28 @@ const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
 
+exports.getDemoCredentials = async (req, res) => {
+  try {
+    // Only provide these if NOT in production or if explicitly allowed
+    if (process.env.NODE_ENV === 'production') {
+      return res.json({
+        success: true,
+        superadmin: { email: '', password: '' }
+      });
+    }
+
+    res.json({
+      success: true,
+      superadmin: {
+        email: process.env.SUPER_ADMIN_EMAIL || '',
+        password: process.env.SUPER_ADMIN_PASSWORD || ''
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to fetch demo credentials' });
+  }
+};
+
 exports.register = async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
@@ -28,7 +50,7 @@ exports.login = async (req, res) => {
 
     // First try to find in SuperAdmin collection
     user = await SuperAdmin.findOne({ email: { $regex: new RegExp(email, 'i') } });
-    
+
     if (user) {
       console.log(`🔍 Found in SuperAdmin collection: ${email}`);
       console.log(`👤 User role: ${user.role}`);
@@ -107,27 +129,27 @@ exports.login = async (req, res) => {
     user.lastLogin = new Date();
     await user.save();
 
-    const token = jwt.sign({ 
-      id: user._id, 
-      role: user.role, 
-      schoolId: user.schoolId?._id 
+    const token = jwt.sign({
+      id: user._id,
+      role: user.role,
+      schoolId: user.schoolId?._id
     }, process.env.JWT_SECRET, { expiresIn: '1d' });
 
     console.log(`[LOGIN SUCCESS] User: ${user.email} (${user.role}) from school: ${user.schoolId?.name || 'None'}`);
 
-    res.json({ 
+    res.json({
       success: true,
-      token, 
-      user: { 
+      token,
+      user: {
         id: user._id,
         userId: user.userId,
-        name: user.name, 
-        email: user.email, 
-        role: user.role, 
+        name: user.name,
+        email: user.email,
+        role: user.role,
         schoolId: user.schoolId?._id,
         schoolName: user.schoolId?.name || 'N/A',
-        lastLogin: user.lastLogin 
-      } 
+        lastLogin: user.lastLogin
+      }
     });
   } catch (err) {
     console.error('[LOGIN ERROR]', err);
@@ -139,11 +161,11 @@ exports.login = async (req, res) => {
 exports.schoolLogin = async (req, res) => {
   try {
     const { identifier, password, schoolCode, role: selectedRole } = req.body;
-    
+
     if (!identifier || !password || !schoolCode) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: 'Email/User ID, password, and school code are required' 
+        message: 'Email/User ID, password, and school code are required'
       });
     }
 
@@ -151,7 +173,7 @@ exports.schoolLogin = async (req, res) => {
 
     // Find user in school database
     const user = await UserGenerator.getUserByIdOrEmail(schoolCode, identifier);
-    
+
     console.log(`[SCHOOL LOGIN DEBUG] Found user object:`, user ? {
       _id: user._id,
       userId: user.userId,
@@ -160,7 +182,7 @@ exports.schoolLogin = async (req, res) => {
       name: user.name,
       hasUserId: !!user.userId
     } : 'null');
-    
+
     if (!user) {
       console.log(`[SCHOOL LOGIN FAIL] User not found: ${identifier} in school: ${schoolCode}`);
       return res.status(401).json({
@@ -177,9 +199,9 @@ exports.schoolLogin = async (req, res) => {
 
     if (!userWithPassword) {
       console.log(`[SCHOOL LOGIN FAIL] User data not found: ${identifier}`);
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: 'Invalid credentials' 
+        message: 'Invalid credentials'
       });
     }
 
@@ -187,35 +209,35 @@ exports.schoolLogin = async (req, res) => {
     const isMatch = await bcrypt.compare(password, userWithPassword.password);
     if (!isMatch) {
       console.log(`[SCHOOL LOGIN FAIL] Wrong password for: ${identifier}`);
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: 'Incorrect password. Please check your password and try again.' 
+        message: 'Incorrect password. Please check your password and try again.'
       });
     }
 
     // Check if user is active
     if (!user.isActive) {
       console.log(`[SCHOOL LOGIN FAIL] User is deactivated: ${identifier}`);
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: 'Account has been deactivated. Contact your administrator.' 
+        message: 'Account has been deactivated. Contact your administrator.'
       });
     }
 
     // Validate that selected role matches user's actual role
     if (selectedRole && selectedRole !== user.role) {
       console.log(`[SCHOOL LOGIN FAIL] Role mismatch - Selected: ${selectedRole}, Actual: ${user.role} for user: ${identifier}`);
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: `Invalid credentials. You selected ${selectedRole} but your account is registered as ${user.role}.` 
+        message: `Invalid credentials. You selected ${selectedRole} but your account is registered as ${user.role}.`
       });
     }
 
     // Update last login
     await userCollection.updateOne(
       { userId: user.userId },
-      { 
-        $set: { 
+      {
+        $set: {
           lastLogin: new Date(),
           loginAttempts: 0 // Reset login attempts on successful login
         }
@@ -228,7 +250,7 @@ exports.schoolLogin = async (req, res) => {
 
     // Generate JWT token
     const token = jwt.sign(
-      { 
+      {
         userId: user.userId,
         role: user.role,
         schoolCode: schoolCode,
@@ -272,10 +294,10 @@ exports.schoolLogin = async (req, res) => {
 
   } catch (error) {
     console.error('[SCHOOL LOGIN ERROR]', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
       message: 'Login failed. Please try again.',
-      error: error.message 
+      error: error.message
     });
   }
 };

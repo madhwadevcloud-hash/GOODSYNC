@@ -2,10 +2,11 @@ import React, { useMemo, useState, useEffect } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Shield, GraduationCap, Settings } from "lucide-react";
+import { getDemoCredentialsApi } from "../api/auth";
 
 type RoleKey = "superadmin" | "admin" | "teacher";
 
-const roleMeta: Record<
+const initialRoleMeta: Record<
   RoleKey,
   { title: string; subtitle: string; icon: React.ReactNode; demoEmail: string; demoPass: string }
 > = {
@@ -34,9 +35,10 @@ const roleMeta: Record<
 
 export default function Login() {
   const { login } = useAuth();
+  const [roleMeta, setRoleMeta] = useState(initialRoleMeta);
   const [selectedRole, setSelectedRole] = useState<RoleKey>("superadmin");
-  const [email, setEmail] = useState(roleMeta.superadmin.demoEmail);
-  const [password, setPassword] = useState(roleMeta.superadmin.demoPass);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [schoolCode, setSchoolCode] = useState(""); // Start empty, will be set based on role
   const [remember, setRemember] = useState(false);
   const [showPass, setShowPass] = useState(false);
@@ -45,6 +47,30 @@ export default function Login() {
 
   const navigate = useNavigate();
   const location = useLocation() as any;
+
+  // Fetch demo credentials on mount
+  useEffect(() => {
+    const fetchDemoCreds = async () => {
+      const data = await getDemoCredentialsApi();
+      if (data.success && data.superadmin) {
+        setRoleMeta(prev => ({
+          ...prev,
+          superadmin: {
+            ...prev.superadmin,
+            demoEmail: data.superadmin.email,
+            demoPass: data.superadmin.password
+          }
+        }));
+
+        // If superadmin is currently selected, update the fields
+        if (selectedRole === 'superadmin') {
+          setEmail(data.superadmin.email);
+          setPassword(data.superadmin.password);
+        }
+      }
+    };
+    fetchDemoCreds();
+  }, []);
 
   // Set initial school code based on selected role
   useEffect(() => {
@@ -55,21 +81,12 @@ export default function Login() {
     }
   }, [selectedRole]);
 
-  // Auto-fill demo creds when role changes (only for superadmin)
+  // Auto-fill demo creds when role changes
   const onPickRole = (role: RoleKey) => {
     setSelectedRole(role);
-
-    // Only auto-fill credentials for superadmin, keep others blank
-    if (role === 'superadmin') {
-      setEmail(roleMeta[role].demoEmail);
-      setPassword(roleMeta[role].demoPass);
-      setSchoolCode(''); // Clear school code for SuperAdmin
-    } else {
-      // Keep admin and teacher fields completely blank
-      setEmail('');
-      setPassword('');
-      setSchoolCode(''); // No auto school code for admin/teacher
-    }
+    setEmail(roleMeta[role].demoEmail);
+    setPassword(roleMeta[role].demoPass);
+    setSchoolCode('');
   };
 
   const roleCards = useMemo(
@@ -108,7 +125,7 @@ export default function Login() {
           </button>
         );
       }),
-    [selectedRole]
+    [selectedRole, roleMeta]
   );
 
   const onSubmit = async (e: React.FormEvent) => {

@@ -10,7 +10,7 @@ export async function loginApi(payload: LoginPayload): Promise<LoginResponse> {
     if (payload.schoolCode) {
       return await schoolLogin(payload);
     }
-    
+
     // If no schoolCode, try regular login first (for SuperAdmin)
     try {
       return await regularLogin(payload);
@@ -30,7 +30,7 @@ export async function loginApi(payload: LoginPayload): Promise<LoginResponse> {
 
 async function regularLogin(payload: LoginPayload): Promise<LoginResponse> {
   const endpoint = `${API_BASE}/auth/login`;
-  
+
   console.log(`[LOGIN] Trying regular login for: ${payload.email}`);
 
   const res = await fetch(endpoint, {
@@ -42,14 +42,14 @@ async function regularLogin(payload: LoginPayload): Promise<LoginResponse> {
       role: payload.role
     })
   });
-  
+
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
     const msg = errorData.message || 'Login failed';
     console.error('[REGULAR LOGIN FAIL]', msg);
     throw new Error(msg);
   }
-  
+
   const data = await res.json() as {
     token: string;
     user: {
@@ -95,9 +95,9 @@ async function schoolLogin(payload: LoginPayload): Promise<LoginResponse> {
   if (!payload.schoolCode) {
     throw new Error('School code is required for school login');
   }
-  
+
   const endpoint = `${API_BASE}/auth/school-login`;
-  
+
   console.log(`[LOGIN] Trying school login for: ${payload.email} at school: ${payload.schoolCode}`);
 
   const res = await fetch(endpoint, {
@@ -110,14 +110,14 @@ async function schoolLogin(payload: LoginPayload): Promise<LoginResponse> {
       role: payload.role
     })
   });
-  
+
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
     const msg = errorData.message || 'Login failed';
     console.error('[SCHOOL LOGIN FAIL]', msg);
     throw new Error(msg);
   }
-  
+
   const data = await res.json() as {
     token: string;
     user: {
@@ -164,5 +164,17 @@ async function schoolLogin(payload: LoginPayload): Promise<LoginResponse> {
   console.log('[SCHOOL LOGIN SUCCESS] Mapped user:', mappedUser);
   console.log('[SCHOOL LOGIN SUCCESS] Mapped user.userId:', mappedUser.userId);
   return { token: data.token, user: mappedUser };
+}
+
+export async function getDemoCredentialsApi(): Promise<any> {
+  const endpoint = `${API_BASE}/auth/demo-credentials`;
+  try {
+    const res = await fetch(endpoint);
+    if (!res.ok) throw new Error('Failed to fetch demo credentials');
+    return await res.json();
+  } catch (err) {
+    console.error('[DEMO CREDS ERROR]', err);
+    return { success: false };
+  }
 }
 
