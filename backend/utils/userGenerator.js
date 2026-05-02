@@ -54,6 +54,14 @@ class UserGenerator {
       let plainPassword = this.generateRandomPassword();
       let hashedPassword = await this.hashPassword(plainPassword);
 
+      // Validate role and prevent escalation
+      const allowedRoles = ['student', 'teacher', 'admin', 'parent'];
+      const requestedRole = (userData.role || '').toLowerCase();
+
+      if (!allowedRoles.includes(requestedRole)) {
+        throw new Error(`Invalid role: ${requestedRole}`);
+      }
+
       let userDocument = {
         userId,
         email: userData.email,
@@ -61,6 +69,7 @@ class UserGenerator {
         temporaryPassword: plainPassword,
         schoolCode,
         isActive: true,
+        role: requestedRole,
         createdAt: new Date(),
         updatedAt: new Date()
       };
@@ -146,7 +155,7 @@ class UserGenerator {
         // This prevents adding students to non-existent classes created in super admin
         if (className && section) {
           const classesCollection = connection.collection('classes');
-          
+
           // Find the class with matching className and academicYear
           const classExists = await classesCollection.findOne({
             className: className,
@@ -520,7 +529,7 @@ class UserGenerator {
       } else if (userData.role.toLowerCase() === 'teacher') {
         // --- TEACHER STRUCTURE (NEW IMPLEMENTATION) ---
         console.log(`👤 Generating Teacher user document for ${userId}`);
-        
+
         // CRITICAL DEBUG: Log incoming teacher data
         console.log('🏫 Incoming userData for teacher:', {
           qualification: userData.qualification,
@@ -639,7 +648,7 @@ class UserGenerator {
             bankDetails: userData.teacherDetails?.bankDetails || {}
           }
         };
-        
+
         // CRITICAL DEBUG: Log what's being stored
         console.log('🏫 Teacher Details being stored:', userDocument.teacherDetails);
 
@@ -843,7 +852,7 @@ class UserGenerator {
     try {
       const { className, section, limit = 0, page = 1, skip: providedSkip } = filters;
       const skip = providedSkip !== undefined ? parseInt(providedSkip) : (parseInt(page) - 1) * parseInt(limit);
-      
+
       console.log(`🔍 Getting ${role}s from school_${schoolCode.toLowerCase()}${academicYear ? ` for year ${academicYear}` : ''}${className ? ` class ${className}` : ''}${section ? ` section ${section}` : ''} (Skip: ${skip}, Limit: ${limit})`);
 
       const connection = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
@@ -860,10 +869,10 @@ class UserGenerator {
       }
 
       const collection = connection.collection(collectionName);
-      
+
       // Build query
       const query = { isActive: { $ne: false } };
-      
+
       const andConditions = [];
 
       // Apply academic year filtering for students if provided
@@ -923,15 +932,15 @@ class UserGenerator {
 
       // Build and execute query with limit and skip
       let cursor = collection.find(query).sort({ createdAt: -1 });
-      
+
       if (parseInt(limit) > 0) {
         cursor = cursor.limit(parseInt(limit));
       }
-      
+
       if (parseInt(skip) > 0) {
         cursor = cursor.skip(parseInt(skip));
       }
-      
+
       return await cursor.toArray();
     } catch (error) {
       console.error(`Error in getUsersByRole for ${role}:`, error);
@@ -1166,7 +1175,7 @@ class UserGenerator {
         }
         if (updateData.fatherAadhaar !== undefined) updateFields[`${rolePrefix}.family.father.aadhaar`] = updateData.fatherAadhaar;
         if (updateData.fatherCaste !== undefined) updateFields[`${rolePrefix}.family.father.caste`] = updateData.fatherCaste;
-        
+
         if (updateData.motherName !== undefined && updateData.motherName !== '') updateFields[`${rolePrefix}.family.mother.name`] = updateData.motherName;
         if (updateData.motherPhone !== undefined && updateData.motherPhone !== '') updateFields[`${rolePrefix}.family.mother.phone`] = updateData.motherPhone;
         if (updateData.motherMobile !== undefined && updateData.motherMobile !== '') updateFields[`${rolePrefix}.family.mother.phone`] = updateData.motherMobile;
@@ -1180,7 +1189,7 @@ class UserGenerator {
         }
         if (updateData.motherAadhaar !== undefined) updateFields[`${rolePrefix}.family.mother.aadhaar`] = updateData.motherAadhaar;
         if (updateData.motherCaste !== undefined) updateFields[`${rolePrefix}.family.mother.caste`] = updateData.motherCaste;
-        
+
         if (updateData.guardianName !== undefined && updateData.guardianName !== '') updateFields[`${rolePrefix}.family.guardian.name`] = updateData.guardianName;
         const guardianRelUpdateModern = updateData.guardianRelation || updateData.guardianRelationship || updateData.emergencyContactRelation;
         if (guardianRelUpdateModern !== undefined && guardianRelUpdateModern !== '') {

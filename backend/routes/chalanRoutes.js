@@ -17,6 +17,7 @@ router.post('/generate', authorize('admin', 'superadmin', 'accountant'), chalanC
 router.get('/', chalanController.getChalans);
 router.get('/student/:studentId', chalanController.getChalansByStudent);
 router.get('/:id', chalanController.getChalanById);
+router.get('/:id/pdf', chalanController.downloadChalanPdf);
 router.post('/:id/pay', authorize('admin', 'superadmin', 'accountant'), chalanController.markAsPaid);
 
 module.exports = router;

@@ -35,7 +35,8 @@ const superAdminSchema = new mongoose.Schema({
   }
 }, {
   timestamps: true,
-  collection: 'superadmins'
+  collection: 'superadmins',
+  strict: 'throw' // Prevent any query with fields not in schema
 });
 
 // Index for faster queries

@@ -2,15 +2,15 @@ const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
   userId: { type: String, unique: true }, // Generated ID like "NPS_ADM001", "NPS_TEA001"
-  
+
   // Make schoolCode conditional based on role
   schoolCode: {
     type: String,
-    required: function() {
+    required: function () {
       return this.role !== 'superadmin';
     }
   },
-  
+
   // Enhanced Name Structure
   name: {
     firstName: {
@@ -32,18 +32,18 @@ const userSchema = new mongoose.Schema({
     },
     displayName: { type: String } // Auto-generated: "firstName lastName"
   },
-  
+
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   temporaryPassword: { type: String },
   passwordChangeRequired: { type: Boolean, default: true },
-  
-  role: { 
-    type: String, 
+
+  role: {
+    type: String,
     enum: ['superadmin', 'admin', 'teacher', 'student', 'parent'],
     required: true
   },
-  
+
   // Enhanced Contact Information
   contact: {
     primaryPhone: {
@@ -61,7 +61,7 @@ const userSchema = new mongoose.Schema({
       phone: { type: String, match: /^[6-9]\d{9}$/ }
     }
   },
-  
+
   // Enhanced Address Information
   address: {
     permanent: {
@@ -105,7 +105,7 @@ const userSchema = new mongoose.Schema({
       sameAsPermanent: { type: Boolean, default: true }
     }
   },
-  
+
   // Identity Information
   identity: {
     aadharNumber: { type: String, unique: true, sparse: true, match: /^\d{12}$/ },
@@ -114,7 +114,7 @@ const userSchema = new mongoose.Schema({
     drivingLicenseNumber: { type: String },
     passportNumber: { type: String }
   },
-  
+
   profilePicture: { type: String },
   profileImage: { type: String }, // Alias for profilePicture
   documents: [{
@@ -124,7 +124,7 @@ const userSchema = new mongoose.Schema({
     uploadedAt: { type: Date, default: Date.now },
     verificationStatus: { type: String, enum: ['pending', 'verified', 'rejected'], default: 'pending' }
   }],
-  
+
   // System Fields
   isActive: { type: Boolean, default: true },
   isVerified: { type: Boolean, default: false },
@@ -132,12 +132,12 @@ const userSchema = new mongoose.Schema({
   loginAttempts: { type: Number, default: 0 },
   accountLocked: { type: Boolean, default: false },
   lockUntil: { type: Date },
-  
+
   // Password Management
   passwordHistory: [String], // Store last 5 password hashes
   passwordResetToken: String,
   passwordResetExpires: Date,
-  
+
   // School Access
   schoolId: { type: mongoose.Schema.Types.ObjectId, ref: 'School' },
   schoolAccess: {
@@ -157,7 +157,7 @@ const userSchema = new mongoose.Schema({
     status: { type: String },
     accessLevel: { type: String }
   },
-  
+
   // Session Management
   activeSessions: [{
     sessionId: { type: String },
@@ -167,20 +167,20 @@ const userSchema = new mongoose.Schema({
     lastActivity: { type: Date },
     isActive: { type: Boolean, default: true }
   }],
-  
-  
+
+
   // Enhanced Role-specific fields
   adminDetails: {
-    adminType: { 
-      type: String, 
-      enum: ['principal', 'vice_principal', 'admin', 'academic_coordinator', 'finance_manager'] 
+    adminType: {
+      type: String,
+      enum: ['principal', 'vice_principal', 'admin', 'academic_coordinator', 'finance_manager']
     },
     employeeId: { type: String, unique: true, sparse: true }, // "NPS_ADM001"
     joiningDate: { type: Date },
     designation: { type: String },
     department: { type: String },
     reportingTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    
+
     permissions: {
       userManagement: { type: Boolean, default: false },
       academicManagement: { type: Boolean, default: false },
@@ -191,7 +191,7 @@ const userSchema = new mongoose.Schema({
       dataExport: { type: Boolean, default: false },
       auditLogs: { type: Boolean, default: false }
     },
-    
+
     workSchedule: {
       workingDays: [String], // ["Monday", "Tuesday", ...]
       workingHours: {
@@ -199,7 +199,7 @@ const userSchema = new mongoose.Schema({
         end: { type: String } // "17:00"
       }
     },
-    
+
     salary: {
       basic: { type: Number },
       allowances: [{
@@ -208,7 +208,7 @@ const userSchema = new mongoose.Schema({
       }],
       currency: { type: String, default: 'INR' }
     },
-    
+
     bankDetails: {
       accountNumber: { type: String },
       ifscCode: { type: String, match: /^[A-Z]{4}0[A-Z0-9]{6}$/ },
@@ -216,16 +216,16 @@ const userSchema = new mongoose.Schema({
       branchName: { type: String },
       accountHolderName: { type: String }
     },
-    
+
     assignedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     assignedAt: { type: Date, default: Date.now }
   },
-  
+
   // Enhanced Teacher Details
   teacherDetails: {
     employeeId: { type: String, unique: true, sparse: true }, // "NPS_TEA001"
     joiningDate: { type: Date },
-    
+
     qualification: {
       highest: { type: String }, // "B.Ed", "M.Ed", "Ph.D"
       specialization: { type: String },
@@ -238,7 +238,7 @@ const userSchema = new mongoose.Schema({
         documentUrl: { type: String }
       }]
     },
-    
+
     experience: {
       total: { type: Number }, // in years
       atCurrentSchool: { type: Number },
@@ -249,17 +249,17 @@ const userSchema = new mongoose.Schema({
         reasonForLeaving: { type: String }
       }]
     },
-    
+
     subjects: [{
       subjectCode: { type: String },
       subjectName: { type: String },
       classes: [String], // ["8A", "9B", "10C"]
       isPrimary: { type: Boolean } // Main subject vs secondary
     }],
-    
+
     classTeacherOf: { type: String }, // "8A" - if assigned as class teacher
     responsibilities: [String], // ["Sports Coordinator", "Library Incharge"]
-    
+
     workSchedule: {
       workingDays: [String],
       workingHours: {
@@ -269,7 +269,7 @@ const userSchema = new mongoose.Schema({
       maxPeriodsPerDay: { type: Number },
       maxPeriodsPerWeek: { type: Number }
     },
-    
+
     performanceReviews: [{
       academicYear: { type: String },
       rating: { type: Number, min: 1, max: 5 },
@@ -277,7 +277,7 @@ const userSchema = new mongoose.Schema({
       reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
       reviewDate: { type: Date }
     }],
-    
+
     salary: {
       basic: { type: Number },
       allowances: [{
@@ -286,7 +286,7 @@ const userSchema = new mongoose.Schema({
       }],
       currency: { type: String, default: 'INR' }
     },
-    
+
     bankDetails: {
       accountNumber: { type: String },
       ifscCode: { type: String, match: /^[A-Z]{4}0[A-Z0-9]{6}$/ },
@@ -294,14 +294,14 @@ const userSchema = new mongoose.Schema({
       branchName: { type: String }
     }
   },
-  
-  
+
+
   // Enhanced Student Details
   studentDetails: {
     studentId: { type: String, unique: true, sparse: true }, // "NPS_STU001"
     admissionNumber: { type: String },
     rollNumber: { type: String },
-    
+
     // Academic Information - Karnataka SATS Standard
     academic: {
       currentClass: { type: String }, // "8"
@@ -311,11 +311,11 @@ const userSchema = new mongoose.Schema({
       admissionClass: { type: String },
       stream: { type: String }, // For higher classes: "Science", "Commerce", "Arts"
       electives: [String], // Optional subjects
-      
+
       // Karnataka SATS Additional Fields
       enrollmentNo: { type: String },
       tcNo: { type: String },
-      
+
       previousSchool: {
         name: { type: String },
         board: { type: String, enum: ['CBSE', 'ICSE', 'State Board', 'IB', 'Other'] },
@@ -325,7 +325,7 @@ const userSchema = new mongoose.Schema({
         reasonForTransfer: { type: String }
       }
     },
-    
+
     // Personal Information - Karnataka SATS Standard
     personal: {
       dateOfBirth: { type: Date },
@@ -342,48 +342,48 @@ const userSchema = new mongoose.Schema({
       motherTongue: { type: String },
       motherTongueOther: { type: String }, // When motherTongue is "Other"
       languagesKnown: [String],
-      
+
       // Karnataka SATS Specific Fields
       studentNameKannada: { type: String },
       ageYears: { type: Number, min: 0, max: 25 },
       ageMonths: { type: Number, min: 0, max: 11 },
-      socialCategory: { 
-        type: String, 
-        enum: ['General', 'SC', 'ST', 'OBC', 'Category-1', 'Category-2A', 'Category-2B', 'Category-3A', 'Category-3B'] 
+      socialCategory: {
+        type: String,
+        enum: ['General', 'SC', 'ST', 'OBC', 'Category-1', 'Category-2A', 'Category-2B', 'Category-3A', 'Category-3B']
       },
       socialCategoryOther: { type: String }, // When socialCategory is "Other"
       studentCaste: { type: String },
       studentCasteOther: { type: String }, // When studentCaste is "Other"
       studentAadhaar: { type: String, match: /^\d{12}$/ },
       studentCasteCertNo: { type: String },
-      
+
       // Additional SATS Fields
       specialCategory: { type: String }, // None/Destitute/Orphan/HIV case etc
       specialCategoryOther: { type: String }, // When specialCategory is "Other"
-      
+
       // Economic Status
       belongingToBPL: { type: String, enum: ['Yes', 'No'], default: 'No' },
       bplCardNo: { type: String },
       bhagyalakshmiBondNo: { type: String },
-      
+
       // Special Needs
-      disability: { 
-        type: String, 
-        enum: ['Not Applicable', 'Visual Impairment', 'Hearing Impairment', 'Speech and Language Disability', 
-               'Locomotor Disability', 'Intellectual Disability', 'Learning Disability', 
-               'Autism Spectrum Disorder', 'Multiple Disabilities', 'Other'],
+      disability: {
+        type: String,
+        enum: ['Not Applicable', 'Visual Impairment', 'Hearing Impairment', 'Speech and Language Disability',
+          'Locomotor Disability', 'Intellectual Disability', 'Learning Disability',
+          'Autism Spectrum Disorder', 'Multiple Disabilities', 'Other'],
         default: 'Not Applicable'
       },
       disabilityOther: { type: String }, // When disability is "Other"
-      
+
       // RTE (Right to Education) Status
-      isRTECandidate: { 
-        type: String, 
-        enum: ['Yes', 'No'], 
-        default: 'No' 
+      isRTECandidate: {
+        type: String,
+        enum: ['Yes', 'No'],
+        default: 'No'
       }
     },
-    
+
     // Medical Information
     medical: {
       allergies: [String],
@@ -401,7 +401,7 @@ const userSchema = new mongoose.Schema({
         nextDue: { type: Date }
       }]
     },
-    
+
     // Family Information - Karnataka SATS Standard
     family: {
       father: {
@@ -412,7 +412,7 @@ const userSchema = new mongoose.Schema({
         email: { type: String },
         workAddress: { type: String },
         annualIncome: { type: Number },
-        
+
         // Karnataka SATS Specific Fields
         nameKannada: { type: String },
         aadhaar: { type: String, match: /^\d{12}$/ },
@@ -428,7 +428,7 @@ const userSchema = new mongoose.Schema({
         email: { type: String },
         workAddress: { type: String },
         annualIncome: { type: Number },
-        
+
         // Karnataka SATS Specific Fields
         nameKannada: { type: String },
         aadhaar: { type: String, match: /^\d{12}$/ },
@@ -452,12 +452,12 @@ const userSchema = new mongoose.Schema({
         class: { type: String }
       }]
     },
-    
+
     // Transportation
     transport: {
-      mode: { 
-        type: String, 
-        enum: ['school_bus', 'private', 'walking', 'cycling', 'public_transport'] 
+      mode: {
+        type: String,
+        enum: ['school_bus', 'private', 'walking', 'cycling', 'public_transport']
       },
       busRoute: { type: String },
       pickupPoint: { type: String },
@@ -465,12 +465,12 @@ const userSchema = new mongoose.Schema({
       pickupTime: { type: String },
       dropTime: { type: String }
     },
-    
+
     // Financial Information - Karnataka SATS Standard
     financial: {
-      feeCategory: { 
-        type: String, 
-        enum: ['regular', 'scholarship', 'concession', 'staff_ward', 'sibling_discount'] 
+      feeCategory: {
+        type: String,
+        enum: ['regular', 'scholarship', 'concession', 'staff_ward', 'sibling_discount']
       },
       concessionType: { type: String },
       concessionPercentage: { type: Number },
@@ -479,7 +479,7 @@ const userSchema = new mongoose.Schema({
         amount: { type: Number },
         provider: { type: String }
       },
-      
+
       // Karnataka SATS Banking Information
       bankDetails: {
         bankName: { type: String },
@@ -488,7 +488,7 @@ const userSchema = new mongoose.Schema({
         accountHolderName: { type: String }
       }
     },
-    
+
     // Academic History
     academicHistory: [{
       academicYear: { type: String },
@@ -499,10 +499,10 @@ const userSchema = new mongoose.Schema({
       rank: { type: Number },
       attendance: { type: Number }
     }],
-    
+
     parentId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
   },
-  
+
   // Enhanced Parent Details
   parentDetails: {
     parentId: { type: String, unique: true, sparse: true }, // "NPS_PAR001"
@@ -513,7 +513,7 @@ const userSchema = new mongoose.Schema({
       section: { type: String },
       relationship: { type: String, enum: ['father', 'mother', 'guardian'] }
     }],
-    
+
     // Professional Information
     professional: {
       occupation: { type: String },
@@ -524,11 +524,11 @@ const userSchema = new mongoose.Schema({
       annualIncome: { type: Number },
       workingHours: { type: String }
     },
-    
+
     // Preferences
     preferences: {
-      preferredCommunicationMode: { 
-        type: String, 
+      preferredCommunicationMode: {
+        type: String,
         enum: ['email', 'sms', 'phone', 'app'],
         default: 'sms'
       },
@@ -538,7 +538,7 @@ const userSchema = new mongoose.Schema({
         timeSlots: [String]
       }
     },
-    
+
     // Emergency Contacts (other than parent)
     emergencyContacts: [{
       name: { type: String },
@@ -548,7 +548,7 @@ const userSchema = new mongoose.Schema({
       isPrimary: { type: Boolean }
     }]
   },
-  
+
   // Audit Trail
   auditTrail: {
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
@@ -564,7 +564,7 @@ const userSchema = new mongoose.Schema({
       reason: { type: String }
     }]
   },
-  
+
   // Metadata
   metadata: {
     source: { type: String, enum: ['manual', 'bulk_import', 'online_admission'], default: 'manual' },
@@ -573,14 +573,15 @@ const userSchema = new mongoose.Schema({
     notes: { type: String },
     customFields: { type: mongoose.Schema.Types.Mixed }
   }
-}, { 
+}, {
   timestamps: true,
   toJSON: { virtuals: true },
-  toObject: { virtuals: true }
+  toObject: { virtuals: true },
+  strict: 'throw' // Enforce strict schema validation
 });
 
 // Virtual for full name
-userSchema.virtual('fullName').get(function() {
+userSchema.virtual('fullName').get(function () {
   if (this.name && this.name.firstName && this.name.lastName) {
     return `${this.name.firstName} ${this.name.lastName}`;
   }
@@ -588,7 +589,7 @@ userSchema.virtual('fullName').get(function() {
 });
 
 // Pre-save middleware to generate displayName
-userSchema.pre('save', function(next) {
+userSchema.pre('save', function (next) {
   if (this.name && this.name.firstName && this.name.lastName) {
     this.name.displayName = `${this.name.firstName} ${this.name.lastName}`;
   }
@@ -602,9 +603,9 @@ userSchema.index({ lastLogin: 1 });
 userSchema.index({ 'activeSessions.isActive': 1 });
 
 // Student-specific indexes
-userSchema.index({ 
-  'studentDetails.academic.currentClass': 1, 
-  'studentDetails.academic.currentSection': 1 
+userSchema.index({
+  'studentDetails.academic.currentClass': 1,
+  'studentDetails.academic.currentSection': 1
 });
 
 // Teacher-specific indexes
@@ -612,7 +613,7 @@ userSchema.index({ 'teacherDetails.subjects.subjectCode': 1 });
 userSchema.index({ 'teacherDetails.classTeacherOf': 1 });
 
 // Methods for session management
-userSchema.methods.addSession = function(sessionId, deviceInfo, ipAddress) {
+userSchema.methods.addSession = function (sessionId, deviceInfo, ipAddress) {
   this.activeSessions.push({
     sessionId,
     deviceInfo,
@@ -624,14 +625,14 @@ userSchema.methods.addSession = function(sessionId, deviceInfo, ipAddress) {
   return this.save();
 };
 
-userSchema.methods.removeSession = function(sessionId) {
+userSchema.methods.removeSession = function (sessionId) {
   this.activeSessions = this.activeSessions.filter(
     session => session.sessionId !== sessionId
   );
   return this.save();
 };
 
-userSchema.methods.updateLastActivity = function(sessionId) {
+userSchema.methods.updateLastActivity = function (sessionId) {
   const session = this.activeSessions.find(s => s.sessionId === sessionId);
   if (session) {
     session.lastActivity = new Date();
@@ -640,17 +641,17 @@ userSchema.methods.updateLastActivity = function(sessionId) {
 };
 
 // Method to generate user ID
-userSchema.statics.generateUserId = function(schoolCode, role, sequence) {
+userSchema.statics.generateUserId = function (schoolCode, role, sequence) {
   const rolePrefixes = {
     admin: 'ADM',
     teacher: 'TEA',
     student: 'STU',
     parent: 'PAR'
   };
-  
+
   const prefix = rolePrefixes[role] || 'USR';
   const padding = role === 'student' || role === 'parent' ? 4 : 3;
-  
+
   return `${schoolCode}_${prefix}${String(sequence).padStart(padding, '0')}`;
 };
 

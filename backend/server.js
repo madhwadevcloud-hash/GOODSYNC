@@ -23,6 +23,7 @@ const { setMainDbContext } = require('./middleware/schoolContext'); // <-- Impor
 
 // Import auto-seed utility
 const { autoSeedSuperAdmin } = require('./utils/autoSeedSuperAdmin');
+const mongoSanitize = require('express-mongo-sanitize');
 
 
 const app = express();
@@ -309,7 +310,8 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'x-school-code', 'X-School-Code']
 }));
 app.use(bodyParser.json({ limit: '50mb' }));
-app.use(bodyParser.urlencoded({ limit: '50mb', extended: true })); // Added for handling form data potentially from import
+app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
+app.use(mongoSanitize()); // Official MongoDB sanitization middleware
 
 // Configure multer for file uploads
 // Make sure the 'uploads/' directory exists in your backend folder

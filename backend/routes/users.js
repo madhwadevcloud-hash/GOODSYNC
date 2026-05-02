@@ -83,6 +83,9 @@ router.post('/parents', requireSchoolContext, validateSchoolAccess(['admin', 'su
 // Query routes - use flexible school context
 router.use(setSchoolContext);
 
+// Get all users (ADMIN ONLY) - prevents BOLA vulnerability
+router.get('/', validateSchoolAccess(['admin', 'superadmin']), userController.getAllUsers);
+
 // Get next available user ID for preview
 router.get('/next-id/:role', validateSchoolAccess(['admin', 'superadmin']), userController.getNextUserId);
 

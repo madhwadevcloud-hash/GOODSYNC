@@ -62,8 +62,8 @@ exports.addAdminToSchool = async (req, res) => {
     }
     const bcrypt = require('bcryptjs');
     const hashedPassword = await bcrypt.hash(password, 10);
-  // Normalize name into structured fields
-  const { firstName, lastName, displayName } = normalizeName(name, 'Admin');
+    // Normalize name into structured fields
+    const { firstName, lastName, displayName } = normalizeName(name, 'Admin');
 
     // Generate userId using the DatabaseManager
     const DatabaseManager = require('../utils/databaseManager');
@@ -71,7 +71,7 @@ exports.addAdminToSchool = async (req, res) => {
 
     user = new User({
       userId,
-  name: { firstName, lastName, displayName },
+      name: { firstName, lastName, displayName },
       email,
       password: hashedPassword,
       role: 'admin',
@@ -105,9 +105,9 @@ exports.addAdminToSchool = async (req, res) => {
     school.admins.push(user._id);
     await school.save();
     console.log(`[ADMIN ADDED] ${user.email} added as admin to school ${school.name} (${school._id}) by ${req.user.email}`);
-    res.status(201).json({ 
-      message: 'Admin added successfully', 
-  admin: { id: user._id, name: user.name.displayName || displayName, email: user.email, phone: user.contact?.primaryPhone }
+    res.status(201).json({
+      message: 'Admin added successfully',
+      admin: { id: user._id, name: user.name.displayName || displayName, email: user.email, phone: user.contact?.primaryPhone }
     });
   } catch (error) {
     console.error('Error adding admin to school:', error);
@@ -137,7 +137,7 @@ exports.getGradeSystem = async (req, res) => {
 exports.getSubjectsForGrade = async (req, res) => {
   try {
     const { grade, stream } = req.query;
-    
+
     if (!grade) {
       return res.status(400).json({ message: 'Grade is required' });
     }
@@ -261,17 +261,17 @@ exports.getSchoolStatsByLevel = async (req, res) => {
 exports.createClassesForGrade = async (req, res) => {
   try {
     const { schoolId } = req.params;
-    const { 
-      grade, 
-      sections, 
-      academicYear, 
-      stream, 
-      classTeacherId 
+    const {
+      grade,
+      sections,
+      academicYear,
+      stream,
+      classTeacherId
     } = req.body;
 
     if (!grade || !sections || !Array.isArray(sections)) {
-      return res.status(400).json({ 
-        message: 'Grade and sections array are required' 
+      return res.status(400).json({
+        message: 'Grade and sections array are required'
       });
     }
 
@@ -285,8 +285,8 @@ exports.createClassesForGrade = async (req, res) => {
 
     // Check if stream is required for higher secondary
     if (['11', '12'].includes(grade) && !stream) {
-      return res.status(400).json({ 
-        message: 'Stream is required for grades 11 and 12' 
+      return res.status(400).json({
+        message: 'Stream is required for grades 11 and 12'
       });
     }
 
@@ -464,10 +464,10 @@ exports.importUsers = async (req, res) => {
     const csv = require('csv-parse');
     const fs = require('fs');
     const parser = csv.parse({ columns: true, trim: true });
-    
+
     const users = [];
     const errors = [];
-    
+
     await new Promise((resolve, reject) => {
       fs.createReadStream(file.path)
         .pipe(parser)
@@ -513,16 +513,16 @@ exports.importUsers = async (req, res) => {
     fs.unlinkSync(file.path);
 
     if (users.length === 0) {
-      return res.status(400).json({ 
-        message: 'No valid users to import', 
-        errors 
+      return res.status(400).json({
+        message: 'No valid users to import',
+        errors
       });
     }
 
     // Insert users in bulk
     await User.insertMany(users);
 
-    res.json({ 
+    res.json({
       message: `Successfully imported ${users.length} users`,
       errors: errors.length > 0 ? errors : undefined
     });
@@ -611,7 +611,7 @@ exports.bulkDeleteUsers = async (req, res) => {
 exports.addUser = async (req, res) => {
   try {
     const { schoolId } = req.params;
-  const { name, email, role, phone, password } = req.body;
+    const { name, email, role, phone, password } = req.body;
 
     // Validate required fields
     if (!name || !email || !role || !password) {
@@ -640,8 +640,8 @@ exports.addUser = async (req, res) => {
     const bcrypt = require('bcryptjs');
     const hashedPassword = await bcrypt.hash(password, 10);
 
-  // Normalize name into structured fields
-  const { firstName, lastName, displayName } = normalizeName(name, role.charAt(0).toUpperCase() + role.slice(1));
+    // Normalize name into structured fields
+    const { firstName, lastName, displayName } = normalizeName(name, role.charAt(0).toUpperCase() + role.slice(1));
 
     // Validate phone number
     const phoneRegex = /^\d{7,10}$/;
@@ -651,7 +651,7 @@ exports.addUser = async (req, res) => {
 
     // Create user with required nested fields
     const user = new User({
-  name: { firstName, lastName, displayName },
+      name: { firstName, lastName, displayName },
       email,
       password: hashedPassword,
       role,
@@ -741,21 +741,21 @@ exports.createSchool = async (req, res) => {
     console.log('Request headers:', req.headers);
     console.log('Request user:', req.user);
 
-    const { 
-      name, 
+    const {
+      name,
       code,
-      mobile, 
-      principalName, 
-      principalEmail, 
-      area, 
-      district, 
-      pinCode, 
-      bankDetails, 
-      accessMatrix, 
-      schoolType, 
-      establishedYear, 
-      affiliationBoard, 
-      website, 
+      mobile,
+      principalName,
+      principalEmail,
+      area,
+      district,
+      pinCode,
+      bankDetails,
+      accessMatrix,
+      schoolType,
+      establishedYear,
+      affiliationBoard,
+      website,
       secondaryContact,
       settings,
       features,
@@ -814,7 +814,7 @@ exports.createSchool = async (req, res) => {
       principalName: principalName?.trim() || '',
       principalEmail: principalEmail?.trim() || '',
       mobile: mobile?.trim() || '', // Direct mobile field for dashboard display
-      
+
       // Parse and structure contact information
       contact: (() => {
         try {
@@ -833,7 +833,7 @@ exports.createSchool = async (req, res) => {
           };
         }
       })(),
-      
+
       // Parse and structure address information
       address: (() => {
         try {
@@ -870,7 +870,7 @@ exports.createSchool = async (req, res) => {
           };
         }
       })(),
-      
+
       // Parse bank details if it's a string, otherwise use directly
       bankDetails: (() => {
         try {
@@ -880,7 +880,7 @@ exports.createSchool = async (req, res) => {
           return {};
         }
       })(),
-      
+
       // Parse access matrix if it's a string, otherwise use directly
       accessMatrix: (() => {
         try {
@@ -890,14 +890,14 @@ exports.createSchool = async (req, res) => {
           return {};
         }
       })(),
-      
+
       // Additional school information
       schoolType: schoolType?.trim() || 'Public',
       establishedYear: parseInt(establishedYear) || new Date().getFullYear(),
       affiliationBoard: affiliationBoard?.trim() || 'CBSE',
       website: (website || '').trim(),
       secondaryContact: (secondaryContact || '').trim(),
-      
+
       // Parse and merge settings with defaults
       settings: (() => {
         try {
@@ -925,7 +925,7 @@ exports.createSchool = async (req, res) => {
             holidays: []
           };
           // Merge parsed settings with defaults, giving priority to parsed settings
-          return parsedSettings && typeof parsedSettings === 'object' 
+          return parsedSettings && typeof parsedSettings === 'object'
             ? { ...defaultSettings, ...parsedSettings }
             : defaultSettings;
         } catch (error) {
@@ -948,7 +948,7 @@ exports.createSchool = async (req, res) => {
           };
         }
       })(),
-      
+
       // Parse and merge features with defaults
       features: (() => {
         try {
@@ -975,10 +975,10 @@ exports.createSchool = async (req, res) => {
           };
         }
       })(),
-      
+
       // File upload handling with compression
       logoUrl: undefined, // Will be set after compression
-      
+
       // Database management
       databaseName: dbName,
       databaseCreated: false,
@@ -989,13 +989,13 @@ exports.createSchool = async (req, res) => {
     // Handle logo upload with Cloudinary BEFORE creating school
     console.log('🔍 Checking for logo file upload...');
     console.log('req.file:', req.file ? `Yes - ${req.file.originalname}` : 'No file uploaded');
-    
+
     if (req.file) {
       let tempCompressedPath = null;
-      
+
       try {
         console.log(`📸 Original logo: ${req.file.originalname}, Size: ${(req.file.size / 1024).toFixed(2)}KB`);
-        
+
         // Create temp directory for compression
         const tempDir = path.join(__dirname, '..', 'uploads', 'temp');
         if (!fs.existsSync(tempDir)) {
@@ -1014,14 +1014,14 @@ exports.createSchool = async (req, res) => {
           .resize(800, 800, { fit: 'inside', withoutEnlargement: true })
           .jpeg({ quality: 60 })
           .toFile(tempCompressedPath);
-        
+
         // Release Sharp resources
         sharpInstance.destroy();
-        
+
         // Check file size and re-compress if needed
         let stats = fs.statSync(tempCompressedPath);
         let quality = 60;
-        
+
         while (stats.size > 30 * 1024 && quality > 20) {
           quality -= 10;
           console.log(`🔄 Re-compressing with quality ${quality}...`);
@@ -1033,21 +1033,21 @@ exports.createSchool = async (req, res) => {
           recompressInstance.destroy();
           stats = fs.statSync(tempCompressedPath);
         }
-        
+
         console.log(`✅ Compressed logo: ${(stats.size / 1024).toFixed(2)}KB (quality: ${quality})`);
-        
+
         // Upload to Cloudinary
         const cloudinaryFolder = `logos`;
         const publicId = `${schoolData.code}_${timestamp}`;
         const uploadResult = await uploadToCloudinary(tempCompressedPath, cloudinaryFolder, publicId);
-        
+
         schoolData.logoUrl = uploadResult.secure_url;
         console.log('✅ Logo uploaded to Cloudinary:', uploadResult.secure_url);
-        
+
         // Delete temp files
         deleteLocalFile(req.file.path);
         deleteLocalFile(tempCompressedPath);
-        
+
       } catch (error) {
         console.error('❌ Error handling logo upload:', error);
         console.error('Error stack:', error.stack);
@@ -1065,15 +1065,15 @@ exports.createSchool = async (req, res) => {
     const school = new School(schoolData);
     await school.save();
     console.log('💾 School saved with logoUrl:', school.logoUrl);
-    
+
     // Create dedicated database for the school
     await createSchoolDatabase(school);
-    
+
     // Create default test details for the school
     try {
       await TestDetails.createDefaultTestTypes(
-        school._id, 
-        school.code, 
+        school._id,
+        school.code,
         req.user ? req.user._id : null
       );
       console.log(`[TEST DETAILS CREATED] Default test types created for school ${school.code}`);
@@ -1081,9 +1081,9 @@ exports.createSchool = async (req, res) => {
       console.error(`[TEST DETAILS ERROR] Failed to create test details for school ${school.code}:`, testError);
       // Don't fail school creation if test details creation fails
     }
-    
+
     console.log(`[SCHOOL CREATED] ${school.name} (${school.code}) - Database: ${school.databaseName}`);
-    
+
     res.status(201).json({
       success: true,
       message: 'School created successfully',
@@ -1111,7 +1111,7 @@ exports.createSchool = async (req, res) => {
       code: error.code,
       validation: error.errors
     });
-    
+
     // Handle MongoDB validation errors specifically
     if (error.name === 'ValidationError') {
       const validationErrors = Object.values(error.errors).map((err) => ({
@@ -1119,14 +1119,14 @@ exports.createSchool = async (req, res) => {
         message: err.message,
         value: err.value
       }));
-      
+
       return res.status(400).json({
         success: false,
         message: 'Validation failed',
         errors: validationErrors
       });
     }
-    
+
     // Handle duplicate key errors
     if (error.code === 11000) {
       const field = Object.keys(error.keyValue)[0];
@@ -1137,7 +1137,7 @@ exports.createSchool = async (req, res) => {
         duplicateValue: error.keyValue[field]
       });
     }
-    
+
     res.status(500).json({
       success: false,
       message: 'Internal server error',
@@ -1150,15 +1150,15 @@ exports.createSchool = async (req, res) => {
 async function createSchoolDatabase(school) {
   try {
     console.log(`🏗️ Creating dedicated database for school: ${school.name} (${school.code})`);
-    
+
     // Generate database name from school code (sanitized)
     const dbName = SchoolDatabaseManager.getDatabaseName(school.code);
-    
+
     // Get connection to the school's dedicated database
     const schoolConnection = await SchoolDatabaseManager.getSchoolConnection(school.code);
-    
+
     console.log(`✅ Connected to school database: ${dbName}`);
-    
+
     // Create all necessary collections for the school
     const collections = [
       'school_info',     // School's own information (replica from institute_erp)
@@ -1166,7 +1166,7 @@ async function createSchoolDatabase(school) {
       'teachers',        // School teachers
       'students',        // School students
       'parents',         // Student parents
-  'testdetails',     // Academic test configuration per class
+      'testdetails',     // Academic test configuration per class
       'access_matrix',   // Role-based permissions
       'classes',         // Class information
       'subjects',        // Subject information
@@ -1179,11 +1179,11 @@ async function createSchoolDatabase(school) {
       'audit_logs',      // Activity logs
       'id_sequences'     // ID generation sequences
     ];
-    
+
     // Create collections and initial documents
     for (const collectionName of collections) {
       const collection = schoolConnection.collection(collectionName);
-      
+
       if (collectionName === 'school_info') {
         // Store the school's own information in its dedicated database
         const schoolInfo = {
@@ -1220,10 +1220,10 @@ async function createSchoolDatabase(school) {
           lastSyncedAt: new Date(),
           note: 'School information replicated from institute_erp database'
         };
-        
+
         await collection.insertOne(schoolInfo);
         console.log(`🏫 Stored school information in dedicated database`);
-        
+
       } else if (collectionName === 'access_matrix') {
         // Store the access matrix as a separate collection for easy querying
         const accessMatrixDoc = {
@@ -1235,10 +1235,10 @@ async function createSchoolDatabase(school) {
           updatedAt: new Date(),
           note: 'Access permissions matrix for role-based access control'
         };
-        
+
         await collection.insertOne(accessMatrixDoc);
         console.log(`🔐 Stored access matrix in dedicated database`);
-        
+
       } else if (collectionName === 'id_sequences') {
         // Initialize ID sequences for user ID generation
         const sequences = [
@@ -1247,7 +1247,7 @@ async function createSchoolDatabase(school) {
           { _id: 'student_sequence', sequence_value: 1, schoolCode: school.code },
           { _id: 'parent_sequence', sequence_value: 1, schoolCode: school.code }
         ];
-        
+
         await collection.insertMany(sequences);
         console.log(`📊 Initialized ID sequences for ${school.code}`);
       } else if (collectionName === 'testdetails') {
@@ -1287,19 +1287,19 @@ async function createSchoolDatabase(school) {
         console.log(`📁 Created collection: ${collectionName}`);
       }
     }
-    
+
     // Update the school document to mark database as created
     school.databaseCreated = true;
     school.databaseCreatedAt = new Date();
     await school.save();
-    
+
     console.log(`🎉 School database setup completed for: ${school.name} (${dbName})`);
     console.log(`📋 Database structure:`);
     console.log(`├── ${dbName}`);
     collections.forEach(col => {
       console.log(`│   ├── ${col}`);
     });
-    
+
   } catch (error) {
     console.error('Error creating school database:', error);
     throw error;
@@ -1310,9 +1310,9 @@ async function createSchoolDatabase(school) {
 async function updateAccessMatrixCollection(school, schoolConnection) {
   try {
     console.log(`🔐 Updating access matrix collection for school: ${school.code}`);
-    
+
     const accessMatrixCollection = schoolConnection.collection('access_matrix');
-    
+
     // Prepare the access matrix document
     const accessMatrixDoc = {
       schoolId: school._id,
@@ -1323,19 +1323,19 @@ async function updateAccessMatrixCollection(school, schoolConnection) {
       updatedBy: 'system',
       note: 'Access permissions matrix for role-based access control'
     };
-    
+
     // Replace the existing access matrix document
     await accessMatrixCollection.replaceOne(
       { schoolId: school._id },
       accessMatrixDoc,
       { upsert: true }
     );
-    
+
     console.log(`✅ Access matrix collection updated for school: ${school.code}`);
-    
+
     // Log the updated permissions for debugging
     console.log(`📋 Current access matrix for ${school.code}:`, JSON.stringify(school.accessMatrix, null, 2));
-    
+
   } catch (error) {
     console.error('Error updating access matrix collection:', error);
     throw error;
@@ -1345,11 +1345,11 @@ async function updateAccessMatrixCollection(school, schoolConnection) {
 async function syncSchoolInfoToDatabase(school) {
   try {
     console.log(`🔄 Syncing school information for: ${school.name} (${school.code})`);
-    
+
     // Get connection to the school's dedicated database
     const schoolConnection = await SchoolDatabaseManager.getSchoolConnection(school.code);
     const schoolInfoCollection = schoolConnection.collection('school_info');
-    
+
     // Prepare updated school information
     const schoolInfo = {
       _id: school._id,
@@ -1385,19 +1385,19 @@ async function syncSchoolInfoToDatabase(school) {
       lastSyncedAt: new Date(),
       note: 'School information synced from institute_erp database'
     };
-    
+
     // Update or insert the school information
     await schoolInfoCollection.replaceOne(
       { _id: school._id },
       schoolInfo,
       { upsert: true }
     );
-    
+
     console.log(`✅ School information synced to dedicated database: ${school.databaseName}`);
-    
+
     // Also update the access_matrix collection with the latest permissions
     await updateAccessMatrixCollection(school, schoolConnection);
-    
+
   } catch (error) {
     console.error('Error syncing school information:', error);
     throw error;
@@ -1409,11 +1409,6 @@ exports.updateUser = async (req, res) => {
   try {
     const { schoolId, userId } = req.params;
     const updates = req.body;
-
-    // Remove sensitive fields that shouldn't be updated directly
-    delete updates.password;
-    delete updates.schoolId;
-    delete updates._id;
 
     const user = await User.findOne({ _id: userId, schoolId });
     if (!user) {
@@ -1428,7 +1423,18 @@ exports.updateUser = async (req, res) => {
       }
     }
 
-    Object.assign(user, updates);
+    // --- SECURITY FIX: Strict Field Allow-listing (Prevent Mass Assignment) ---
+    const allowedFields = ['name', 'email', 'phone', 'status', 'firstName', 'lastName', 'displayName'];
+
+    // Explicitly handle fields we want to allow
+    if (updates.name) user.name = updates.name;
+    if (updates.email) user.email = updates.email;
+    if (updates.phone) user.phone = updates.phone;
+    if (updates.status) user.status = updates.status;
+    if (updates.firstName) user.firstName = updates.firstName;
+    if (updates.lastName) user.lastName = updates.lastName;
+    if (updates.displayName) user.displayName = updates.displayName;
+
     await user.save();
 
     res.json({ message: 'User updated successfully', user });
@@ -1500,7 +1506,7 @@ exports.updateUserPassword = async (req, res) => {
     // Hash the new password
     const bcrypt = require('bcryptjs');
     const hashedPassword = await bcrypt.hash(newPassword, 10);
-    
+
     user.password = hashedPassword;
     await user.save();
 
@@ -1518,20 +1524,20 @@ exports.getAllSchools = async (req, res) => {
     console.log('[getAllSchools] Request received');
     console.log('[getAllSchools] User:', req.user);
     console.log('[getAllSchools] User role:', req.user?.role);
-    
+
     if (req.user.role !== 'superadmin') {
       console.log('[getAllSchools] Access denied - not superadmin');
       return res.status(403).json({ message: 'Access denied' });
     }
 
     console.log('[getAllSchools] Fetching schools from database...');
-    
+
     let schools;
     try {
       // Use lean() to get raw data and skip Mongoose hydration (which causes the error)
       schools = await School.find({}).select('-__v').lean();
       console.log('[getAllSchools] Found', schools.length, 'schools');
-      
+
       // Manually normalize settings for each school
       schools = schools.map(school => {
         // Ensure settings is an object, not a string
@@ -1556,7 +1562,7 @@ exports.getAllSchools = async (req, res) => {
             };
           }
         }
-        
+
         // Ensure settings has required structure
         if (!school.settings || typeof school.settings !== 'object') {
           school.settings = {
@@ -1573,7 +1579,7 @@ exports.getAllSchools = async (req, res) => {
             holidays: []
           };
         }
-        
+
         // Ensure academicSettings is an object
         if (typeof school.academicSettings === 'string') {
           try {
@@ -1586,10 +1592,10 @@ exports.getAllSchools = async (req, res) => {
             };
           }
         }
-        
+
         return school;
       });
-      
+
     } catch (dbError) {
       console.error('[getAllSchools] Database query error:', dbError);
       console.error('[getAllSchools] Error stack:', dbError.stack);
@@ -1633,9 +1639,9 @@ exports.getAllSchools = async (req, res) => {
     console.error('[getAllSchools] Error fetching schools:', error);
     console.error('[getAllSchools] Error message:', error.message);
     console.error('[getAllSchools] Error stack:', error.stack);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Error fetching schools', 
+      message: 'Error fetching schools',
       error: error.message,
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
@@ -1667,11 +1673,11 @@ exports.getSchoolById = async (req, res) => {
         code: 'ACCESS_DENIED'
       });
     }
-    
+
     try {
       let school = null;
       const mongoose = require('mongoose');
-      
+
       // Try to find by ID first if it's a valid ObjectId
       if (mongoose.Types.ObjectId.isValid(schoolId)) {
         console.log(`[getSchoolById] Looking up by ID: ${schoolId}`);
@@ -1696,13 +1702,13 @@ exports.getSchoolById = async (req, res) => {
       }
 
       console.log(`[getSchoolById] Found school: ${school.name} (${school.code})`);
-      
+
       // Return the school data from main database
       return res.json({
         success: true,
         data: school
       });
-      
+
     } catch (dbError) {
       console.error('[getSchoolById] Database error:', dbError);
       return res.status(500).json({
@@ -1712,7 +1718,7 @@ exports.getSchoolById = async (req, res) => {
         code: 'DATABASE_ERROR'
       });
     }
-    
+
   } catch (error) {
     console.error('[getSchoolById] Unexpected error:', error);
     console.error('Error stack:', error.stack);
@@ -1732,9 +1738,9 @@ exports.getSchoolInfo = async (req, res) => {
     console.log(`[getSchoolInfo] Fetching school info for: ${schoolId}`);
 
     let school = null;
-    
+
     // Check if schoolId is a valid ObjectId before attempting findById 
-    const mongoose = require('mongoose'); 
+    const mongoose = require('mongoose');
     if (mongoose.Types.ObjectId.isValid(schoolId)) {
       console.log(`[getSchoolInfo] Attempting find by ID: ${schoolId}`);
       school = await School.findById(schoolId);
@@ -1747,14 +1753,14 @@ exports.getSchoolInfo = async (req, res) => {
     }
 
     if (!school) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: 'School not found' 
+        message: 'School not found'
       });
     }
 
     console.log(`[getSchoolInfo] Found school: ${school.name} (${school.code})`);
-    
+
     // Return school info directly from main database
     res.json({
       success: true,
@@ -1787,10 +1793,10 @@ exports.getSchoolInfo = async (req, res) => {
   } catch (error) {
     console.error('Error fetching school info:', error);
     console.error('Error stack:', error.stack);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Error fetching school info', 
-      error: error.message 
+      message: 'Error fetching school info',
+      error: error.message
     });
   }
 };
@@ -1799,11 +1805,11 @@ exports.getSchoolInfo = async (req, res) => {
 exports.getSchoolInfoFromDatabase = async (req, res) => {
   try {
     const schoolCode = req.user?.schoolCode || req.params.schoolCode;
-    
+
     if (!schoolCode) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: 'School code is required' 
+        message: 'School code is required'
       });
     }
 
@@ -1812,25 +1818,25 @@ exports.getSchoolInfoFromDatabase = async (req, res) => {
     // Get connection to the school's dedicated database
     const schoolConnection = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
     const schoolInfoCollection = schoolConnection.collection('school_info');
-    
+
     // Fetch school info document
     let schoolInfo = await schoolInfoCollection.findOne({});
-    
+
     // If school_info doesn't exist or doesn't have bank details, try to sync from main database
     if (!schoolInfo || !schoolInfo.bankDetails) {
       console.log(`[getSchoolInfoFromDatabase] School info missing or no bank details, syncing from main database...`);
-      
+
       // Get school from main database
       const School = require('../models/School');
       const mainSchool = await School.findOne({ code: schoolCode });
-      
+
       if (mainSchool) {
         console.log(`[getSchoolInfoFromDatabase] Found school in main DB, syncing...`);
         console.log(`[getSchoolInfoFromDatabase] Main school bank details:`, JSON.stringify(mainSchool.bankDetails, null, 2));
-        
+
         // Sync to dedicated database
         await syncSchoolInfoToDatabase(mainSchool);
-        
+
         // Fetch again after sync
         schoolInfo = await schoolInfoCollection.findOne({});
         console.log(`[getSchoolInfoFromDatabase] After sync, bank details:`, JSON.stringify(schoolInfo?.bankDetails, null, 2));
@@ -1838,17 +1844,17 @@ exports.getSchoolInfoFromDatabase = async (req, res) => {
         console.warn(`[getSchoolInfoFromDatabase] School not found in main database: ${schoolCode}`);
       }
     }
-    
+
     if (!schoolInfo) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: 'School information not found in school database' 
+        message: 'School information not found in school database'
       });
     }
 
     console.log(`[getSchoolInfoFromDatabase] Found school: ${schoolInfo.name} (${schoolInfo.code})`);
     console.log(`[getSchoolInfoFromDatabase] Bank details present:`, !!schoolInfo.bankDetails);
-    
+
     // Return school info from school's database
     res.json({
       success: true,
@@ -1880,10 +1886,10 @@ exports.getSchoolInfoFromDatabase = async (req, res) => {
   } catch (error) {
     console.error('Error fetching school info from database:', error);
     console.error('Error stack:', error.stack);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Error fetching school info from database', 
-      error: error.message 
+      message: 'Error fetching school info from database',
+      error: error.message
     });
   }
 };
@@ -1892,28 +1898,28 @@ exports.getSchoolInfoFromDatabase = async (req, res) => {
 exports.getSchoolProfile = async (req, res) => {
   try {
     const schoolCode = req.headers['x-school-code'] || req.user.schoolCode;
-    
+
     if (!schoolCode) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'School code is required' 
+      return res.status(400).json({
+        success: false,
+        message: 'School code is required'
       });
     }
 
     // Security check: Only allow access to the user's own school unless superadmin
     if (req.user.role !== 'superadmin' && schoolCode.toUpperCase() !== req.user.schoolCode.toUpperCase()) {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Access denied: You can only view your own school profile' 
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: You can only view your own school profile'
       });
     }
 
     const school = await School.findOne({ code: schoolCode.toUpperCase() });
-    
+
     if (!school) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'School profile not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'School profile not found'
       });
     }
 
@@ -1949,10 +1955,10 @@ exports.getSchoolProfile = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching school profile:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error fetching school profile', 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching school profile',
+      error: error.message
     });
   }
 };
@@ -1961,14 +1967,14 @@ exports.getSchoolProfile = async (req, res) => {
 exports.fixSchoolData = async (req, res) => {
   try {
     const { schoolId } = req.params;
-    
+
     console.log(`🔧 Fixing corrupted data for school: ${schoolId}`);
-    
+
     const school = await School.findById(schoolId);
     if (!school) {
       return res.status(404).json({ message: 'School not found' });
     }
-    
+
     // Fix settings if it's a string
     if (typeof school.settings === 'string') {
       try {
@@ -1978,7 +1984,7 @@ exports.fixSchoolData = async (req, res) => {
         console.error('Error parsing settings:', e);
       }
     }
-    
+
     // Fix features if it's a string
     if (typeof school.features === 'string') {
       try {
@@ -1988,7 +1994,7 @@ exports.fixSchoolData = async (req, res) => {
         console.error('Error parsing features:', e);
       }
     }
-    
+
     // Fix stats if it's a string
     if (typeof school.stats === 'string') {
       try {
@@ -1998,10 +2004,10 @@ exports.fixSchoolData = async (req, res) => {
         console.error('Error parsing stats:', e);
       }
     }
-    
+
     await school.save();
     console.log('✅ School data fixed successfully');
-    
+
     res.json({ message: 'School data fixed successfully', school });
   } catch (error) {
     console.error('Error fixing school data:', error);
@@ -2035,7 +2041,7 @@ exports.updateSchool = async (req, res) => {
         console.error('Error parsing address:', e);
       }
     }
-    
+
     if (typeof updateData.contact === 'string') {
       try {
         updateData.contact = JSON.parse(updateData.contact);
@@ -2043,7 +2049,7 @@ exports.updateSchool = async (req, res) => {
         console.error('Error parsing contact:', e);
       }
     }
-    
+
     if (typeof updateData.bankDetails === 'string') {
       try {
         updateData.bankDetails = JSON.parse(updateData.bankDetails);
@@ -2051,7 +2057,7 @@ exports.updateSchool = async (req, res) => {
         console.error('Error parsing bankDetails:', e);
       }
     }
-    
+
     if (typeof updateData.accessMatrix === 'string') {
       try {
         updateData.accessMatrix = JSON.parse(updateData.accessMatrix);
@@ -2059,7 +2065,7 @@ exports.updateSchool = async (req, res) => {
         console.error('Error parsing accessMatrix:', e);
       }
     }
-    
+
     if (typeof updateData.settings === 'string') {
       try {
         updateData.settings = JSON.parse(updateData.settings);
@@ -2067,7 +2073,7 @@ exports.updateSchool = async (req, res) => {
         console.error('Error parsing settings:', e);
       }
     }
-    
+
     if (typeof updateData.features === 'string') {
       try {
         updateData.features = JSON.parse(updateData.features);
@@ -2075,7 +2081,20 @@ exports.updateSchool = async (req, res) => {
         console.error('Error parsing features:', e);
       }
     }
-    
+
+    // --- SECURITY FIX: Prevent Mass Assignment in School Update ---
+    // Sensitive fields that MUST NOT be updated via this endpoint
+    const protectedFields = ['code', 'databaseName', 'databaseCreated', 'establishedDate', 'stats', 'isActive'];
+    protectedFields.forEach(field => {
+      delete updateData[field];
+    });
+
+    // Only allow superadmins to reactivate/deactivate schools here (or use dedicated toggle)
+    if (req.user.role !== 'superadmin') {
+      delete updateData.isActive;
+    }
+    // --- END SECURITY FIX ---
+
     if (typeof updateData.stats === 'string') {
       try {
         updateData.stats = JSON.parse(updateData.stats);
@@ -2087,10 +2106,10 @@ exports.updateSchool = async (req, res) => {
     // Handle logo upload with Sharp compression if file is present
     if (req.file) {
       let tempCompressedPath = null;
-      
+
       try {
         console.log(`Updating logo: ${req.file.originalname}, Size: ${(req.file.size / 1024).toFixed(2)}KB`);
-        
+
         // Get existing school to get code for filename
         const existingSchool = await School.findById(schoolId);
 
@@ -2112,14 +2131,14 @@ exports.updateSchool = async (req, res) => {
           .resize(800, 800, { fit: 'inside', withoutEnlargement: true })
           .jpeg({ quality: 60 })
           .toFile(tempCompressedPath);
-        
+
         // Release Sharp resources
         sharpInstance.destroy();
-        
+
         // Check file size and re-compress if needed
         let stats = fs.statSync(tempCompressedPath);
         let quality = 60;
-        
+
         while (stats.size > 30 * 1024 && quality > 20) {
           quality -= 10;
           console.log(`Re-compressing with quality ${quality}...`);
@@ -2131,24 +2150,24 @@ exports.updateSchool = async (req, res) => {
           recompressInstance.destroy();
           stats = fs.statSync(tempCompressedPath);
         }
-        
+
         console.log(`Compressed logo: ${(stats.size / 1024).toFixed(2)}KB (quality: ${quality})`);
-        
+
         // Upload to Cloudinary
         const cloudinaryFolder = `logos`;
         const publicId = `${existingSchool.code}_${timestamp}`;
         const uploadResult = await uploadToCloudinary(tempCompressedPath, cloudinaryFolder, publicId);
-        
+
         updateData.logoUrl = uploadResult.secure_url;
         console.log('Logo uploaded to Cloudinary:', uploadResult.secure_url);
-        
+
         // Extract old logo public ID for deletion
         const oldLogoPublicId = existingSchool.logoUrl ? extractPublicId(existingSchool.logoUrl) : null;
-        
+
         // Delete temp files
         deleteLocalFile(req.file.path);
         deleteLocalFile(tempCompressedPath);
-        
+
         // Delete old logo from Cloudinary after successful upload
         if (oldLogoPublicId) {
           try {
@@ -2158,7 +2177,7 @@ exports.updateSchool = async (req, res) => {
             console.warn(`Could not delete old logo from Cloudinary: ${err.message}`);
           }
         }
-        
+
       } catch (error) {
         console.error('Error handling logo upload:', error);
         // Clean up temp files on error
@@ -2242,8 +2261,8 @@ exports.updateAccessMatrix = async (req, res) => {
       }
     }
 
-    res.json({ 
-      message: 'Access matrix updated successfully', 
+    res.json({
+      message: 'Access matrix updated successfully',
       school: {
         _id: school._id,
         name: school.name,
@@ -2261,11 +2280,11 @@ exports.updateAccessMatrix = async (req, res) => {
 exports.getSchoolStats = async (req, res) => {
   try {
     const { schoolId } = req.params;
-    
+
     // Check if user has access to this school
     if (req.user.role === 'superadmin' || req.user.schoolId?.toString() === schoolId) {
       const stats = await User.aggregate([
-  { $match: { schoolId: new (require('mongoose')).Types.ObjectId(schoolId) } },
+        { $match: { schoolId: new (require('mongoose')).Types.ObjectId(schoolId) } },
         {
           $group: {
             _id: '$role',
@@ -2298,34 +2317,34 @@ exports.getSchoolStats = async (req, res) => {
 exports.getAllSchoolsStats = async (req, res) => {
   try {
     console.log('📊 Fetching total users across all schools...');
-    
+
     if (req.user.role !== 'superadmin') {
-      return res.status(403).json({ 
+      return res.status(403).json({
         success: false,
-        message: 'Only super admin can access this endpoint' 
+        message: 'Only super admin can access this endpoint'
       });
     }
 
     const SchoolDatabaseManager = require('../utils/schoolDatabaseManager');
     const School = require('../models/School');
-    
+
     // Get all schools
     const schools = await School.find({ isActive: true }, 'code name');
     console.log(`📋 Found ${schools.length} active schools`);
-    
+
     let totalUsers = 0;
     let totalStudents = 0;
     let totalTeachers = 0;
     let totalParents = 0;
     let totalAdmins = 0;
     let schoolBreakdown = [];
-    
+
     // Iterate through each school and count users
     for (const school of schools) {
       try {
         const connection = await SchoolDatabaseManager.getSchoolConnection(school.code);
         const db = connection.db;
-        
+
         let schoolUserCount = 0;
         let schoolStats = {
           schoolCode: school.code,
@@ -2336,21 +2355,21 @@ exports.getAllSchoolsStats = async (req, res) => {
           admins: 0,
           total: 0
         };
-        
+
         // Count users in each role collection
         const collections = ['students', 'teachers', 'parents', 'admins'];
         for (const collectionName of collections) {
           try {
             const collection = db.collection(collectionName);
             // Count real users (excluding placeholder documents)
-            const count = await collection.countDocuments({ 
-              _placeholder: { $ne: true } 
+            const count = await collection.countDocuments({
+              _placeholder: { $ne: true }
             });
-            
+
             schoolUserCount += count;
             const role = collectionName.slice(0, -1); // Remove 's' from plural
             schoolStats[role] = count;
-            
+
             // Add to totals
             switch (role) {
               case 'student':
@@ -2370,13 +2389,13 @@ exports.getAllSchoolsStats = async (req, res) => {
             console.warn(`⚠️ Error counting ${collectionName} in school ${school.code}:`, collectionError.message);
           }
         }
-        
+
         schoolStats.total = schoolUserCount;
         totalUsers += schoolUserCount;
         schoolBreakdown.push(schoolStats);
-        
+
         console.log(`✅ School ${school.code}: ${schoolUserCount} users`);
-        
+
       } catch (schoolError) {
         console.error(`❌ Error connecting to school ${school.code}:`, schoolError.message);
         schoolBreakdown.push({
@@ -2391,9 +2410,9 @@ exports.getAllSchoolsStats = async (req, res) => {
         });
       }
     }
-    
+
     console.log(`📊 Total users across all schools: ${totalUsers}`);
-    
+
     res.json({
       success: true,
       totalUsers,
@@ -2406,13 +2425,13 @@ exports.getAllSchoolsStats = async (req, res) => {
       schoolBreakdown,
       totalSchools: schools.length
     });
-    
+
   } catch (error) {
     console.error('❌ Error fetching all schools stats:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Error fetching all schools stats', 
-      error: error.message 
+      message: 'Error fetching all schools stats',
+      error: error.message
     });
   }
 };
@@ -2421,7 +2440,7 @@ exports.getAllSchoolsStats = async (req, res) => {
 exports.toggleSchoolStatus = async (req, res) => {
   try {
     const { schoolId } = req.params;
-    
+
     if (req.user.role !== 'superadmin') {
       return res.status(403).json({ message: 'Only super admin can toggle school status' });
     }
@@ -2434,7 +2453,7 @@ exports.toggleSchoolStatus = async (req, res) => {
     school.isActive = !school.isActive;
     await school.save();
 
-    res.json({ 
+    res.json({
       message: `School ${school.isActive ? 'activated' : 'deactivated'} successfully`,
       school: { id: school._id, name: school.name, isActive: school.isActive }
     });
@@ -2452,18 +2471,18 @@ exports.deleteSchool = async (req, res) => {
     console.log('Request body:', req.body);
     console.log('Request headers:', req.headers);
     console.log('Request user:', req.user);
-    
+
     const { schoolId } = req.params;
-    
+
     console.log(`[DELETE REQUEST] School ID: ${schoolId}, User: ${req.user?.email || 'UNKNOWN'}, Role: ${req.user?.role || 'UNKNOWN'}`);
     console.log(`[DELETE REQUEST] Headers:`, req.headers);
     console.log(`[DELETE REQUEST] Method: ${req.method}, URL: ${req.originalUrl}`);
-    
+
     if (!req.user) {
       console.log('[DELETE DENIED] No user found in request');
       return res.status(401).json({ success: false, message: 'Authentication required' });
     }
-    
+
     if (req.user.role !== 'superadmin') {
       console.log('[DELETE DENIED] User is not superadmin');
       return res.status(403).json({ success: false, message: 'Only super admin can delete schools' });
@@ -2500,7 +2519,7 @@ exports.deleteSchool = async (req, res) => {
       dbDropInfo.attempted = true;
       dbDropInfo.derivedDbName = derivedDbName;
       dbDropInfo.dbNameToDrop = dbNameToDrop;
-      
+
       // First, close any existing connection to the school database
       try {
         await SchoolDatabaseManager.closeSchoolConnection(school.code);
@@ -2508,13 +2527,13 @@ exports.deleteSchool = async (req, res) => {
       } catch (closeErr) {
         console.warn(`[DB DROP] Warning: Could not close school connection: ${closeErr.message}`);
       }
-      
+
       try {
         const { MongoClient } = require('mongodb');
         // Use the same MongoDB URI as the main connection (Atlas)
         const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb://localhost:27017';
         dbDropInfo.mongoUri = mongoUri.replace(/\/[^/]*(\?|$)/, '/'); // Hide credentials in logs
-        
+
         console.log(`[DB DROP] Connecting to MongoDB to drop database: ${dbNameToDrop}`);
         const adminClient = new MongoClient(mongoUri);
         await adminClient.connect();
@@ -2567,7 +2586,7 @@ exports.deleteSchool = async (req, res) => {
     console.log('[DELETE DEBUG] About to delete school from database...');
     console.log('[DELETE DEBUG] School ID to delete:', schoolId);
     console.log('[DELETE DEBUG] School object found:', { id: school._id, name: school.name, code: school.code });
-    
+
     // Verify the School model is properly connected
     console.log('[DELETE DEBUG] School model info:', {
       modelName: School.modelName,
@@ -2584,12 +2603,12 @@ exports.deleteSchool = async (req, res) => {
     const deletedSchool = await School.findByIdAndDelete(schoolId);
     console.log('[DELETE DEBUG] School deletion result:', deletedSchool);
     console.log('[DELETE DEBUG] Was deletion successful?', !!deletedSchool);
-    
+
     // Count schools after deletion
     const countAfter = await School.countDocuments({});
     console.log('[DELETE DEBUG] Total schools in database after deletion:', countAfter);
     console.log('[DELETE DEBUG] Schools count difference:', countBefore - countAfter);
-    
+
     // Verify deletion by trying to find the school again
     const verifyDeletion = await School.findById(schoolId);
     console.log('[DELETE VERIFICATION] School still exists after deletion?', !!verifyDeletion);
@@ -2597,21 +2616,21 @@ exports.deleteSchool = async (req, res) => {
       console.error('[DELETE VERIFICATION ERROR] School still exists in database after deletion!');
       return res.status(500).json({ success: false, message: 'School deletion failed - school still exists in database' });
     }
-    
+
     if (!deletedSchool) {
       console.log('[DELETE ERROR] Failed to delete school from database');
       return res.status(500).json({ success: false, message: 'Failed to delete school from database' });
     }
 
     console.log(`[SCHOOL DELETED] ${school.name} (${school._id}) successfully deleted by ${req.user.email}`);
-    
-    res.json({ 
+
+    res.json({
       success: true,
       message: 'School and all associated data deleted successfully',
-      deletedSchool: { 
-        id: school._id, 
+      deletedSchool: {
+        id: school._id,
         name: school.name,
-        code: school.code 
+        code: school.code
       },
       deletedUsers: deletedUsers.deletedCount,
       deletedTestDetails: deletedTestDetails.deletedCount,
@@ -2619,10 +2638,10 @@ exports.deleteSchool = async (req, res) => {
     });
   } catch (error) {
     console.error('[DELETE ERROR] Error deleting school:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Error deleting school', 
-      error: error.message 
+      message: 'Error deleting school',
+      error: error.message
     });
   }
 };
@@ -2671,12 +2690,12 @@ exports.addSchool = async (req, res) => {
     });
 
     await newSchool.save();
-    
+
     // Create default test details for the school
     try {
       await TestDetails.createDefaultTestTypes(
-        newSchool._id, 
-        newSchool.code, 
+        newSchool._id,
+        newSchool.code,
         req.user ? req.user._id : null
       );
       console.log(`[TEST DETAILS CREATED] Default test types created for school ${newSchool.code}`);
@@ -2684,7 +2703,7 @@ exports.addSchool = async (req, res) => {
       console.error(`[TEST DETAILS ERROR] Failed to create test details for school ${newSchool.code}:`, testError);
       // Don't fail school creation if test details creation fails
     }
-    
+
     res.status(201).json({ message: 'School added successfully', school: newSchool });
   } catch (error) {
     console.error('[ADD SCHOOL ERROR]', error);
@@ -2696,7 +2715,7 @@ exports.addSchool = async (req, res) => {
 exports.syncSchoolToDatabase = async (req, res) => {
   try {
     const { schoolId } = req.params;
-    
+
     // Check if user is superadmin
     if (req.user.role !== 'superadmin') {
       return res.status(403).json({ message: 'Access denied. Only superadmins can sync school data.' });
@@ -2708,14 +2727,14 @@ exports.syncSchoolToDatabase = async (req, res) => {
     }
 
     if (!school.databaseCreated) {
-      return res.status(400).json({ 
-        message: 'School database not created yet. Cannot sync data.' 
+      return res.status(400).json({
+        message: 'School database not created yet. Cannot sync data.'
       });
     }
 
     await syncSchoolInfoToDatabase(school);
-    
-    res.json({ 
+
+    res.json({
       message: 'School information synced successfully to dedicated database',
       school: {
         name: school.name,
@@ -2726,9 +2745,9 @@ exports.syncSchoolToDatabase = async (req, res) => {
     });
   } catch (error) {
     console.error('Error syncing school to database:', error);
-    res.status(500).json({ 
-      message: 'Error syncing school to database', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Error syncing school to database',
+      error: error.message
     });
   }
 };
@@ -2779,9 +2798,9 @@ exports.syncAllSchoolsToDatabase = async (req, res) => {
     });
   } catch (error) {
     console.error('Error syncing all schools:', error);
-    res.status(500).json({ 
-      message: 'Error syncing all schools to their databases', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Error syncing all schools to their databases',
+      error: error.message
     });
   }
 };
@@ -2841,7 +2860,7 @@ exports.getClassesForSchool = async (req, res) => {
 
     // Add caching headers (30 seconds)
     res.set('Cache-Control', 'private, max-age=30');
-    
+
     res.json({
       success: true,
       data: transformedClasses

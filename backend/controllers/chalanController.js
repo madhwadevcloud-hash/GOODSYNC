@@ -950,3 +950,184 @@ exports.markAsPaid = async (req, res) => {
     });
   }
 };
+
+// Download chalan as PDF with proper authorization
+exports.downloadChalanPdf = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { schoolId, schoolCode, role, _id: userId, userId: userUserId } = req.user;
+    
+    // Validate that ID is a valid MongoDB ObjectId
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid chalan ID format'
+      });
+    }
+    
+    // Get per-school database connection
+    const conn = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
+    const db = conn.db || conn;
+    const chalansCol = db.collection('chalans');
+    const usersCol = db.collection('users');
+    
+    // Find chalan
+    const chalan = await chalansCol.findOne({
+      _id: new ObjectId(id),
+      schoolId: new ObjectId(schoolId)
+    });
+    
+    if (!chalan) {
+      return res.status(404).json({
+        success: false,
+        message: 'Chalan not found'
+      });
+    }
+    
+    // Authorization check - verify user owns this chalan or has admin privileges
+    let isAuthorized = false;
+    
+    // Admin, superadmin, and accountant roles have access to all chalans in their school
+    if (['admin', 'superadmin', 'accountant'].includes(role)) {
+      isAuthorized = true;
+    }
+    
+    // Students can only access their own chalans
+    if (role === 'student') {
+      // Check if chalan belongs to this student
+      // Compare both ObjectId and userId string for compatibility
+      const studentObjectId = chalan.studentId.toString();
+      const userObjectIdStr = userId.toString();
+      const userUserIdStr = userUserId?.toString() || '';
+      
+      if (studentObjectId === userObjectIdStr || studentObjectId === userUserIdStr) {
+        isAuthorized = true;
+      }
+      
+      // Additional check: verify student details match
+      if (!isAuthorized && chalan.studentId) {
+        const student = await usersCol.findOne({
+          _id: chalan.studentId,
+          $or: [
+            { _id: new ObjectId(userId) },
+            { userId: userUserId },
+            { userId: userId.toString() }
+          ]
+        });
+        
+        if (student) {
+          isAuthorized = true;
+        }
+      }
+    }
+    
+    if (!isAuthorized) {
+      console.warn(`[AUTHORIZATION] User ${userId} (${role}) denied access to chalan ${id}`);
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. You do not have permission to access this chalan.'
+      });
+    }
+    
+    // Get student details for PDF
+    let studentName = 'Student';
+    let rollNumber = '';
+    let admissionNo = '';
+    
+    if (chalan.studentId) {
+      const student = await usersCol.findOne(
+        { _id: chalan.studentId },
+        { projection: { name: 1, rollNumber: 1, admissionNo: 1, admNo: 1, userId: 1 } }
+      );
+      if (student) {
+        studentName = student.name?.displayName || 
+                     [student.name?.firstName, student.name?.lastName].filter(Boolean).join(' ') || 
+                     student.fullName || 
+                     student.username || 
+                     'Student';
+        rollNumber = student.rollNumber || student.rollno || '';
+        admissionNo = student.admissionNo || student.admNo || '';
+      }
+    }
+    
+    // Fetch school info including bank details
+    const schoolInfoCol = db.collection('school_info');
+    const schoolInfo = await schoolInfoCol.findOne({});
+    
+    // Prepare PDF
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="chalan-${chalan.chalanNumber || id}.pdf"`);
+    
+    const PDFDocument = require('pdfkit');
+    const doc = new PDFDocument({ margin: 40 });
+    doc.pipe(res);
+    
+    // Helpers
+    const formatINR = (val) => `INR ${new Intl.NumberFormat('en-IN').format(Number(val || 0))}`;
+    
+    // Header
+    const schoolTitle = schoolInfo?.name || (req.user && req.user.schoolCode) || 'School';
+    doc.fontSize(18).text(schoolTitle, { align: 'left' });
+    doc.moveDown(0.3);
+    doc.fontSize(14).text(`Chalan: ${chalan.chalanNumber || 'N/A'}`, { align: 'left' });
+    doc.moveDown();
+    
+    // Student details
+    doc.fontSize(11).text(`Student: ${studentName}`);
+    doc.text(`Class/Section: ${(chalan.class || '-')}/${(chalan.section || '-')}`);
+    doc.text(`Academic Year: ${chalan.academicYear || '-'}`);
+    if (rollNumber) doc.text(`Roll No: ${rollNumber}`);
+    if (admissionNo) doc.text(`Admission No: ${admissionNo}`);
+    doc.moveDown();
+    
+    // Chalan details
+    doc.fontSize(12).text('Fee Details', { underline: true });
+    doc.fontSize(11).text(`Installment: ${chalan.installmentName || 'Fee Payment'}`);
+    doc.text(`Amount Due: ${formatINR(chalan.amount)}`);
+    doc.text(`Paid Amount: ${formatINR(chalan.paidAmount || 0)}`);
+    doc.text(`Pending Amount: ${formatINR(Math.max(0, chalan.amount - (chalan.paidAmount || 0)))}`);
+    doc.text(`Due Date: ${chalan.dueDate ? new Date(chalan.dueDate).toLocaleDateString() : '-'}`);
+    doc.text(`Status: ${chalan.status || 'unpaid'}`);
+    doc.moveDown();
+    
+    // Payment details if paid
+    if (chalan.status === 'paid' || chalan.status === 'partial') {
+      doc.fontSize(12).text('Payment Information', { underline: true });
+      doc.fontSize(11).text(`Payment Date: ${chalan.paymentDate ? new Date(chalan.paymentDate).toLocaleDateString() : '-'}`);
+      doc.text(`Payment Method: ${chalan.paymentMethod || '-'}`);
+      if (chalan.paymentDetails?.reference) {
+        doc.text(`Reference: ${chalan.paymentDetails.reference}`);
+      }
+      doc.moveDown();
+    }
+    
+    // School bank details
+    if (schoolInfo?.bankDetails) {
+      doc.fontSize(12).text('Bank Details for Payment', { underline: true });
+      doc.fontSize(11).text(`Bank Name: ${schoolInfo.bankDetails.bankName || '-'}`);
+      doc.text(`Account Number: ${schoolInfo.bankDetails.accountNumber || '-'}`);
+      doc.text(`IFSC Code: ${schoolInfo.bankDetails.ifscCode || '-'}`);
+      doc.text(`Branch: ${schoolInfo.bankDetails.branch || '-'}`);
+      if (schoolInfo.bankDetails.accountHolder) {
+        doc.text(`Account Holder: ${schoolInfo.bankDetails.accountHolder}`);
+      }
+    }
+    
+    // Footer
+    doc.moveDown(2);
+    doc.fontSize(10).text(`Generated on: ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}`, { align: 'center' });
+    doc.fontSize(8).text('This is a computer generated document and does not require signature.', { align: 'center' });
+    
+    doc.end();
+    
+    console.log(`[PDF DOWNLOAD] User ${userId} (${role}) successfully downloaded chalan ${id}`);
+    
+  } catch (error) {
+    console.error('Error downloading chalan PDF:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to generate chalan PDF',
+      error: error.message
+    });
+  }
+};

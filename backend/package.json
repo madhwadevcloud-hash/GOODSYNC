@@ -21,6 +21,7 @@
     "csv-stringify": "^6.6.0",
     "dotenv": "^16.6.1",
     "express": "^4.22.1",
+    "express-mongo-sanitize": "^2.2.0",
     "json2csv": "^6.0.0-alpha.2",
     "jsonwebtoken": "^9.0.2",
     "mongodb": "^6.18.0",

@@ -48,8 +48,11 @@ exports.login = async (req, res) => {
 
     let user;
 
+    // Sanitize email to prevent NoSQL/Regex injection
+    const sanitizedEmail = String(email || '').trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
     // First try to find in SuperAdmin collection
-    user = await SuperAdmin.findOne({ email: { $regex: new RegExp(email, 'i') } });
+    user = await SuperAdmin.findOne({ email: { $regex: new RegExp(`^${sanitizedEmail}$`, 'i') } });
 
     if (user) {
       console.log(`🔍 Found in SuperAdmin collection: ${email}`);
@@ -98,7 +101,7 @@ exports.login = async (req, res) => {
     }
 
     // If not found in SuperAdmin, try regular Users collection
-    user = await User.findOne({ email: { $regex: new RegExp(email, 'i') } }).read('primaryPreferred');
+    user = await User.findOne({ email: { $regex: new RegExp(`^${sanitizedEmail}$`, 'i') } }).read('primaryPreferred');
     console.log(`🔍 Querying users database for user: ${email}`);
 
     if (!user) {
