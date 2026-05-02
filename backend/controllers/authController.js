@@ -277,7 +277,7 @@ exports.schoolLogin = async (req, res) => {
       schoolCode: schoolCode,
       isActive: user.isActive,
       lastLogin: new Date(),
-      permissions: accessMatrix?.matrix[user.role] || {}
+      permissions: accessMatrix?.matrix?.[user.role] || {}
     };
 
     console.log(`[SCHOOL LOGIN DEBUG] Response user object:`, responseUser);
