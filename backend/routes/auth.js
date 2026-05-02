@@ -1,11 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const { register, login, schoolLogin, getDemoCredentials } = require('../controllers/authController');
+const { loginLimiter } = require('../middleware/rateLimiter');
 
 router.get('/demo-credentials', getDemoCredentials);
 
 router.post('/register', register);
-router.post('/login', login);
-router.post('/school-login', schoolLogin);
+router.post('/login', loginLimiter, login);
+router.post('/school-login', loginLimiter, schoolLogin);
 
 module.exports = router;

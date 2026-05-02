@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const SchoolDatabaseManager = require('./schoolDatabaseManager');
 const { ObjectId } = require('mongodb');
+const { v4: uuidv4 } = require('uuid');
 
 class UserGenerator {
 
@@ -64,6 +65,7 @@ class UserGenerator {
 
       let userDocument = {
         userId,
+        secureId: uuidv4(), // Non-guessable external identifier
         email: userData.email,
         password: hashedPassword,
         temporaryPassword: plainPassword,
@@ -716,12 +718,15 @@ class UserGenerator {
 
       for (const collectionName of collections) {
         const collection = connection.collection(collectionName);
+        const timeout = setTimeout(() => {
+          throw new Error(`Connection timeout for ${collectionName} after 30 seconds`);
+        }, 30000);
 
         // Build query - only use ObjectId if userId is a valid ObjectId format
         const query = { userId: userId };
 
         // Check if userId is a valid ObjectId format (24 character hex string)
-        if (/^[0-9a-fA-F]{24}$/.test(userId)) {
+        if (userId.match(/^[0-9a-fA-F]{24}$/)) {
           query.$or = [
             { _id: new ObjectId(userId) },
             { userId: userId }
@@ -730,6 +735,7 @@ class UserGenerator {
         }
 
         user = await collection.findOne(query);
+        clearTimeout(timeout);
         if (user) {
           userCollection = collection;
           break;
@@ -794,9 +800,11 @@ class UserGenerator {
       const connection = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
       const collections = ['admins', 'teachers', 'students', 'parents'];
       const raw = (identifier || '').toString().trim();
-      const isObjectId = ObjectId.isValid(raw);
+      
+      const escapedIdentifier = raw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const isObjectId = /^[0-9a-fA-F]{24}$/.test(raw);
       const looksLikeEmail = raw.includes('@');
-      const emailRegex = looksLikeEmail ? new RegExp(`^${raw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') : null;
+      const emailRegex = looksLikeEmail ? new RegExp(`^${escapedIdentifier}$`, 'i') : null;
 
       for (const collectionName of collections) {
         const collection = connection.collection(collectionName);

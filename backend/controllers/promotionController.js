@@ -1,6 +1,7 @@
 const DatabaseManager = require('../utils/databaseManager');
 const School = require('../models/School');
 const UserGenerator = require('../utils/userGenerator');
+const { v4: uuidv4 } = require('uuid');
 
 // Class progression map
 const classProgression = {
@@ -147,6 +148,11 @@ exports.bulkPromotion = async (req, res) => {
     let skippedCount = 0;
     let errors = [];
 
+    // Data versioning: Create a batch ID for this promotion run
+    const promotionBatchId = uuidv4();
+    const promotionHistoryCollection = schoolConnection.collection('promotion_history');
+    console.log(`📦 Starting bulk promotion batch: ${promotionBatchId}`);
+
     // Process each student
     for (const student of students) {
       try {
@@ -161,6 +167,23 @@ exports.bulkPromotion = async (req, res) => {
         // Handle final year students
         if (currentClass === finalYearClass) {
           if (finalYearAction === 'graduate') {
+            // Snapshot current state for history before graduating
+            await promotionHistoryCollection.insertOne({
+              batchId: promotionBatchId,
+              studentId: student._id,
+              userId: student.userId,
+              previousState: {
+                academicYear: fromYear,
+                class: currentClass,
+                section: currentSection,
+                status: student.studentDetails?.status || 'active'
+              },
+              action: 'graduated',
+              targetAcademicYear: toYear,
+              processedAt: new Date(),
+              processedBy: req.user?.userId || 'system'
+            });
+
             // Move to alumni
             const alumniRecord = {
               ...student,
@@ -235,6 +258,24 @@ exports.bulkPromotion = async (req, res) => {
             continue;
           }
 
+          // Snapshot current state for history before promoting
+          await promotionHistoryCollection.insertOne({
+            batchId: promotionBatchId,
+            studentId: student._id,
+            userId: student.userId,
+            previousState: {
+              academicYear: fromYear,
+              class: currentClass,
+              section: currentSection,
+              status: student.studentDetails?.status || 'active'
+            },
+            action: 'promoted',
+            targetClass: nextClass,
+            targetAcademicYear: toYear,
+            processedAt: new Date(),
+            processedBy: req.user?.userId || 'system'
+          });
+
           await usersCollection.updateOne(
             { _id: student._id },
             {
@@ -245,6 +286,7 @@ exports.bulkPromotion = async (req, res) => {
               },
               $push: {
                 'studentDetails.academicHistory': {
+                  promotionBatchId: promotionBatchId,
                   academicYear: fromYear,
                   class: currentClass,
                   section: currentSection,
@@ -436,6 +478,11 @@ exports.sectionPromotion = async (req, res) => {
     let graduatedCount = 0;
     let errors = [];
 
+    // Data versioning: Create a batch ID for this promotion run
+    const promotionBatchId = uuidv4();
+    const promotionHistoryCollection = schoolConnection.collection('promotion_history');
+    console.log(`📦 Starting section promotion batch: ${promotionBatchId}`);
+
     // Process each student
     for (const student of students) {
       try {
@@ -444,6 +491,24 @@ exports.sectionPromotion = async (req, res) => {
 
         // Check if student should be held back
         if (holdBackSequenceIds.includes(userId)) {
+          // Snapshot current state
+          await promotionHistoryCollection.insertOne({
+            batchId: promotionBatchId,
+            studentId: student._id,
+            userId: student.userId,
+            previousState: {
+              academicYear: fromYear,
+              class: className,
+              section: currentSection,
+              status: student.studentDetails?.status || 'active'
+            },
+            action: 'held_back',
+            targetClass: className,
+            targetAcademicYear: toYear,
+            processedAt: new Date(),
+            processedBy: req.user?.userId || 'system'
+          });
+
           // Keep in same class, just update academic year
           await usersCollection.updateOne(
             { _id: student._id },
@@ -454,6 +519,7 @@ exports.sectionPromotion = async (req, res) => {
               },
               $push: {
                 'studentDetails.academicHistory': {
+                  promotionBatchId: promotionBatchId,
                   academicYear: fromYear,
                   class: className,
                   section: section,
@@ -467,6 +533,23 @@ exports.sectionPromotion = async (req, res) => {
           heldBackCount++;
           console.log(`⏸️ Held back: ${userId} in Class ${className}`);
         } else if (graduateStudents) {
+          // Snapshot current state
+          await promotionHistoryCollection.insertOne({
+            batchId: promotionBatchId,
+            studentId: student._id,
+            userId: student.userId,
+            previousState: {
+              academicYear: fromYear,
+              class: className,
+              section: currentSection,
+              status: student.studentDetails?.status || 'active'
+            },
+            action: 'graduated',
+            targetAcademicYear: toYear,
+            processedAt: new Date(),
+            processedBy: req.user?.userId || 'system'
+          });
+
           // Graduate student (move to alumni or mark as passed out)
           const alumniRecord = {
             ...student,
@@ -490,6 +573,7 @@ exports.sectionPromotion = async (req, res) => {
               },
               $push: {
                 'studentDetails.academicHistory': {
+                  promotionBatchId: promotionBatchId,
                   academicYear: fromYear,
                   class: className,
                   section: section,
@@ -503,6 +587,24 @@ exports.sectionPromotion = async (req, res) => {
           graduatedCount++;
           console.log(`🎓 Graduated/Passed Out: ${userId} from Class ${className}`);
         } else {
+          // Snapshot current state
+          await promotionHistoryCollection.insertOne({
+            batchId: promotionBatchId,
+            studentId: student._id,
+            userId: student.userId,
+            previousState: {
+              academicYear: fromYear,
+              class: className,
+              section: currentSection,
+              status: student.studentDetails?.status || 'active'
+            },
+            action: 'promoted',
+            targetClass: nextClass,
+            targetAcademicYear: toYear,
+            processedAt: new Date(),
+            processedBy: req.user?.userId || 'system'
+          });
+
           // Promote to next class
           await usersCollection.updateOne(
             { _id: student._id },
@@ -514,6 +616,7 @@ exports.sectionPromotion = async (req, res) => {
               },
               $push: {
                 'studentDetails.academicHistory': {
+                  promotionBatchId: promotionBatchId,
                   academicYear: fromYear,
                   class: className,
                   section: section,

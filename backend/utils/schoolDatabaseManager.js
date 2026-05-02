@@ -41,8 +41,8 @@ class SchoolDatabaseManager {
       connectionUri = `${cleanBase}/${dbName}`;
     }
 
-    console.log(`🔗 Connecting to: ${dbName} using URI from environment.`);
-
+    console.log(`🔗 Connecting to: ${dbName} using URI: ${connectionUri}`);
+    
     const connection = mongoose.createConnection(connectionUri, {
       maxPoolSize: 10,
       serverSelectionTimeoutMS: 10000,
@@ -53,8 +53,8 @@ class SchoolDatabaseManager {
     try {
       await new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
-          reject(new Error(`Connection timeout for ${dbName} after 10 seconds`));
-        }, 10000);
+          reject(new Error(`Connection timeout for ${dbName} after 30 seconds`));
+        }, 30000);
 
         connection.once('open', () => {
           clearTimeout(timeout);
@@ -62,6 +62,7 @@ class SchoolDatabaseManager {
         });
 
         connection.once('error', (error) => {
+          console.error(`❌ Connection error event for ${dbName}:`, error);
           clearTimeout(timeout);
           reject(error);
         });
@@ -125,9 +126,9 @@ class SchoolDatabaseManager {
   // Create models for a specific school database
   static createSchoolModels(connection) {
     // Import schemas
-    const userSchema = require('./User').schema;
-    const classSchema = require('./Class').schema;
-    const subjectSchema = require('./Subject').schema;
+    const userSchema = require('../models/User').schema;
+    const classSchema = require('../models/Class').schema;
+    const subjectSchema = require('../models/Subject').schema;
 
     return {
       User: connection.model('User', userSchema),

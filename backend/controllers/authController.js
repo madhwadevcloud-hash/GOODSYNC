@@ -198,7 +198,12 @@ exports.schoolLogin = async (req, res) => {
     const SchoolDatabaseManager = require('../utils/schoolDatabaseManager');
     const connection = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
     const userCollection = connection.collection(user.collection);
-    const userWithPassword = await userCollection.findOne({ userId: user.userId });
+    const userWithPassword = await userCollection.findOne({ 
+      $or: [
+        { userId: user.userId },
+        { _id: user._id }
+      ]
+    });
 
     if (!userWithPassword) {
       console.log(`[SCHOOL LOGIN FAIL] User data not found: ${identifier}`);
@@ -207,6 +212,9 @@ exports.schoolLogin = async (req, res) => {
         message: 'Invalid credentials'
       });
     }
+
+    console.log(`[SCHOOL LOGIN DEBUG] Verifying password for user: ${user.userId || user._id}...`);
+    console.log(`[SCHOOL LOGIN DEBUG] User collection used: ${user.collection}`);
 
     // Verify password
     const isMatch = await bcrypt.compare(password, userWithPassword.password);
@@ -238,7 +246,12 @@ exports.schoolLogin = async (req, res) => {
 
     // Update last login
     await userCollection.updateOne(
-      { userId: user.userId },
+      { 
+        $or: [
+          { userId: user.userId },
+          { _id: user._id }
+        ]
+      },
       {
         $set: {
           lastLogin: new Date(),
@@ -247,9 +260,17 @@ exports.schoolLogin = async (req, res) => {
       }
     );
 
-    // Get access matrix for this school
+    // Get access matrix for this school (robust check)
     const accessCollection = connection.collection('access_matrix');
-    const accessMatrix = await accessCollection.findOne({ _id: 'school_permissions' });
+    let accessMatrix = await accessCollection.findOne({
+      $or: [{ _id: 'school_permissions' }, { schoolCode: schoolCode.toUpperCase() }]
+    });
+
+    if (!accessMatrix) {
+      const accessMatricesPlural = connection.collection('access_matrices');
+      accessMatrix = await accessMatricesPlural.findOne({ schoolCode: schoolCode.toUpperCase() }) || 
+                    await accessMatricesPlural.findOne({ _id: 'school_permissions' });
+    }
 
     // Generate JWT token
     const token = jwt.sign(
@@ -296,7 +317,11 @@ exports.schoolLogin = async (req, res) => {
     res.json(finalResponse);
 
   } catch (error) {
-    console.error('[SCHOOL LOGIN ERROR]', error);
+    console.error('❌❌❌ [SCHOOL LOGIN FATAL ERROR] ❌❌❌');
+    console.error('Message:', error.message);
+    console.error('Stack:', error.stack);
+    if (error.code) console.error('Error Code:', error.code);
+    if (error.name) console.error('Error Name:', error.name);
     res.status(500).json({
       success: false,
       message: 'Login failed. Please try again.',

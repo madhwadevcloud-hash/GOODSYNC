@@ -792,9 +792,11 @@ exports.createUserSimple = async (req, res) => {
     const firstName = parts[0] || 'User';
     const lastName = parts.length > 1 ? parts.slice(1).join(' ') : 'User';
 
+    const { v4: uuidv4 } = require('uuid');
     // Build base user document with required fields satisfied
     const baseDoc = {
       userId,
+      secureId: uuidv4(), // Non-guessable external identifier
       name: { firstName, lastName, displayName: `${firstName} ${lastName}`.trim() },
       email,
       password: hashedPassword,

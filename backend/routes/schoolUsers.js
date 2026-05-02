@@ -6,12 +6,14 @@ const authMiddleware = require('../middleware/auth');
 // --- HOSTING FIX: Remove local multer. Import controllers. ---
 const exportImportController = require('../controllers/exportImportController');
 const { setSchoolContext } = require('../middleware/schoolContext');
+const { enforceJwtTenancy } = require('../middleware/tenancy');
 // --- END FIX ---
 
 // --- HOSTING FIX: Wrap in a function to accept 'upload' from server.js ---
 module.exports = (upload) => {
     // Apply authentication middleware to all routes
     router.use(authMiddleware.auth);
+    router.use(enforceJwtTenancy); // Enforce tenancy based on JWT
     router.use(setSchoolContext); // Add context middleware
 
     // User management routes for specific schools

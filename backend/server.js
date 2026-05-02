@@ -27,6 +27,7 @@ const mongoSanitize = require('express-mongo-sanitize');
 
 
 const app = express();
+app.set('trust proxy', 1); // Trust first proxy for rate limiting and IP resolution
 const PORT = process.env.PORT || 5050;
 
 // Create HTTP server for Socket.IO
@@ -312,6 +313,10 @@ app.use(cors({
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 app.use(mongoSanitize()); // Official MongoDB sanitization middleware
+
+// Global API rate limiting — 100 requests per minute per IP
+const { apiLimiter } = require('./middleware/rateLimiter');
+app.use('/api/', apiLimiter);
 
 // Configure multer for file uploads
 // Make sure the 'uploads/' directory exists in your backend folder
