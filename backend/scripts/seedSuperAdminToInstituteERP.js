@@ -1,8 +1,9 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
+require('dotenv').config();
 
-// MongoDB connection string
-const MONGODB_URI = 'mongodb+srv://nitopunk04o:IOilWo4osDam0vmN@erp.ua5qems.mongodb.net/institute_erp?retryWrites=true&w=majority&appName=erp';
+// MongoDB connection string from environment
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/institute_erp';
 
 async function seedSuperAdmin() {
   try {
@@ -20,10 +21,14 @@ async function seedSuperAdmin() {
     await usersCollection.deleteMany({ role: 'superadmin' });
 
     console.log('🔐 Inserting superadmin user...');
-    const hashedPassword = await bcrypt.hash('super123', 10);
+    const plainPassword = process.env.SUPER_ADMIN_PASSWORD;
+    if (!plainPassword) {
+      throw new Error('SUPER_ADMIN_PASSWORD not set in environment variables');
+    }
+    const hashedPassword = await bcrypt.hash(plainPassword, 10);
     const superAdmin = {
       userId: 'SUPER_ADMIN_001', // Add unique userId for superadmin
-      email: 'super@erp.com',
+      email: process.env.SUPER_ADMIN_EMAIL,
       password: hashedPassword,
       role: 'superadmin',
       isActive: true,

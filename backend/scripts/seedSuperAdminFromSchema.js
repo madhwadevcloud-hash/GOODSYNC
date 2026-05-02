@@ -18,7 +18,7 @@ const seedSuperAdminFromSchema = async () => {
 
     // Check if superadmin already exists
     const existingSuperAdmin = await User.findOne({ 
-      email: 'super@erp.com',
+      email: process.env.SUPER_ADMIN_EMAIL,
       role: 'superadmin' 
     });
 
@@ -31,17 +31,21 @@ const seedSuperAdminFromSchema = async () => {
 
     // Hash the password
     const saltRounds = 12;
-    const hashedPassword = await bcrypt.hash('super123', saltRounds);
+    const plainPassword = process.env.SUPER_ADMIN_PASSWORD;
+    if (!plainPassword) {
+      throw new Error('SUPER_ADMIN_PASSWORD not set in environment variables');
+    }
+    const hashedPassword = await bcrypt.hash(plainPassword, saltRounds);
 
     // Create SuperAdmin user
     const superAdminData = {
       userId: 'SUPER_ADMIN_001',
       name: {
-        firstName: 'Super',
-        lastName: 'Admin',
-        displayName: 'Super Admin'
+        firstName: process.env.SUPER_ADMIN_FIRST_NAME || 'Super',
+        lastName: process.env.SUPER_ADMIN_LAST_NAME || 'Admin',
+        displayName: `${process.env.SUPER_ADMIN_FIRST_NAME || 'Super'} ${process.env.SUPER_ADMIN_LAST_NAME || 'Admin'}`
       },
-      email: 'super@erp.com',
+      email: process.env.SUPER_ADMIN_EMAIL,
       password: hashedPassword,
       passwordChangeRequired: false, // Set to false for convenience
       role: 'superadmin',
@@ -56,10 +60,10 @@ const seedSuperAdminFromSchema = async () => {
 
     console.log('\n✅ SuperAdmin created successfully!');
     console.log('==========================================');
-    console.log('Email: super@erp.com');
-    console.log('Password: super123');
-    console.log('Role: superadmin');
+    console.log('Email:', process.env.SUPER_ADMIN_EMAIL);
     console.log('User ID:', superAdmin.userId);
+    console.log('Role: superadmin');
+    console.log('⚠️  Password stored securely as bcrypt hash');
     console.log('==========================================');
 
   } catch (error) {

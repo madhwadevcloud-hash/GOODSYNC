@@ -13,22 +13,22 @@ const roleMeta: Record<
     title: "Super Admin",
     subtitle: "All-powerful ruler",
     icon: <Shield className="w-5 h-5" />,
-    demoEmail: "super@erp.com",
-    demoPass: "super123",
+    demoEmail: "",
+    demoPass: "",
   },
   admin: {
     title: "Admin",
     subtitle: "System wizard",
     icon: <Settings className="w-5 h-5" />,
-    demoEmail: "admin@test.com",
-    demoPass: "t8qW7Y58",
+    demoEmail: "",
+    demoPass: "",
   },
   teacher: {
     title: "Teacher",
     subtitle: "Knowledge master",
     icon: <GraduationCap className="w-5 h-5" />,
-    demoEmail: "teacher@test.com",
-    demoPass: "fFvja2L5",
+    demoEmail: "",
+    demoPass: "",
   },
 };
 

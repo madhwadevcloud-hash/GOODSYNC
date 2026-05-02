@@ -21,6 +21,9 @@ const exportImportController = require('./controllers/exportImportController'); 
 const { auth } = require('./middleware/auth'); // <-- Import auth middleware (adjust path if needed)
 const { setMainDbContext } = require('./middleware/schoolContext'); // <-- Import context middleware (adjust path if needed)
 
+// Import auto-seed utility
+const { autoSeedSuperAdmin } = require('./utils/autoSeedSuperAdmin');
+
 
 const app = express();
 const PORT = process.env.PORT || 5050;
@@ -573,6 +576,9 @@ mongoose.connect(MONGODB_URI, {
     // Initialize Database Manager
     await DatabaseManager.initialize();
     console.log('✅ Database Manager initialized');
+
+    // Auto-seed super admin from environment variables
+    await autoSeedSuperAdmin();
 
     console.log('🚀 Server ready for multi-tenant operations');
 

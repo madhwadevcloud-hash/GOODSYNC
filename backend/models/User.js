@@ -139,7 +139,6 @@ const userSchema = new mongoose.Schema({
   passwordResetExpires: Date,
   
   // School Access
-  schoolCode: { type: String, required: true },
   schoolId: { type: mongoose.Schema.Types.ObjectId, ref: 'School' },
   schoolAccess: {
     joinedDate: {
