@@ -141,51 +141,51 @@ exports.getAllSchoolUsers = async (req, res) => {
     const schoolCode = await resolveSchoolCode(schoolIdentifier);
 
     const roles = ['admin', 'teacher', 'student', 'parent'];
-    const allUsers = [];
-    const breakdown = {};
-
-    for (const role of roles) {
+    
+    // Execute all role fetches in parallel
+    const roleResults = await Promise.all(roles.map(async (role) => {
       try {
-        // Only apply academicYear filter to students
         const yearFilter = (role === 'student') ? academicYear : null;
         
-        // Get total count for breakdown
-        const count = await UserGenerator.getUserCountByRole(schoolCode, role, yearFilter);
-        breakdown[role] = count;
+        // Get count and users for this role in parallel
+        const [count, users] = await Promise.all([
+          UserGenerator.getUserCountByRole(schoolCode, role, yearFilter),
+          // Fetch users with limit if provided (calculated later for the flat list)
+          // For now, we fetch them and will slice the final array if needed
+          UserGenerator.getUsersByRole(schoolCode, role, yearFilter, {}, parsedLimit > 0 ? parsedLimit : null, parsedSkip)
+        ]);
 
-        // If we have a limit and we already have enough users, skip fetching more details
-        // but we still need the breakdown for all roles
-        if (parsedLimit > 0 && allUsers.length >= parsedLimit) {
-            continue;
-        }
-
-        // Fetch users with limit if provided
-        const fetchLimit = parsedLimit > 0 ? (parsedLimit - allUsers.length) : null;
-        const users = await UserGenerator.getUsersByRole(schoolCode, role, yearFilter, {}, fetchLimit, parsedSkip);
-        
-        // Ensure each user has the correct role field
-        const usersWithRole = users.map(user => ({
-          ...user,
-          role: role // Ensure role is explicitly set
-        }));
-        
-        allUsers.push(...usersWithRole);
-        console.log(`✅ Found ${users.length} ${role}s for this page (total ${count})`);
+        return {
+          role,
+          count,
+          users: users.map(user => ({ ...user, role }))
+        };
       } catch (error) {
         console.error(`❌ Error getting ${role}s:`, error);
-        breakdown[role] = 0;
+        return { role, count: 0, users: [] };
       }
-    }
+    }));
 
+    // Consolidate results
+    const breakdown = {};
+    const allUsers = [];
+    
+    roleResults.forEach(result => {
+      breakdown[result.role] = result.count;
+      allUsers.push(...result.users);
+    });
+
+    // Apply global limit if needed (since we fetched with per-role limit as a safeguard)
+    const finalUsers = parsedLimit > 0 ? allUsers.slice(0, parsedLimit) : allUsers;
     const totalCount = Object.values(breakdown).reduce((a, b) => a + b, 0);
 
-    console.log(`📊 Total users found: ${totalCount}, Returning: ${allUsers.length}`, {
+    console.log(`📊 Total users found: ${totalCount}, Returning: ${finalUsers.length}`, {
       breakdown: breakdown
     });
 
     res.json({
       success: true,
-      data: allUsers,
+      data: finalUsers,
       totalCount,
       breakdown: breakdown
     });

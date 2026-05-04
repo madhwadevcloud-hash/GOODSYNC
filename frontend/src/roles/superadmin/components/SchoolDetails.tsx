@@ -234,9 +234,9 @@ function SchoolDetailsContent() {
       timeoutId = setTimeout(() => {
         if (isMounted) {
           setLoading(false);
-          setError('Request timed out after 10 seconds');
+          setError('Request timed out after 30 seconds. This may happen during initial database connection. Please try refreshing.');
         }
-      }, 10000);
+      }, 30000);
 
       try {
         console.log('Making API calls for school data...');
