@@ -1,9 +1,40 @@
 const User = require('../models/User');
 const SuperAdmin = require('../models/SuperAdmin');
+const TokenBlacklist = require('../models/TokenBlacklist');
 const UserGenerator = require('../utils/userGenerator');
 const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
+
+exports.logout = async (req, res) => {
+  try {
+    const token = req.cookies?.token || req.headers.authorization?.split(' ')[1];
+
+    if (token) {
+      // Decode to get expiration time
+      const decoded = jwt.decode(token);
+      const expiresAt = decoded && decoded.exp ? new Date(decoded.exp * 1000) : new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+      // Add to blacklist
+      await TokenBlacklist.create({
+        token,
+        expiresAt
+      });
+    }
+
+    // Clear cookie
+    res.clearCookie('token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict'
+    });
+
+    res.json({ success: true, message: 'Logged out successfully' });
+  } catch (error) {
+    console.error('[LOGOUT ERROR]', error);
+    res.status(500).json({ success: false, message: 'Logout failed' });
+  }
+};
 
 exports.getDemoCredentials = async (req, res) => {
   try {
@@ -61,18 +92,18 @@ exports.login = async (req, res) => {
       const isMatch = await bcrypt.compare(password, user.password);
       if (!isMatch) {
         console.log(`[LOGIN FAIL] Wrong password for superadmin: ${email}`);
-        return res.status(400).json({ message: 'Invalid credentials' });
+        return res.status(401).json({ message: 'Invalid email or password' });
       }
 
       if (!user.isActive) {
         console.log(`[LOGIN FAIL] SuperAdmin is deactivated: ${email}`);
-        return res.status(400).json({ message: 'Account has been deactivated. Contact system administrator.' });
+        return res.status(403).json({ message: 'Account has been deactivated. Contact system administrator.' });
       }
 
       // Validate that selected role matches user's actual role for SuperAdmin
       if (selectedRole && selectedRole !== user.role) {
         console.log(`[LOGIN FAIL] Role mismatch - Selected: ${selectedRole}, Actual: ${user.role} for superadmin: ${email}`);
-        return res.status(400).json({ message: `Invalid credentials. You selected ${selectedRole} but your account is registered as ${user.role}.` });
+        return res.status(401).json({ message: 'Invalid email or password' });
       }
 
       // Update last login
@@ -106,7 +137,7 @@ exports.login = async (req, res) => {
 
     if (!user) {
       console.log(`[LOGIN FAIL] Email not found: ${email}`);
-      return res.status(400).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ message: 'Invalid email or password' });
     }
 
     console.log(`👤 User role: ${user.role}`);
@@ -114,7 +145,7 @@ exports.login = async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       console.log(`[LOGIN FAIL] Wrong password for: ${email}`);
-      return res.status(400).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ message: 'Invalid email or password' });
     }
 
     // Handle non-superadmin users
@@ -139,6 +170,14 @@ exports.login = async (req, res) => {
     }, process.env.JWT_SECRET, { expiresIn: '1d' });
 
     console.log(`[LOGIN SUCCESS] User: ${user.email} (${user.role}) from school: ${user.schoolId?.name || 'None'}`);
+
+    // Set token in cookie
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 24 * 60 * 60 * 1000 // 1 day
+    });
 
     res.json({
       success: true,
@@ -190,7 +229,7 @@ exports.schoolLogin = async (req, res) => {
       console.log(`[SCHOOL LOGIN FAIL] User not found: ${identifier} in school: ${schoolCode}`);
       return res.status(401).json({
         success: false,
-        message: 'Invalid email/user ID or school code. Please check your credentials.'
+        message: 'Invalid email/user ID or password.'
       });
     }
 
@@ -220,9 +259,9 @@ exports.schoolLogin = async (req, res) => {
     const isMatch = await bcrypt.compare(password, userWithPassword.password);
     if (!isMatch) {
       console.log(`[SCHOOL LOGIN FAIL] Wrong password for: ${identifier}`);
-      return res.status(400).json({
+      return res.status(401).json({
         success: false,
-        message: 'Incorrect password. Please check your password and try again.'
+        message: 'Invalid email/user ID or password.'
       });
     }
 
@@ -285,6 +324,14 @@ exports.schoolLogin = async (req, res) => {
     );
 
     console.log(`[SCHOOL LOGIN SUCCESS] User: ${user.userId} (${user.role}) from school: ${schoolCode}`);
+
+    // Set token in cookie
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 24 * 60 * 60 * 1000 // 1 day
+    });
     console.log(`[SCHOOL LOGIN DEBUG] User object keys:`, Object.keys(user));
     console.log(`[SCHOOL LOGIN DEBUG] User.userId:`, user.userId);
     console.log(`[SCHOOL LOGIN DEBUG] User._id:`, user._id);

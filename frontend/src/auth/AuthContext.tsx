@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { AuthContextValue, AuthState, LoginPayload, AuthUser, UserRole } from './types';
-import { loginApi } from '../api/auth';
+import { loginApi, logoutApi } from '../api/auth';
 
 const STORAGE_KEY = 'erp.auth';
 
@@ -108,8 +108,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [persist]);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
     console.log('[AUTH] Logging out');
+    try {
+      await logoutApi();
+    } catch (err) {
+      console.warn('[AUTH] Logout API call failed, continuing with local cleanup', err);
+    }
     const next: AuthState = { user: null, token: null, loading: false };
     setState(next);
     localStorage.removeItem(STORAGE_KEY);

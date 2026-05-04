@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const User = require('../models/User');
 const SuperAdmin = require('../models/SuperAdmin');
+const TokenBlacklist = require('../models/TokenBlacklist');
 
 // Authentication middleware
 const auth = async (req, res, next) => {
@@ -11,10 +12,20 @@ const auth = async (req, res, next) => {
       console.log('🔑 AUTH:', req.method, req.originalUrl);
     }
 
-    const token = req.headers.authorization?.split(' ')[1];
+    // 1. Try to get token from cookies (HttpOnly)
+    // 2. Fallback to Authorization header
+    const token = req.cookies?.token || req.headers.authorization?.split(' ')[1];
+
     if (!token) {
-      console.error('[AUTH ERROR] Missing Authorization header');
+      console.error('[AUTH ERROR] Missing Token (Cookie or Header)');
       return res.status(401).json({ success: false, message: 'Authorization token is missing' });
+    }
+
+    // Check if token is blacklisted
+    const isBlacklisted = await TokenBlacklist.findOne({ token });
+    if (isBlacklisted) {
+      console.error('[AUTH ERROR] Token is blacklisted (logged out)');
+      return res.status(401).json({ success: false, message: 'Token has been revoked. Please login again.' });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
