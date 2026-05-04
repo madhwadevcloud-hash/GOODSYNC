@@ -1884,7 +1884,11 @@ function generateCSV(users, role) {
   const csvContent = [
     headers.join(','),
     ...rows.map(row => row.map(cell => {
-      const strCell = String(cell ?? '');
+      let strCell = String(cell ?? '');
+      // Prevent CSV Injection by prefixing malicious starting characters with a single quote
+      if (/^[=+\-@]/.test(strCell)) {
+        strCell = "'" + strCell;
+      }
       if (strCell.includes('"') || strCell.includes(',') || strCell.includes('\n') || strCell.includes('\r')) {
         return `"${strCell.replace(/"/g, '""')}"`;
       }

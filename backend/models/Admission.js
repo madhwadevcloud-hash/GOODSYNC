@@ -216,5 +216,6 @@ admissionSchema.index({ schoolId: 1, status: 1 });
 admissionSchema.index({ studentId: 1 });
 admissionSchema.index({ parentId: 1 });
 admissionSchema.index({ academicYear: 1, class: 1, section: 1 });
+admissionSchema.index({ schoolId: 1, academicYear: 1, admissionNumber: -1 });
 
 module.exports = mongoose.model('Admission', admissionSchema);

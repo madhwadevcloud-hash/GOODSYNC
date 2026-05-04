@@ -364,6 +364,21 @@ exports.removeSubjectFromClass = async (req, res) => {
       });
     }
 
+    // Check for existing results that reference this subject
+    const ResultModel = schoolDb.model('Result', require('../models/Result').schema);
+    const existingResults = await ResultModel.findOne({
+      schoolId: school._id,
+      class: className,
+      'subjects.name': subject.subjectName
+    });
+
+    if (existingResults) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot remove subject. It is referenced in student results for class ${className}.`
+      });
+    }
+
     // Check if subject is applicable to multiple grades
     if (subject.applicableGrades.length > 1) {
       // Remove only the specific grade

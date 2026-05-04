@@ -42,7 +42,7 @@ const studentFeeRecordSchema = new mongoose.Schema({
   payments: [{
     paymentId: mongoose.Schema.Types.ObjectId,
     installmentName: { type: String, required: true },
-    amount: { type: Number, required: true, min: 0 },
+    amount: { type: Number, required: true, min: [0.01, 'Payment amount must be greater than zero'] },
     paymentDate: { type: Date, default: Date.now },
     paymentMethod: { 
       type: String, 

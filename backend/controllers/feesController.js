@@ -1018,10 +1018,17 @@ exports.recordOfflinePayment = async (req, res) => {
     } = req.body;
 
     // Validate required fields
-    if (!installmentName || !amount || !paymentMethod) {
+    if (!installmentName || amount === undefined || amount === null || !paymentMethod) {
       return res.status(400).json({
         success: false,
         message: 'Installment name, amount, and payment method are required'
+      });
+    }
+
+    if (parseFloat(amount) <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Payment amount must be greater than zero'
       });
     }
 

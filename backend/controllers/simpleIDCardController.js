@@ -270,17 +270,55 @@ const generateIDCards = async (req, res) => {
     });
 
     // Generate ID cards with school info including logo
-    const results = await idCardGenerator.generateBulkIDCards(
-      mappedStudents,
-      orientation,
-      includeBack,
-      {
+    const schoolInfoObj = {
         schoolName: school?.name || '',
         address: formattedAddress,
         logoUrl: school?.logoUrl || null,
         phone: school?.contact?.phone || school?.phone || '',
         email: school?.contact?.email || school?.email || ''
-      }
+    };
+
+    if (mappedStudents.length > 20) {
+      const jobId = 'job_' + Date.now();
+      res.json({
+        success: true,
+        message: 'Bulk generation started in background. You will be notified when ready.',
+        jobId: jobId,
+        isAsync: true
+      });
+
+      setImmediate(async () => {
+        try {
+          const results = await idCardGenerator.generateBulkIDCards(mappedStudents, orientation, includeBack, schoolInfoObj);
+          const io = req.app.get('io');
+          if (io && req.user && req.user.schoolCode) {
+            io.to('school-' + req.user.schoolCode.toLowerCase()).emit('id-cards-ready', {
+              jobId,
+              success: true,
+              data: {
+                generated: results.success,
+                failed: results.failed,
+                totalRequested: studentIds.length,
+                totalGenerated: results.success.length,
+                totalFailed: results.failed.length
+              }
+            });
+          }
+        } catch (err) {
+          const io = req.app.get('io');
+          if (io && req.user && req.user.schoolCode) {
+            io.to('school-' + req.user.schoolCode.toLowerCase()).emit('id-cards-error', { jobId, message: err.message });
+          }
+        }
+      });
+      return;
+    }
+
+    const results = await idCardGenerator.generateBulkIDCards(
+      mappedStudents,
+      orientation,
+      includeBack,
+      schoolInfoObj
     );
 
     console.log('✅ Generation results:', {
@@ -514,17 +552,100 @@ const downloadIDCards = async (req, res) => {
     });
 
     // Generate ID cards with school info including logo
-    const results = await idCardGenerator.generateBulkIDCards(
-      mappedStudents,
-      orientation,
-      includeBack,
-      {
+    const schoolInfoObj = {
         schoolName: school?.name || '',
         address: formattedAddress,
         logoUrl: school?.logoUrl || null,
         phone: school?.contact?.phone || school?.phone || '',
         email: school?.contact?.email || school?.email || ''
-      }
+    };
+
+    if (mappedStudents.length > 20) {
+      const jobId = 'job_' + Date.now();
+      res.json({
+        success: true,
+        message: 'Bulk ZIP generation started in background. You will be notified when it is ready.',
+        jobId: jobId,
+        isAsync: true
+      });
+
+      setImmediate(async () => {
+        try {
+          const results = await idCardGenerator.generateBulkIDCards(mappedStudents, orientation, includeBack, schoolInfoObj);
+          
+          if (results.success.length === 0) {
+            const io = req.app.get('io');
+            if (io && req.user && req.user.schoolCode) {
+              io.to('school-' + req.user.schoolCode.toLowerCase()).emit('id-cards-error', { jobId, message: 'Failed to generate any ID cards' });
+            }
+            return;
+          }
+
+          const tempDir = path.join(__dirname, '..', 'uploads', 'temp');
+          if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+          
+          const schoolNameStr = school?.name || 'School';
+          const zipFileName = `IDCards_${schoolNameStr.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.zip`;
+          const zipPath = path.join(tempDir, zipFileName);
+          
+          const output = fs.createWriteStream(zipPath);
+          const archive = archiver('zip', { zlib: { level: 9 } });
+          
+          output.on('close', () => {
+            const io = req.app.get('io');
+            if (io && req.user && req.user.schoolCode) {
+              io.to('school-' + req.user.schoolCode.toLowerCase()).emit('id-cards-zip-ready', {
+                jobId,
+                downloadUrl: `/uploads/temp/${zipFileName}`,
+                successCount: results.success.length
+              });
+            }
+            
+            // Cleanup PNGs
+            const fsPromises = require('fs').promises;
+            results.success.forEach(async (r) => {
+              try {
+                if (r.frontCard) await fsPromises.unlink(path.join(__dirname, '..', r.frontCard));
+                if (r.backCard) await fsPromises.unlink(path.join(__dirname, '..', r.backCard));
+              } catch (e) {}
+            });
+          });
+          
+          archive.on('error', (err) => { throw err; });
+          archive.pipe(output);
+          
+          for (const result of results.success) {
+            const studentFolderName = result.sequenceId || result.studentId || 'ID';
+            if (result.frontCard) {
+              const frontPath = path.join(__dirname, '..', result.frontCard);
+              if (fs.existsSync(frontPath)) {
+                archive.file(frontPath, { name: `${studentFolderName}/${result.sequenceId}_front.png` });
+              }
+            }
+            if (result.backCard) {
+              const backPath = path.join(__dirname, '..', result.backCard);
+              if (fs.existsSync(backPath)) {
+                archive.file(backPath, { name: `${studentFolderName}/${result.sequenceId}_back.png` });
+              }
+            }
+          }
+          
+          await archive.finalize();
+        } catch (err) {
+          const io = req.app.get('io');
+          if (io && req.user && req.user.schoolCode) {
+            io.to('school-' + req.user.schoolCode.toLowerCase()).emit('id-cards-error', { jobId, message: err.message });
+          }
+        }
+      });
+      return;
+    }
+
+    const results = await idCardGenerator.generateBulkIDCards(
+      mappedStudents,
+      orientation,
+      includeBack,
+      schoolInfoObj
     );
 
     console.log('✅ Download generation results:', {
@@ -543,8 +664,8 @@ const downloadIDCards = async (req, res) => {
     }
 
     // Create ZIP file
-    const schoolName = school?.name || 'School';
-    const zipFileName = `IDCards_${schoolName.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.zip`;
+    const schoolNameStr = school?.name || 'School';
+    const zipFileName = `IDCards_${schoolNameStr.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.zip`;
     
     console.log('📦 Creating ZIP file:', zipFileName);
     
@@ -570,68 +691,41 @@ const downloadIDCards = async (req, res) => {
     // Pipe archive to response
     archive.pipe(res);
 
-    // Add generated ID cards to ZIP - Create folder for each student using sequence ID
+    // Add generated ID cards to ZIP
     let filesAdded = 0;
     for (const result of results.success) {
-      // Create folder name using sequence ID (e.g., KVS-S-001)
       const studentFolderName = result.sequenceId || result.studentId || 'ID';
       
       if (result.frontCard) {
         const frontPath = path.join(__dirname, '..', result.frontCard);
         if (fs.existsSync(frontPath)) {
-          // Add to student's folder in ZIP with renamed file
           const frontFileName = `${result.sequenceId}_front.png`;
           archive.file(frontPath, { name: `${studentFolderName}/${frontFileName}` });
           filesAdded++;
-          console.log(`📄 Added front card to ${studentFolderName}:`, frontFileName);
-        } else {
-          console.warn('⚠️ Front card file not found:', frontPath);
         }
       }
       if (result.backCard) {
         const backPath = path.join(__dirname, '..', result.backCard);
         if (fs.existsSync(backPath)) {
-          // Add to student's folder in ZIP with renamed file
           const backFileName = `${result.sequenceId}_back.png`;
           archive.file(backPath, { name: `${studentFolderName}/${backFileName}` });
           filesAdded++;
-          console.log(`📄 Added back card to ${studentFolderName}:`, backFileName);
-        } else {
-          console.warn('⚠️ Back card file not found:', backPath);
         }
       }
     }
 
-    console.log(`📦 Total files added to ZIP: ${filesAdded}`);
-
     // Finalize archive
     await archive.finalize();
-    console.log('✅ ZIP file finalized and sent');
 
     // Clean up generated files after ZIP is sent
     archive.on('end', async () => {
-      console.log('🧹 Cleaning up generated ID card files...');
-      const fs = require('fs').promises;
-      let deletedCount = 0;
-      
+      const fsPromises = require('fs').promises;
       for (const result of results.success) {
         try {
-          if (result.frontCard) {
-            const frontPath = path.join(__dirname, '..', result.frontCard);
-            await fs.unlink(frontPath);
-            deletedCount++;
-          }
-          if (result.backCard) {
-            const backPath = path.join(__dirname, '..', result.backCard);
-            await fs.unlink(backPath);
-            deletedCount++;
-          }
-        } catch (err) {
-          console.warn('⚠️ Error deleting file:', err.message);
-        }
+          if (result.frontCard) await fsPromises.unlink(path.join(__dirname, '..', result.frontCard));
+          if (result.backCard) await fsPromises.unlink(path.join(__dirname, '..', result.backCard));
+        } catch (err) {}
       }
-      
-      console.log(`✅ Cleaned up ${deletedCount} generated files`);
     });
   } catch (error) {
     console.error('❌ Error downloading ID cards:', error);

@@ -709,6 +709,32 @@ const bulkSaveSubjects = async (req, res) => {
     const ModelFactory = require('../utils/modelFactory');
     const SchoolSubject = await ModelFactory.getSubjectModel(schoolCode);
 
+    // Fetch existing subjects before clearing
+    const existingSubjects = await SchoolSubject.find({ schoolCode, academicYear });
+    const newSubjectCodes = subjects.map(s => s.code.trim().toUpperCase());
+    const removedSubjects = existingSubjects.filter(s => !newSubjectCodes.includes(s.subjectCode));
+
+    // Validate no results refer to the removed subjects
+    if (removedSubjects.length > 0) {
+      const DatabaseManager = require('../utils/databaseManager');
+      const schoolConn = await DatabaseManager.getSchoolConnection(schoolCode);
+      const ResultModel = schoolConn.model('Result', require('../models/Result').schema);
+
+      for (const removedSubject of removedSubjects) {
+        const isReferenced = await ResultModel.findOne({
+          academicYear,
+          'subjects.name': removedSubject.subjectName
+        });
+        
+        if (isReferenced) {
+          return res.status(400).json({
+            success: false,
+            message: `Cannot remove subject ${removedSubject.subjectName}. It is referenced in student results.`
+          });
+        }
+      }
+    }
+
     // Clear existing subjects for this school and academic year
     await SchoolSubject.deleteMany({
       schoolCode,
