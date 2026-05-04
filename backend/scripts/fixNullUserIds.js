@@ -23,7 +23,7 @@ async function fixNullUserIds() {
     if (usersWithNullUserId.length > 0) {
       console.log('Sample users with null userId:');
       usersWithNullUserId.slice(0, 3).forEach(user => {
-        console.log(`  - ${user.email} (${user.role}) - ID: ${user._id}`);
+        console.log(`  - [EMAIL_HIDDEN] (${user.role}) - ID: ${user._id}`);
       });
 
       // Remove users with null userId (these are incomplete records)

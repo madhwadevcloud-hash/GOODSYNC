@@ -518,7 +518,7 @@ exports.changeUserPassword = async (req, res) => {
           updated = true;
           userEmail = existingUser.email;
           userRole = existingUser.role;
-          console.log(`✅ Changed password for user: ${userId} in ${collectionName}`);
+          console.log(`✅ Changed password for user: [USER_ID_HIDDEN] in ${collectionName}`);
           break;
         }
       }

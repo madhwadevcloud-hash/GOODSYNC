@@ -2,6 +2,17 @@
 // Set thread pool size for optimal parallel processing of CPU-intensive tasks like bcrypt hashing
 process.env.UV_THREADPOOL_SIZE = 16;
 
+// SECURITY: Validate NODE_ENV and enforce secure defaults
+if (!process.env.NODE_ENV) {
+  console.warn('⚠️ NODE_ENV not set, defaulting to development mode');
+  process.env.NODE_ENV = 'development';
+} else if (process.env.NODE_ENV !== 'development' && process.env.NODE_ENV !== 'production') {
+  console.warn('⚠️ Invalid NODE_ENV value, defaulting to development mode');
+  process.env.NODE_ENV = 'development';
+}
+
+console.log(`🔒 Security mode: ${process.env.NODE_ENV}`);
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -398,84 +409,11 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Serve ID card templates statically
 app.use('/idcard-templates', express.static(path.join(__dirname, 'idcard-templates')));
 
-// Test endpoint for debugging
-app.get('/api/test-endpoint', (req, res) => {
-  console.log('[TEST ENDPOINT] Request received');
-  console.log('[TEST ENDPOINT] Headers:', req.headers);
-  return res.status(200).json({
-    success: true,
-    message: 'Test endpoint working',
-    timestamp: new Date().toISOString()
-  });
-});
+// SECURITY: Test endpoint removed - was logging headers without authentication
 
 
-// Direct test endpoint for class subjects
-app.get('/api/direct-test/class-subjects/:className', async (req, res) => {
-  try {
-    let schoolCode = req.headers['x-school-code'] || req.query.schoolCode;
-    if (req.user && req.user.schoolCode) { schoolCode = req.user.schoolCode; }
-    if (!schoolCode) { schoolCode = req.query.schoolCode; }
-    if (!schoolCode) { return res.status(400).json({ success: false, message: 'School code is required.' }); }
-
-    // CRITICAL FIX: Normalize schoolCode to UPPERCASE for consistent querying
-    schoolCode = schoolCode.toUpperCase();
-
-    console.log('[DIRECT TEST] Request received for class:', req.params.className, 'in school:', schoolCode);
-    const className = req.params.className;
-    const academicYear = req.query.academicYear || '2024-25';
-    const schoolConn = await DatabaseManager.getSchoolConnection(schoolCode);
-    const ClassSubjectsSimple = require('./models/ClassSubjectsSimple');
-    const SchoolClassSubjects = ClassSubjectsSimple.getModelForConnection(schoolConn);
-
-    console.log(`[DIRECT TEST] Looking for class "${className}" in school "${schoolCode}"`);
-    const classSubjects = await SchoolClassSubjects.findOne({ schoolCode, className, academicYear, isActive: true });
-
-    if (!classSubjects) {
-      console.log(`[DIRECT TEST] Class "${className}" not found in school "${schoolCode}"`);
-      return res.status(404).json({ success: false, message: `Class "${className}" not found` });
-    }
-    console.log(`[DIRECT TEST] Found class "${className}"`);
-    return res.status(200).json({
-      success: true, message: 'Direct test successful',
-      data: {
-        classId: classSubjects._id, className: classSubjects.className, grade: classSubjects.grade, section: classSubjects.section,
-        academicYear: classSubjects.academicYear, schoolCode: schoolCode,
-        subjects: classSubjects.subjects.filter(s => s.isActive).map(s => ({ name: s.name, isActive: s.isActive }))
-      }
-    });
-  } catch (error) {
-    console.error('[DIRECT TEST] Error:', error);
-    return res.status(500).json({ success: false, message: 'Direct test failed', error: error.message });
-  }
-});
-
-// Direct test endpoint for assignments
-app.get('/api/direct-test/assignments', async (req, res) => {
-  try {
-    let schoolCode = req.headers['x-school-code'] || req.query.schoolCode;
-    if (req.user && req.user.schoolCode) { schoolCode = req.user.schoolCode; }
-    if (!schoolCode) { schoolCode = req.query.schoolCode; }
-    if (!schoolCode) { return res.status(400).json({ success: false, message: 'School code is required.' }); }
-
-    // CRITICAL FIX: Normalize schoolCode to UPPERCASE for consistent querying
-    schoolCode = schoolCode.toUpperCase();
-
-    console.log('[DIRECT TEST ASSIGNMENTS] Request received for school:', schoolCode);
-    const schoolConn = await DatabaseManager.getSchoolConnection(schoolCode);
-    const AssignmentMultiTenant = require('./models/AssignmentMultiTenant');
-    const SchoolAssignment = AssignmentMultiTenant.getModelForConnection(schoolConn);
-
-    console.log(`[DIRECT TEST ASSIGNMENTS] Looking for assignments in school "${schoolCode}"`);
-    const assignments = await SchoolAssignment.find({ schoolCode, isPublished: true }).sort({ createdAt: -1 });
-
-    console.log(`[DIRECT TEST ASSIGNMENTS] Found ${assignments.length} assignments`);
-    return res.status(200).json({ success: true, message: `Found ${assignments.length} assignments`, assignments, schoolCode });
-  } catch (error) {
-    console.error('[DIRECT TEST ASSIGNMENTS] Error:', error);
-    return res.status(500).json({ success: false, message: 'Server error', error: error.message });
-  }
-});
+// SECURITY: Debug endpoints removed - they were exposing sensitive data without authentication
+// These endpoints were accessible without authentication and could leak school data
 
 // Use other routes
 app.use('/api/auth', authRoutes);
@@ -570,8 +508,10 @@ const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/instit
 
 // Ensure JWT_SECRET is set before starting server logic that might use it
 if (!process.env.JWT_SECRET) {
-  console.warn('⚠️ JWT_SECRET is not set. Using a default secret for development purposes.');
-  process.env.JWT_SECRET = 'default_development_secret';
+  console.error('❌ SECURITY ERROR: JWT_SECRET environment variable is required for secure operation.');
+  console.error('❌ Please set JWT_SECRET environment variable with a strong, random secret.');
+  console.error('❌ Server cannot start without JWT_SECRET for security reasons.');
+  process.exit(1);
 }
 
 mongoose.connect(MONGODB_URI, {
@@ -722,11 +662,14 @@ app.use((err, req, res, next) => {
     });
   }
 
+  // SECURITY: Only expose stack traces in development, never in production
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  
   // Always return JSON, never HTML
   res.status(err.status || 500).json({
     success: false,
     message: err.message || 'Internal server error',
-    error: process.env.NODE_ENV === 'development' ? err.stack : 'Something went wrong'
+    error: isDevelopment ? err.stack : 'Something went wrong'
   });
 });
 

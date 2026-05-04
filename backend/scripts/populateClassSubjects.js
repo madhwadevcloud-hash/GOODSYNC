@@ -115,7 +115,12 @@ async function populateSubjectsForSchool(schoolCode, academicYear = '2024-25') {
 async function main() {
   try {
     // Connect to main database
-    const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://nitopunk04o:IOilWo4osDam0vmN@erp.ua5qems.mongodb.net/institute_erp?retryWrites=true&w=majority&appName=erp';
+    const MONGODB_URI = process.env.MONGODB_URI;
+
+if (!MONGODB_URI) {
+  console.error('❌ SECURITY ERROR: MONGODB_URI environment variable is required');
+  process.exit(1);
+}
     
     console.log('🔗 Connecting to MongoDB...');
     await mongoose.connect(MONGODB_URI);

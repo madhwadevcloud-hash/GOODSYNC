@@ -24,7 +24,7 @@ const seedSuperAdminFromSchema = async () => {
 
     if (existingSuperAdmin) {
       console.log('SuperAdmin already exists!');
-      console.log('Email:', existingSuperAdmin.email);
+      console.log('Email: [HIDDEN]');
       console.log('Role:', existingSuperAdmin.role);
       return;
     }
@@ -60,7 +60,7 @@ const seedSuperAdminFromSchema = async () => {
 
     console.log('\n✅ SuperAdmin created successfully!');
     console.log('==========================================');
-    console.log('Email:', process.env.SUPER_ADMIN_EMAIL);
+    console.log('Email: [HIDDEN]');
     console.log('User ID:', superAdmin.userId);
     console.log('Role: superadmin');
     console.log('⚠️  Password stored securely as bcrypt hash');
