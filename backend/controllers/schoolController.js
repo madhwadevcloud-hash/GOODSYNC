@@ -1510,7 +1510,7 @@ exports.updateUserPassword = async (req, res) => {
     user.password = hashedPassword;
     await user.save();
 
-    console.log(`[PASSWORD UPDATED] User: ${user.email} in school ${schoolId} by ${req.user.email}`);
+    console.log(`[PASSWORD UPDATED] User: [EMAIL_HIDDEN] in school ${schoolId} by [EMAIL_HIDDEN]`);
     res.json({ message: 'Password updated successfully' });
   } catch (error) {
     console.error('Error updating user password:', error);

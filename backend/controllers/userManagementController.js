@@ -1092,7 +1092,7 @@ exports.resetPassword = async (req, res) => {
     const resettingAdminId = req.user?._id;
     const upperSchoolCode = schoolCode.toUpperCase();
 
-    console.log(`🔑 Resetting password for user ${userIdToReset} in school: ${upperSchoolCode}`);
+    console.log(`🔑 Resetting password for user [USER_ID_HIDDEN] in school: ${upperSchoolCode}`);
 
     let connection;
     try { connection = await SchoolDatabaseManager.getSchoolConnection(upperSchoolCode); }
@@ -1148,7 +1148,7 @@ exports.resetPassword = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Failed to reset password (no changes applied).' });
     }
 
-    console.log(`✅ Password reset successfully for user: ${user.userId}`);
+    console.log(`✅ Password reset successfully for user: [USER_ID_HIDDEN]`);
 
     res.json({
       success: true,

@@ -14,7 +14,7 @@ async function autoSeedSuperAdmin() {
     const plainPassword = process.env.SUPER_ADMIN_PASSWORD;
 
     console.log('📋 [SUPER ADMIN] Environment variables:');
-    console.log('   - Email:', email);
+    console.log('   - Email: [HIDDEN]');
     console.log('   - Password: [HIDDEN]');
 
     // Validate required environment variables
@@ -33,13 +33,13 @@ async function autoSeedSuperAdmin() {
       const allAdmins = await SuperAdmin.find({});
       if (allAdmins.length === 1) {
         existingSuperAdmin = allAdmins[0];
-        console.log(`🔄 [SUPER ADMIN] Updating existing super admin email to: ${email}`);
+        console.log(`🔄 [SUPER ADMIN] Updating existing super admin email to: [HIDDEN]`);
         existingSuperAdmin.email = email;
       }
     }
 
     if (existingSuperAdmin) {
-      console.log('✅ [SUPER ADMIN] Super admin identified:', existingSuperAdmin.email);
+      console.log('✅ [SUPER ADMIN] Super admin identified: [EMAIL_HIDDEN]');
 
       const isPasswordMatch = await bcrypt.compare(plainPassword, existingSuperAdmin.password);
       if (!isPasswordMatch) {
@@ -85,7 +85,7 @@ async function autoSeedSuperAdmin() {
 
     console.log('\n✅ [SUPER ADMIN] Auto-seeding completed successfully!');
     console.log('==========================================');
-    console.log('Email:', email);
+    console.log('Email: [HIDDEN]');
     console.log('Role: superadmin');
     console.log('Status: Active');
     console.log('⚠️  Password stored securely as bcrypt hash');

@@ -113,7 +113,7 @@ class UserGenerator {
           const year = dateOfBirth.getFullYear().toString();
           plainPassword = `${day}${month}${year}`;
           hashedPassword = await this.hashPassword(plainPassword); // Re-hash!
-          console.log(`🔑 Generated DOB password for ${userId}: ${plainPassword}`);
+          console.log(`🔑 Generated DOB password for ${userId}: [HIDDEN]`);
         } else {
           // Keep the default random password generated earlier
           console.log(`⚠️ DOB not provided for ${userId}. Using random password.`);
@@ -678,7 +678,7 @@ class UserGenerator {
       // Insert user
       const result = await collection.insertOne(userDocument);
 
-      console.log(`👤 Created ${userData.role} user: ${userId} (${userData.email})`);
+      console.log(`👤 Created ${userData.role} user: ${userId} ([EMAIL_HIDDEN])`);
 
       return {
         success: true,

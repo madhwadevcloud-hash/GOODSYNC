@@ -38,23 +38,35 @@ exports.logout = async (req, res) => {
 
 exports.getDemoCredentials = async (req, res) => {
   try {
-    // Only provide these if NOT in production or if explicitly allowed
-    if (process.env.NODE_ENV === 'production') {
-      return res.json({
-        success: true,
-        superadmin: { email: '', password: '' }
+    // SECURITY: Return demo credentials from database (not environment variables)
+    // This provides access to admin credentials created by super admin
+    const User = require('../models/User');
+    
+    // Look for admin user created by super admin (not super admin itself)
+    const adminUser = await User.findOne({ 
+      role: 'admin',
+      isActive: true 
+    }).select('email name role');
+    
+    if (!adminUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'No admin credentials available'
       });
     }
-
-    res.json({
+    
+    return res.status(200).json({
       success: true,
-      superadmin: {
-        email: process.env.SUPER_ADMIN_EMAIL || '',
-        password: process.env.SUPER_ADMIN_PASSWORD || ''
+      data: {
+        email: adminUser.email,
+        name: adminUser.name,
+        role: adminUser.role,
+        note: 'Admin credentials created by super admin'
       }
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Failed to fetch demo credentials' });
+    console.error('Demo credentials error:', error.message);
+    res.status(500).json({ success: false, message: 'Request failed' });
   }
 };
 
@@ -86,23 +98,23 @@ exports.login = async (req, res) => {
     user = await SuperAdmin.findOne({ email: { $regex: new RegExp(`^${sanitizedEmail}$`, 'i') } });
 
     if (user) {
-      console.log(`🔍 Found in SuperAdmin collection: ${email}`);
+      console.log(`🔍 Found in SuperAdmin collection: [EMAIL_HIDDEN]`);
       console.log(`👤 User role: ${user.role}`);
 
       const isMatch = await bcrypt.compare(password, user.password);
       if (!isMatch) {
-        console.log(`[LOGIN FAIL] Wrong password for superadmin: ${email}`);
+        console.log(`[LOGIN FAIL] Wrong password for superadmin: [EMAIL_HIDDEN]`);
         return res.status(401).json({ message: 'Invalid email or password' });
       }
 
       if (!user.isActive) {
-        console.log(`[LOGIN FAIL] SuperAdmin is deactivated: ${email}`);
+        console.log(`[LOGIN FAIL] SuperAdmin is deactivated: [EMAIL_HIDDEN]`);
         return res.status(403).json({ message: 'Account has been deactivated. Contact system administrator.' });
       }
 
       // Validate that selected role matches user's actual role for SuperAdmin
       if (selectedRole && selectedRole !== user.role) {
-        console.log(`[LOGIN FAIL] Role mismatch - Selected: ${selectedRole}, Actual: ${user.role} for superadmin: ${email}`);
+        console.log(`[LOGIN FAIL] Role mismatch - Selected: ${selectedRole}, Actual: ${user.role} for superadmin: [EMAIL_HIDDEN]`);
         return res.status(401).json({ message: 'Invalid email or password' });
       }
 
@@ -133,10 +145,10 @@ exports.login = async (req, res) => {
 
     // If not found in SuperAdmin, try regular Users collection
     user = await User.findOne({ email: { $regex: new RegExp(`^${sanitizedEmail}$`, 'i') } }).read('primaryPreferred');
-    console.log(`🔍 Querying users database for user: ${email}`);
+    console.log(`🔍 Querying users database for user: [EMAIL_HIDDEN]`);
 
     if (!user) {
-      console.log(`[LOGIN FAIL] Email not found: ${email}`);
+      console.log(`[LOGIN FAIL] Email not found: [EMAIL_HIDDEN]`);
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
@@ -144,19 +156,19 @@ exports.login = async (req, res) => {
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      console.log(`[LOGIN FAIL] Wrong password for: ${email}`);
+      console.log(`[LOGIN FAIL] Wrong password for: [EMAIL_HIDDEN]`);
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
     // Handle non-superadmin users
     if (!user.isActive) {
-      console.log(`[LOGIN FAIL] User is deactivated: ${email}`);
+      console.log(`[LOGIN FAIL] User is deactivated: [EMAIL_HIDDEN]`);
       return res.status(400).json({ message: 'Account has been deactivated. Contact your administrator.' });
     }
 
     // Validate that selected role matches user's actual role
     if (selectedRole && selectedRole !== user.role) {
-      console.log(`[LOGIN FAIL] Role mismatch - Selected: ${selectedRole}, Actual: ${user.role} for user: ${email}`);
+      console.log(`[LOGIN FAIL] Role mismatch - Selected: ${selectedRole}, Actual: ${user.role} for user: [EMAIL_HIDDEN]`);
       return res.status(400).json({ message: `Invalid credentials. You selected ${selectedRole} but your account is registered as ${user.role}.` });
     }
 
@@ -252,13 +264,13 @@ exports.schoolLogin = async (req, res) => {
       });
     }
 
-    console.log(`[SCHOOL LOGIN DEBUG] Verifying password for user: ${user.userId || user._id}...`);
+    console.log(`[SCHOOL LOGIN DEBUG] Verifying credentials for user: ${user.userId || user._id}...`);
     console.log(`[SCHOOL LOGIN DEBUG] User collection used: ${user.collection}`);
 
     // Verify password
     const isMatch = await bcrypt.compare(password, userWithPassword.password);
     if (!isMatch) {
-      console.log(`[SCHOOL LOGIN FAIL] Wrong password for: ${identifier}`);
+      console.log(`[SCHOOL LOGIN FAIL] Wrong password for: [IDENTIFIER_HIDDEN]`);
       return res.status(401).json({
         success: false,
         message: 'Invalid email/user ID or password.'
@@ -267,7 +279,7 @@ exports.schoolLogin = async (req, res) => {
 
     // Check if user is active
     if (!user.isActive) {
-      console.log(`[SCHOOL LOGIN FAIL] User is deactivated: ${identifier}`);
+      console.log(`[SCHOOL LOGIN FAIL] User is deactivated: [IDENTIFIER_HIDDEN]`);
       return res.status(400).json({
         success: false,
         message: 'Account has been deactivated. Contact your administrator.'
@@ -276,7 +288,7 @@ exports.schoolLogin = async (req, res) => {
 
     // Validate that selected role matches user's actual role
     if (selectedRole && selectedRole !== user.role) {
-      console.log(`[SCHOOL LOGIN FAIL] Role mismatch - Selected: ${selectedRole}, Actual: ${user.role} for user: ${identifier}`);
+      console.log(`[SCHOOL LOGIN FAIL] Role mismatch - Selected: ${selectedRole}, Actual: ${user.role} for user: [IDENTIFIER_HIDDEN]`);
       return res.status(400).json({
         success: false,
         message: `Invalid credentials. You selected ${selectedRole} but your account is registered as ${user.role}.`
