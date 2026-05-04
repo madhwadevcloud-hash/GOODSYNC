@@ -2,10 +2,19 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 require('dotenv').config();
 
+// SECURITY: Use environment variables instead of hardcoded credentials
+const MONGODB_URI = process.env.MONGODB_URI;
+const SUPER_ADMIN_EMAIL = process.env.SUPER_ADMIN_EMAIL;
+const SUPER_ADMIN_PASSWORD = process.env.SUPER_ADMIN_PASSWORD;
+
+if (!MONGODB_URI || !SUPER_ADMIN_EMAIL || !SUPER_ADMIN_PASSWORD) {
+  console.error('❌ SECURITY ERROR: Required environment variables not set');
+  console.error('❌ Please set MONGODB_URI, SUPER_ADMIN_EMAIL, and SUPER_ADMIN_PASSWORD');
+  process.exit(1);
+}
+
 const initializeCentralERP = async () => {
   try {
-    // Connect to MongoDB and use the central_erp database
-    const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://nitopunk04o:IOilWo4osDam0vmN@erp.ua5qems.mongodb.net/central_erp?retryWrites=true&w=majority&appName=erp';
     const connection = await mongoose.connect(MONGODB_URI, {
       maxPoolSize: 50,
       serverSelectionTimeoutMS: 5000,
@@ -28,21 +37,21 @@ const initializeCentralERP = async () => {
     const SuperAdmin = connection.model('SuperAdmin', superAdminSchema);
 
     // Check if the superadmin already exists
-    const existingSuperAdmin = await SuperAdmin.findOne({ email: 'super@erp.com' });
+    const existingSuperAdmin = await SuperAdmin.findOne({ email: SUPER_ADMIN_EMAIL });
 
     if (existingSuperAdmin) {
       console.log('SuperAdmin already exists in central_erp database!');
-      console.log('Email:', existingSuperAdmin.email);
+      console.log('Email: [HIDDEN]');
       return;
     }
 
     // Hash the password
     const saltRounds = 12;
-    const hashedPassword = await bcrypt.hash('super123', saltRounds);
+    const hashedPassword = await bcrypt.hash(SUPER_ADMIN_PASSWORD, saltRounds);
 
     // Create the superadmin document
     const superAdminData = {
-      email: 'super@erp.com',
+      email: SUPER_ADMIN_EMAIL,
       password: hashedPassword
     };
 
@@ -51,13 +60,13 @@ const initializeCentralERP = async () => {
 
     console.log('\n✅ SuperAdmin created successfully in central_erp database!');
     console.log('==========================================');
-    console.log('Email: super@erp.com');
-    console.log('Password: super123');
+    console.log('Email: [HIDDEN]');
+    console.log('Password: [HIDDEN]');
     console.log('Role: superadmin');
     console.log('==========================================');
 
   } catch (error) {
-    console.error('❌ Error initializing central_erp database:', error);
+    console.error('❌ Error initializing central_erp database:', error.message);
   } finally {
     // Close the connection
     await mongoose.connection.close();

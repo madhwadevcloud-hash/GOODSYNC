@@ -37,7 +37,7 @@ async function seedSuperAdmin() {
 
     await superAdmin.save();
     console.log('✅ Superadmin user seeded successfully in SuperAdmin collection');
-    console.log('📧 Email:', process.env.SUPER_ADMIN_EMAIL);
+    console.log('📧 Email: [HIDDEN]');
     console.log('⚠️  Password stored securely as bcrypt hash');
     
     await mongoose.disconnect();

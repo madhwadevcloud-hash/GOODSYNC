@@ -22,16 +22,7 @@ router.use(setSchoolContext);
 
 // Class-based Subject Management Routes
 
-// Test endpoint to verify router is working
-router.get('/test', (req, res) => {
-  console.log('🎯 [CLASS-SUBJECTS] Test endpoint hit');
-  res.json({
-    success: true,
-    message: 'Class subjects router is working',
-    user: req.user ? { userId: req.user.userId, schoolCode: req.user.schoolCode } : 'No user',
-    timestamp: new Date().toISOString()
-  });
-});
+// SECURITY: Test endpoint removed - was exposing user information
 
 /**
  * Add Subject to Class
