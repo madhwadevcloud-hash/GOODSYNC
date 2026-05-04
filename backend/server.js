@@ -24,10 +24,14 @@ const { setMainDbContext } = require('./middleware/schoolContext'); // <-- Impor
 // Import auto-seed utility
 const { autoSeedSuperAdmin } = require('./utils/autoSeedSuperAdmin');
 const mongoSanitize = require('express-mongo-sanitize');
+const helmet = require('helmet');
+const cookieParser = require('cookie-parser');
 
 
 const app = express();
 app.set('trust proxy', 1); // Trust first proxy for rate limiting and IP resolution
+app.use(helmet()); // Set various security headers
+app.use(cookieParser()); // Parse Cookie header and populate req.cookies
 const PORT = process.env.PORT || 5050;
 
 // Create HTTP server for Socket.IO
@@ -308,7 +312,7 @@ app.use(cors({
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   // Allow both header casings for full robustness
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-school-code', 'X-School-Code']
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-school-code', 'X-School-Code', 'Cookie']
 }));
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));

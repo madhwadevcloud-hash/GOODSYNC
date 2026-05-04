@@ -36,6 +36,7 @@ async function regularLogin(payload: LoginPayload): Promise<LoginResponse> {
   const res = await fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify({
       email: payload.email,
       password: payload.password,
@@ -103,6 +104,7 @@ async function schoolLogin(payload: LoginPayload): Promise<LoginResponse> {
   const res = await fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify({
       identifier: payload.email,
       password: payload.password,
@@ -177,4 +179,15 @@ export async function getDemoCredentialsApi(): Promise<any> {
     return { success: false };
   }
 }
-
+export async function logoutApi(): Promise<void> {
+  const endpoint = `${API_BASE}/auth/logout`;
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      credentials: 'include'
+    });
+    if (!res.ok) console.warn('Logout API call failed on server');
+  } catch (err) {
+    console.error('[LOGOUT API ERROR]', err);
+  }
+}

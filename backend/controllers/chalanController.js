@@ -459,6 +459,21 @@ exports.getChalanById = async (req, res) => {
         message: 'Chalan not found'
       });
     }
+
+    // IDOR FIX: If user is a student, ensure they only access their own chalan
+    if (req.user.role === 'student') {
+      const studentIdStr = chalan.studentId.toString();
+      const currentUserId = req.user._id.toString();
+      
+      // Compare with both _id and userId for robustness
+      if (studentIdStr !== currentUserId && chalan.studentId !== req.user.userId) {
+        console.error(`[IDOR BLOCK] Student ${req.user.userId} attempted to access chalan ${id} belonging to student ${studentIdStr}`);
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied. You can only access your own chalans.'
+        });
+      }
+    }
     
     // Populate student details
     if (chalan.studentId) {
