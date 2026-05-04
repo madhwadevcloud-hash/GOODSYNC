@@ -1405,6 +1405,16 @@ exports.getStudentSubmission = async (req, res) => {
       return res.status(404).json({ message: 'No submission found' });
     }
 
+    // IDOR FIX: Teachers can only view submissions for their own assignments
+    if (req.user.role === 'teacher') {
+      // Need to find the assignment to check owner
+      const assignment = await Assignment.findById(submission.assignmentId);
+      const teacherId = req.user.userId || req.user._id.toString();
+      if (assignment && assignment.teacher !== teacherId) {
+        return res.status(403).json({ message: 'Access denied. You can only view submissions for your own assignments.' });
+      }
+    }
+
     res.json(submission);
 
   } catch (error) {
@@ -1427,6 +1437,15 @@ exports.getAssignmentSubmissions = async (req, res) => {
     const assignment = await Assignment.findById(assignmentId);
     if (!assignment) {
       return res.status(404).json({ message: 'Assignment not found' });
+    }
+
+    // IDOR FIX: Teachers can only view submissions for their own assignments
+    if (req.user.role === 'teacher') {
+      const teacherId = req.user.userId || req.user._id.toString();
+      if (assignment.teacher !== teacherId) {
+        console.error(`[IDOR BLOCK] Teacher ${teacherId} attempted to view submissions for assignment ${assignmentId} owned by ${assignment.teacher}`);
+        return res.status(403).json({ message: 'Access denied. You can only view submissions for your own assignments.' });
+      }
     }
 
     // Build query
@@ -1473,6 +1492,17 @@ exports.gradeSubmission = async (req, res) => {
 
     if (!submission) {
       return res.status(404).json({ message: 'Submission not found' });
+    }
+
+    // IDOR FIX: Teachers can only grade submissions for their own assignments
+    if (req.user.role === 'teacher') {
+      const teacherId = req.user.userId || req.user._id.toString();
+      const assignmentTeacher = submission.assignmentId.teacher;
+      
+      if (assignmentTeacher !== teacherId) {
+        console.error(`[IDOR BLOCK] Teacher ${teacherId} attempted to grade submission ${submissionId} for assignment ${submission.assignmentId._id} owned by ${assignmentTeacher}`);
+        return res.status(403).json({ message: 'Access denied. You can only grade submissions for your own assignments.' });
+      }
     }
 
     // Validate grade
