@@ -4,6 +4,33 @@ const Message = require('../models/Message');
 const reportService = require('../services/reportService');
 const Result = require('../models/Result');
 const { ObjectId } = require('mongodb');
+const NodeCache = require('node-cache');
+
+const reportsCache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
+
+const getReportsCacheKey = (prefix, params = {}) => {
+  const normalizedParams = Object.entries(params)
+    .filter(([, value]) => value !== undefined)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .reduce((acc, [key, value]) => {
+      acc[key] = value;
+      return acc;
+    }, {});
+
+  return `${prefix}:${JSON.stringify(normalizedParams)}`;
+};
+
+const getCachedReportsResponse = (key) => reportsCache.get(key);
+const setCachedReportsResponse = (key, value, ttl = 300) => reportsCache.set(key, value, ttl);
+const clearReportsCache = () => {
+  reportsCache.keys().forEach((key) => {
+    if (typeof key === 'string' && key.startsWith('reports:')) {
+      reportsCache.del(key);
+    }
+  });
+};
+
+exports.clearStudentRosterCache = clearReportsCache;
 
 // Get comprehensive school summary
 exports.getSchoolSummary = async (req, res) => {
@@ -610,16 +637,30 @@ exports.getStudentsByClassSection = async (req, res) => {
       });
     }
     
+    const schoolCode = req.user?.schoolCode;
+    const cacheKey = getReportsCacheKey('reports:students-by-class', {
+      schoolCode,
+      className,
+      section,
+      academicYear
+    });
+    const cachedResponse = getCachedReportsResponse(cacheKey);
+
+    if (cachedResponse) {
+      return res.json(cachedResponse);
+    }
+
     console.log('📋 Query params:', { className, section, academicYear });
     
     const result = await reportService.getStudentsByClassSection(
       req.user.schoolId,
-      req.user.schoolCode,
+      schoolCode,
       className,
       section,
       academicYear
     );
-    
+
+    setCachedReportsResponse(cacheKey, result, 300);
     res.json(result);
     
   } catch (error) {

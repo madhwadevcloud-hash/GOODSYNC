@@ -17,6 +17,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const bodyParser = require('body-parser');
+const NodeCache = require('node-cache');
 const DatabaseManager = require('./utils/databaseManager');
 require('dotenv').config();
 const path = require('path'); // Import path module
@@ -40,6 +41,7 @@ const cookieParser = require('cookie-parser');
 
 
 const app = express();
+const socketProfileCache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
 app.set('trust proxy', 1); // Trust first proxy for rate limiting and IP resolution
 app.use(helmet()); // Set various security headers
 app.use(cookieParser()); // Parse Cookie header and populate req.cookies
@@ -126,7 +128,15 @@ io.on('connection', (socket) => {
       let finalRollNo = studentRollNo || 'N/A';
       let finalMobile = 'N/A';
 
-      if (finalClass === 'N/A' || finalRollNo === 'N/A') {
+      const profileCacheKey = `socket-profile:${String(schoolCode).toLowerCase()}:${String(studentId)}`;
+      const cachedStudentProfile = socketProfileCache.get(profileCacheKey);
+
+      if (cachedStudentProfile) {
+        console.log('⚡ Reusing cached student profile for SOS alert:', profileCacheKey);
+        finalClass = cachedStudentProfile.studentClass || finalClass;
+        finalRollNo = cachedStudentProfile.studentRollNo || finalRollNo;
+        finalMobile = cachedStudentProfile.studentMobile || finalMobile;
+      } else if (finalClass === 'N/A' || finalRollNo === 'N/A' || finalMobile === 'N/A') {
         try {
           console.log('🔍 Fetching student details from database for:', studentId);
           const studentCollection = schoolConn.collection('students');
@@ -188,6 +198,12 @@ io.on('connection', (socket) => {
           console.error('❌ Error fetching student details:', err.message);
           console.error('❌ Error stack:', err.stack);
         }
+
+        socketProfileCache.set(profileCacheKey, {
+          studentClass: finalClass,
+          studentRollNo: finalRollNo,
+          studentMobile: finalMobile
+        });
       }
 
       const sosAlertData = {

@@ -1510,6 +1510,7 @@ exports.addStudent = async (req, res) => {
     });
 
     await student.save();
+    reportsController.clearStudentRosterCache?.();
 
     // Update parent with student reference
     parent.parentDetails.children.push({
@@ -1960,6 +1961,10 @@ exports.updateUser = async (req, res) => {
       { $set: finalUpdate },
       { new: true, runValidators: true }
     ).select('-password');
+
+    if (user.role === 'student' || req.body.studentDetails || req.body.class || req.body.section || req.body.academicYear) {
+      reportsController.clearStudentRosterCache?.();
+    }
 
     res.json({ success: true, message: 'User updated successfully', user: updatedUser });
 

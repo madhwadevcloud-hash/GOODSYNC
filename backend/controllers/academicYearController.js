@@ -1,4 +1,5 @@
 const School = require('../models/School');
+const { academicCache } = require('../utils/academicYearHelper');
 
 // Get current academic year settings
 exports.getAcademicYear = async (req, res) => {
@@ -99,6 +100,15 @@ exports.updateAcademicYear = async (req, res) => {
     await school.save();
     console.log(`📅 [ACADEMIC YEAR] ✅ Saved to main database (School model)`);
     console.log(`📅 [ACADEMIC YEAR] Academic year: ${currentYear}`);
+
+    // Clean out stale cache data instantly so users pick up the new year details on their next click
+    try {
+      academicCache.del(`ay_code_${school.code}`);
+      academicCache.del(`ay_id_${school._id.toString()}`);
+      console.log(`🗑️ [ACADEMIC YEAR CACHE] Cleared memory items for: ${school.code}`);
+    } catch (cacheErr) {
+      console.error('⚠️ Failed to clear academic cache:', cacheErr.message);
+    }
 
     // Also update in school-specific database (school_info collection)
     try {
