@@ -48,6 +48,7 @@ export interface IDCardTemplateProps extends TemplateProps {
   student: Student;
   templateId: 'landscape' | 'portrait';
   side: 'front' | 'back';
+  theme?: 'modern' | 'classic' | 'minimalist';
 }
 
 export interface CustomIDCardTemplateProps extends IDCardTemplateProps {

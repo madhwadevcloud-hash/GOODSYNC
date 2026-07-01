@@ -32,13 +32,13 @@ interface ClassData {
 
 const SchoolSettings: React.FC = () => {
   const { user } = useAuth();
-  const { 
-    currentAcademicYear: academicYearFromContext, 
-    viewingAcademicYear, 
+  const {
+    currentAcademicYear: academicYearFromContext,
+    viewingAcademicYear,
     academicYearStart: startFromContext,
     academicYearEnd: endFromContext,
     ready: academicYearReady,
-    refreshAcademicYear 
+    refreshAcademicYear
   } = useAcademicYear();
 
   // Local state for form inputs
@@ -65,7 +65,7 @@ const SchoolSettings: React.FC = () => {
       setFromYear(year);
       setSavedAcademicYear(year);
       setIsAcademicYearSaved(!!academicYearFromContext);
-      
+
       // Use dates from context, otherwise fallback to dynamic
       const startYearNum = parseInt(year.split('-')[0]);
       setAcademicYearStart(startFromContext || `${startYearNum}-04-01`);
@@ -203,10 +203,10 @@ const SchoolSettings: React.FC = () => {
               s.studentDetails?.academic?.academicYear ||
               s.academicYear ||
               s.academicInfo?.academicYear;
-            
+
             const normalizedStudentYear = normalizeAcademicYear(String(studentYear || '').trim());
             const normalizedTargetYear = normalizeAcademicYear(String(targetYear || '').trim());
-            
+
             const classMatch = String(studentClass || '').trim() === String(cls.className).trim();
             const yearMatch =
               !normalizedTargetYear ||
@@ -215,7 +215,7 @@ const SchoolSettings: React.FC = () => {
 
             // Extra debug for Class 1 students
             if (cls.className === "1" && classMatch && yearMatch) {
-                // console.log(`Matched student for Class 1: ${s.userId || s._id} - Section: ${studentSection}`);
+              // console.log(`Matched student for Class 1: ${s.userId || s._id} - Section: ${studentSection}`);
             }
 
             return classMatch && yearMatch; // Removed !!studentSection to be more inclusive
@@ -516,10 +516,10 @@ const SchoolSettings: React.FC = () => {
                 onClick={() => !tab.disabled && setActiveTab(tab.id)}
                 disabled={tab.disabled}
                 className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center transition-colors ${activeTab === tab.id
-                    ? 'border-blue-500 text-blue-600'
-                    : tab.disabled
-                      ? 'border-transparent text-gray-400 cursor-not-allowed'
-                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  ? 'border-blue-500 text-blue-600'
+                  : tab.disabled
+                    ? 'border-transparent text-gray-400 cursor-not-allowed'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
                   }`}
                 title={tab.disabled ? 'Please save Academic Year first' : ''}
               >
@@ -551,7 +551,10 @@ const SchoolSettings: React.FC = () => {
                   </p>
                 </div>
               )}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div
+                className="grid grid-cols-1 md:grid-cols-2 gap-6"
+                title={user?.role !== 'superadmin' ? "Only super admins have the access to use this" : ""}
+              >
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Current Academic Year</label>
                   <input
@@ -559,7 +562,8 @@ const SchoolSettings: React.FC = () => {
                     value={currentAcademicYear}
                     onChange={(e) => setCurrentAcademicYear(e.target.value)}
                     placeholder="2024-2025"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                    disabled={user?.role !== 'superadmin'}
                   />
                 </div>
                 <div>
@@ -568,7 +572,8 @@ const SchoolSettings: React.FC = () => {
                     type="date"
                     value={academicYearStart}
                     onChange={(e) => setAcademicYearStart(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                    disabled={user?.role !== 'superadmin'}
                   />
                 </div>
                 <div>
@@ -577,16 +582,20 @@ const SchoolSettings: React.FC = () => {
                     type="date"
                     value={academicYearEnd}
                     onChange={(e) => setAcademicYearEnd(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                    disabled={user?.role !== 'superadmin'}
                   />
                 </div>
               </div>
-              <button
-                onClick={handleSaveAcademicYear}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
-              >
-                Save Academic Year
-              </button>
+              <span title={user?.role !== 'superadmin' ? "Only super admins have the access to use this" : ""}>
+                <button
+                  onClick={handleSaveAcademicYear}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors disabled:bg-blue-400 disabled:cursor-not-allowed"
+                  disabled={user?.role !== 'superadmin'}
+                >
+                  Save Academic Year
+                </button>
+              </span>
             </div>
           )}
 
@@ -692,8 +701,8 @@ const SchoolSettings: React.FC = () => {
                             </div>
                           </div>
                           <span className={`px-3 py-1 text-xs font-medium rounded-full flex-shrink-0 ${isConfigured
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-yellow-100 text-yellow-800'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-yellow-100 text-yellow-800'
                             }`}>
                             {isConfigured ? 'Configured' : 'Not Configured'}
                           </span>

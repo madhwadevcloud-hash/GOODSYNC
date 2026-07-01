@@ -1,5 +1,10 @@
 import React, { useState } from 'react';
+import { useTemplateData } from './templates/hooks/useTemplateData';
+import NewIDCardTemplate from './templates/NewIDCardTemplate';
 import axios from 'axios';
+import JSZip from 'jszip';
+import html2canvas from 'html2canvas';
+import { createRoot } from 'react-dom/client';
 import { Download, Eye, Loader2, CheckCircle, AlertCircle, RectangleHorizontal, RectangleVertical } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -12,6 +17,9 @@ interface Student {
   className: string;
   section: string;
   profileImage?: string;
+  address?: string;
+  dateOfBirth?: string;
+  bloodGroup?: string;
 }
 
 interface SimpleIDCardGeneratorProps {
@@ -19,13 +27,15 @@ interface SimpleIDCardGeneratorProps {
   onClose: () => void;
   initialOrientation?: 'landscape' | 'portrait';
   lockOrientation?: boolean;
+  theme?: 'modern' | 'classic' | 'minimalist';
 }
 
-const SimpleIDCardGenerator: React.FC<SimpleIDCardGeneratorProps> = ({ 
-  selectedStudents, 
-  onClose, 
+const SimpleIDCardGenerator: React.FC<SimpleIDCardGeneratorProps> = ({
+  selectedStudents,
+  onClose,
   initialOrientation = 'landscape',
-  lockOrientation = false 
+  lockOrientation = false,
+  theme = 'modern'
 }) => {
   const [orientation, setOrientation] = useState<'landscape' | 'portrait'>(initialOrientation);
   const [includeBack, setIncludeBack] = useState(true);
@@ -35,8 +45,35 @@ const SimpleIDCardGenerator: React.FC<SimpleIDCardGeneratorProps> = ({
   const [showResults, setShowResults] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [previewStudent, setPreviewStudent] = useState<any>(null);
+  const [previewSide, setPreviewSide] = useState<'front' | 'back'>('front');
+  const { templateSettings } = useTemplateData();
   const [orientationLocked, setOrientationLocked] = useState(lockOrientation);
   const [principalSign, setPrincipalSign] = useState<string | null>(null);
+
+  const colorPalette = [
+    { header: '#1e3a8a', accent: '#3b82f6' }, // Blue
+    { header: '#064e3b', accent: '#10b981' }, // Emerald
+    { header: '#701a75', accent: '#d946ef' }, // Fuchsia
+    { header: '#7c2d12', accent: '#f97316' }, // Orange
+    { header: '#4c1d95', accent: '#8b5cf6' }, // Violet
+    { header: '#831843', accent: '#f43f5e' }, // Rose
+    { header: '#14532d', accent: '#22c55e' }, // Green
+    { header: '#1e1b4b', accent: '#6366f1' }, // Indigo
+    { header: '#0f766e', accent: '#14b8a6' }, // Teal
+    { header: '#991b1b', accent: '#ef4444' }  // Red
+  ];
+
+  const getStudentColorSettings = (student: any) => {
+    const index = selectedStudents.findIndex(s => (s._id || s.id) === (student._id || student.id));
+    const safeIndex = index >= 0 ? index : 0;
+    const colors = colorPalette[safeIndex % colorPalette.length];
+    return {
+      ...templateSettings,
+      headerColor: colors.header,
+      accentColor: colors.accent
+    };
+  };
 
   const handleSignUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -57,129 +94,63 @@ const SimpleIDCardGenerator: React.FC<SimpleIDCardGeneratorProps> = ({
       return;
     }
 
-    try {
-      setGenerating(true);
-      const authData = localStorage.getItem('erp.auth');
-      const token = authData ? JSON.parse(authData).token : null;
-      const studentIds = selectedStudents.map(s => s._id || s.id);
-
-      const schoolCode = localStorage.getItem('erp.schoolCode') || '';
-
-      console.log('🎯 Generating ID cards for students:', {
-        studentIds: studentIds.map((id, idx) => ({
-          id,
-          isValidObjectId: /^[0-9a-fA-F]{24}$/.test(id),
-          studentName: selectedStudents[idx]?.name
-        })),
-        students: selectedStudents,
-        orientation: orientation,
-        orientationType: typeof orientation,
-        orientationValue: `"${orientation}"`,
-        includeBack,
-        apiUrl: `${API_BASE_URL}/id-card-templates/generate`,
-        schoolCode,
-        hasToken: !!token
-      });
-
-      console.log('⚠️ CRITICAL - ORIENTATION VALUE:', orientation);
-      console.log('⚠️ IS PORTRAIT?', orientation === 'portrait');
-      console.log('⚠️ IS LANDSCAPE?', orientation === 'landscape');
-
-      const response = await axios.post(
-        `${API_BASE_URL}/id-card-templates/generate`,
-        {
-          studentIds,
-          orientation,
-          includeBack,
-          principalSign
-        },
-        {
-          headers: { 
-            'Authorization': `Bearer ${token}`,
-            'X-School-Code': schoolCode
-          }
-        }
-      );
-
-      console.log('✅ ID cards generated successfully:', response.data);
-
-      if (response.data.success) {
-        // Create a mock generated cards array since the new API doesn't return file paths
-        const mockGeneratedCards = selectedStudents.slice(0, response.data.data.totalGenerated).map((student, index) => ({
-          studentId: student._id || student.id,
-          studentName: student.name,
-          sequenceId: student.sequenceId || `STU${String(index + 1).padStart(3, '0')}`,
-          frontCard: null, // No file paths in new in-memory system
-          backCard: null,
-          success: true
-        }));
-        
-        setGeneratedCards(mockGeneratedCards);
-        setShowResults(true);
-        setOrientationLocked(true);
-        toast.success(response.data.message);
-      }
-    } catch (error: any) {
-      console.error('❌ Error generating ID cards:', error);
-      console.error('Error details:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status
-      });
-      
-      const errorMessage = error.response?.data?.message || 'Failed to generate ID cards';
-      const debugHint = error.response?.data?.debug?.hint;
-      
-      if (debugHint) {
-        toast.error(`${errorMessage}\n\n${debugHint}`, { duration: 6000 });
-      } else {
-        toast.error(errorMessage);
-      }
-    } finally {
+    setGenerating(true);
+    setTimeout(() => {
+      const generated = selectedStudents.map(student => ({
+        studentId: student._id || student.id,
+        studentName: student.name,
+        status: 'success'
+      }));
+      setGeneratedCards(generated);
+      setShowResults(true);
+      setOrientationLocked(true);
       setGenerating(false);
-    }
+      toast.success('ID Cards ready for preview/download');
+    }, 500);
   };
 
   const handleDownloadBulk = async () => {
-    if (selectedStudents.length === 0) {
-      toast.error('Please select at least one student');
-      return;
-    }
-
     try {
       setDownloading(true);
-      const authData = localStorage.getItem('erp.auth');
-      const token = authData ? JSON.parse(authData).token : null;
-      const studentIds = selectedStudents.map(s => s._id || s.id);
-      const schoolCode = localStorage.getItem('erp.schoolCode') || '';
+      toast.loading('Generating ZIP file... This may take a moment.', { id: 'zip-download' });
 
-      console.log('📥 Downloading ID cards (Bulk ZIP) for students:', {
-        count: selectedStudents.length,
-        studentIds,
-        orientation,
-        includeBack,
-        schoolCode
-      });
+      const zip = new JSZip();
+      const container = document.createElement('div');
+      container.style.position = 'absolute';
+      container.style.left = '-9999px';
+      container.style.top = '-9999px';
+      document.body.appendChild(container);
 
-      const response = await axios.post(
-        `${API_BASE_URL}/id-card-templates/download`,
-        {
-          studentIds,
-          orientation,
-          includeBack,
-          principalSign
-        },
-        {
-          headers: { 
-            'Authorization': `Bearer ${token}`,
-            'X-School-Code': schoolCode
-          },
-          responseType: 'blob'
+      const root = createRoot(container);
+
+      for (let i = 0; i < selectedStudents.length; i++) {
+        const student = selectedStudents[i];
+        const folderName = student.sequenceId || student.rollNumber || `student_${i + 1}`;
+        const studentFolder = zip.folder(folderName);
+        if (!studentFolder) continue;
+
+        await new Promise<void>(resolve => {
+          root.render(<NewIDCardTemplate settings={getStudentColorSettings(student)} student={student as any} templateId={orientation} side="front" theme={theme} />);
+          setTimeout(resolve, 800);
+        });
+        const frontCanvas = await html2canvas(container.firstChild as HTMLElement, { useCORS: true, allowTaint: true, scale: 2, backgroundColor: null });
+        studentFolder.file(`${folderName}_front.png`, frontCanvas.toDataURL('image/png').split(',')[1], { base64: true });
+
+        if (includeBack) {
+          await new Promise<void>(resolve => {
+            root.render(<NewIDCardTemplate settings={getStudentColorSettings(student)} student={student as any} templateId={orientation} side="back" theme={theme} />);
+            setTimeout(resolve, 800);
+          });
+          const backCanvas = await html2canvas(container.firstChild as HTMLElement, { useCORS: true, allowTaint: true, scale: 2, backgroundColor: null });
+          studentFolder.file(`${folderName}_back.png`, backCanvas.toDataURL('image/png').split(',')[1], { base64: true });
         }
-      );
+      }
 
-      // Create download link
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      root.unmount();
+      document.body.removeChild(container);
+
+      const content = await zip.generateAsync({ type: 'blob' });
+      const url = window.URL.createObjectURL(content);
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', `IDCards_Bulk_${Date.now()}.zip`);
@@ -188,23 +159,12 @@ const SimpleIDCardGenerator: React.FC<SimpleIDCardGeneratorProps> = ({
       link.remove();
       window.URL.revokeObjectURL(url);
 
-      toast.success(`ID cards downloaded successfully (${selectedStudents.length} students in folders)`);
-    } catch (error: any) {
-      console.error('❌ Error downloading ID cards:', error);
-      console.error('Error details:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status
-      });
-      
-      const errorMessage = error.response?.data?.message || 'Failed to download ID cards';
-      const debugHint = error.response?.data?.debug?.hint;
-      
-      if (debugHint) {
-        toast.error(`${errorMessage}\n\n${debugHint}`, { duration: 6000 });
-      } else {
-        toast.error(errorMessage);
-      }
+      toast.dismiss('zip-download');
+      toast.success(`ID cards downloaded successfully`);
+    } catch (error) {
+      console.error('Error downloading ID cards:', error);
+      toast.dismiss('zip-download');
+      toast.error('Failed to download ID cards');
     } finally {
       setDownloading(false);
     }
@@ -212,31 +172,40 @@ const SimpleIDCardGenerator: React.FC<SimpleIDCardGeneratorProps> = ({
 
   const handleDownloadIndividual = async (student: any) => {
     try {
-      const authData = localStorage.getItem('erp.auth');
-      const token = authData ? JSON.parse(authData).token : null;
-      const schoolCode = localStorage.getItem('erp.schoolCode') || '';
+      toast.loading(`Generating ID card for ${student.name}...`, { id: 'ind-download' });
 
-      console.log('📥 Downloading ID card for individual student:', student.name);
+      const zip = new JSZip();
+      const container = document.createElement('div');
+      container.style.position = 'absolute';
+      container.style.left = '-9999px';
+      container.style.top = '-9999px';
+      document.body.appendChild(container);
 
-      const response = await axios.post(
-        `${API_BASE_URL}/id-card-templates/download`,
-        {
-          studentIds: [student._id || student.id],
-          orientation,
-          includeBack,
-          principalSign
-        },
-        {
-          headers: { 
-            'Authorization': `Bearer ${token}`,
-            'X-School-Code': schoolCode
-          },
-          responseType: 'blob'
-        }
-      );
+      const root = createRoot(container);
 
-      // Create download link
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const folderName = student.sequenceId || student.rollNumber || `student`;
+
+      await new Promise<void>(resolve => {
+        root.render(<NewIDCardTemplate settings={getStudentColorSettings(student)} student={student as any} templateId={orientation} side="front" theme={theme} />);
+        setTimeout(resolve, 800);
+      });
+      const frontCanvas = await html2canvas(container.firstChild as HTMLElement, { useCORS: true, allowTaint: true, scale: 2, backgroundColor: null });
+      zip.file(`${folderName}_front.png`, frontCanvas.toDataURL('image/png').split(',')[1], { base64: true });
+
+      if (includeBack) {
+        await new Promise<void>(resolve => {
+          root.render(<NewIDCardTemplate settings={getStudentColorSettings(student)} student={student as any} templateId={orientation} side="back" theme={theme} />);
+          setTimeout(resolve, 800);
+        });
+        const backCanvas = await html2canvas(container.firstChild as HTMLElement, { useCORS: true, allowTaint: true, scale: 2, backgroundColor: null });
+        zip.file(`${folderName}_back.png`, backCanvas.toDataURL('image/png').split(',')[1], { base64: true });
+      }
+
+      root.unmount();
+      document.body.removeChild(container);
+
+      const content = await zip.generateAsync({ type: 'blob' });
+      const url = window.URL.createObjectURL(content);
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', `IDCard_${student.name.replace(/[^a-zA-Z0-9]/g, '_')}.zip`);
@@ -245,50 +214,21 @@ const SimpleIDCardGenerator: React.FC<SimpleIDCardGeneratorProps> = ({
       link.remove();
       window.URL.revokeObjectURL(url);
 
+      toast.dismiss('ind-download');
       toast.success(`ID card downloaded for ${student.name}`);
-    } catch (error: any) {
-      console.error('❌ Error downloading individual ID card:', error);
-      toast.error(`Failed to download ID card for ${student.name}`);
+    } catch (error) {
+      console.error('Error downloading individual ID card:', error);
+      toast.dismiss('ind-download');
+      toast.error('Failed to download individual ID card');
     }
   };
 
   const handlePreview = async (studentId: string, side: 'front' | 'back' = 'front') => {
-    try {
-      const authData = localStorage.getItem('erp.auth');
-      const token = authData ? JSON.parse(authData).token : null;
-      const schoolCode = localStorage.getItem('erp.schoolCode') || '';
-
-      console.log('🔍 Previewing ID card:', { studentId, side, orientation });
-
-      // Use POST for preview to support passing large base64 strings
-      const previewUrl = `${API_BASE_URL}/id-card-templates/preview`;
-      
-      const response = await fetch(previewUrl, {
-        method: 'POST',
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'X-School-Code': schoolCode,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          studentId,
-          orientation,
-          side,
-          principalSign
-        })
-      });
-
-      if (response.ok) {
-        const blob = await response.blob();
-        const imageUrl = URL.createObjectURL(blob);
-        setPreviewImage(imageUrl);
-        setShowPreview(true);
-      } else {
-        toast.error('Failed to load preview');
-      }
-    } catch (error) {
-      console.error('Error loading preview:', error);
-      toast.error('Failed to load preview');
+    const student = selectedStudents.find(s => (s._id || s.id) === studentId);
+    if (student) {
+      setPreviewStudent(student);
+      setPreviewSide(side);
+      setShowPreview(true);
     }
   };
 
@@ -333,11 +273,10 @@ const SimpleIDCardGenerator: React.FC<SimpleIDCardGeneratorProps> = ({
                       Choose ID Card Orientation
                     </label>
                     <div className="flex flex-col gap-3">
-                      <label className={`flex items-center p-4 border-2 rounded-lg transition-all ${
-                        orientation === 'landscape' 
-                          ? 'border-blue-500 bg-blue-50' 
-                          : 'border-gray-200 hover:border-gray-300'
-                      } ${orientationLocked ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}>
+                      <label className={`flex items-center p-4 border-2 rounded-lg transition-all ${orientation === 'landscape'
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                        } ${orientationLocked ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}>
                         <input
                           type="radio"
                           value="landscape"
@@ -352,11 +291,10 @@ const SimpleIDCardGenerator: React.FC<SimpleIDCardGeneratorProps> = ({
                           <div className="text-sm text-gray-500">Horizontal ID card (85.6mm × 54mm) - Credit card style layout</div>
                         </div>
                       </label>
-                      <label className={`flex items-center p-4 border-2 rounded-lg transition-all ${
-                        orientation === 'portrait' 
-                          ? 'border-blue-500 bg-blue-50' 
-                          : 'border-gray-200 hover:border-gray-300'
-                      } ${orientationLocked ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}>
+                      <label className={`flex items-center p-4 border-2 rounded-lg transition-all ${orientation === 'portrait'
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                        } ${orientationLocked ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}>
                         <input
                           type="radio"
                           value="portrait"
@@ -383,8 +321,8 @@ const SimpleIDCardGenerator: React.FC<SimpleIDCardGeneratorProps> = ({
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Principal Sign (Front side only)
                     </label>
-                    <input 
-                      type="file" 
+                    <input
+                      type="file"
                       accept="image/*"
                       onChange={handleSignUpload}
                       className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
@@ -392,7 +330,7 @@ const SimpleIDCardGenerator: React.FC<SimpleIDCardGeneratorProps> = ({
                     {principalSign && (
                       <div className="mt-2">
                         <img src={principalSign} alt="Principal Sign" className="h-16 object-contain border rounded p-1" />
-                        <button 
+                        <button
                           onClick={() => setPrincipalSign(null)}
                           className="text-xs text-red-500 hover:text-red-700 mt-1 block"
                         >
@@ -565,20 +503,17 @@ const SimpleIDCardGenerator: React.FC<SimpleIDCardGeneratorProps> = ({
       </div>
 
       {/* Preview Modal */}
-      {showPreview && previewImage && (
+      {showPreview && previewStudent && (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[60] p-4">
           <div className={`bg-white rounded-lg w-full overflow-auto ${orientation === 'portrait' ? 'max-w-2xl max-h-[95vh]' : 'max-w-5xl max-h-[90vh]'}`}>
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
               <h3 className="text-lg font-semibold text-gray-900">
-                ID Card Preview ({orientation === 'portrait' ? 'Portrait' : 'Landscape'})
+                ID Card Preview ({orientation === 'portrait' ? 'Portrait' : 'Landscape'}) - {previewSide === 'front' ? 'Front' : 'Back'}
               </h3>
               <button
                 onClick={() => {
                   setShowPreview(false);
-                  if (previewImage) {
-                    URL.revokeObjectURL(previewImage);
-                  }
-                  setPreviewImage(null);
+                  setPreviewStudent(null);
                 }}
                 className="text-gray-500 hover:text-gray-700 text-2xl leading-none"
               >
@@ -586,11 +521,15 @@ const SimpleIDCardGenerator: React.FC<SimpleIDCardGeneratorProps> = ({
               </button>
             </div>
             <div className="p-6 flex justify-center bg-gray-50">
-              <img 
-                src={previewImage} 
-                alt="ID Card Preview" 
-                className={`${orientation === 'portrait' ? 'w-auto h-auto max-h-[80vh]' : 'max-w-full h-auto'} shadow-lg`}
-              />
+              <div style={{ transform: 'scale(1)', transformOrigin: 'top center' }}>
+                <NewIDCardTemplate
+                  settings={getStudentColorSettings(previewStudent)}
+                  student={previewStudent as any}
+                  templateId={orientation}
+                  side={previewSide}
+                  theme={theme}
+                />
+              </div>
             </div>
           </div>
         </div>

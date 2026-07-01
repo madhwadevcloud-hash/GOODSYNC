@@ -7,556 +7,397 @@ const NewIDCardTemplate: React.FC<IDCardTemplateProps> = ({
   templateId,
   side,
   mode = 'preview',
+  theme = 'modern',
   className = ''
 }) => {
   const isLandscape = templateId === 'landscape';
   const isFront = side === 'front';
 
-  // Card dimensions - Landscape: 85.6mm × 54mm, Portrait: 54mm × 85.6mm
-  const cardStyle = {
+  const headerColor = settings.headerColor || '#1e3a8a';
+  const accentColor = settings.accentColor || '#3b82f6';
+
+  const baseCardStyle = {
     width: isLandscape ? '85.6mm' : '54mm',
     height: isLandscape ? '54mm' : '85.6mm',
     backgroundColor: 'white',
     position: 'relative' as const,
     overflow: 'hidden',
-    fontFamily: '"Poppins", Arial, sans-serif',
-    fontSize: '12px',
-    color: '#000',
-    borderRadius: '6px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-    border: '0.2mm solid #ddd'
+    fontFamily: '"Inter", "Poppins", Arial, sans-serif',
+    color: '#1f2937',
+    borderRadius: mode === 'print' ? '0' : '8px',
+    boxShadow: mode === 'print' ? 'none' : '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+    border: mode === 'print' ? 'none' : '1px solid #e5e7eb',
+    boxSizing: 'border-box' as const,
+    display: 'flex',
+    flexDirection: 'column' as const,
   };
 
-  // Decorative elements styles
-  const decorativeStyles = {
-    topBar: {
-      position: 'absolute' as const,
-      top: 0,
-      left: 0,
-      right: 0,
-      height: '15mm',
-      background: 'linear-gradient(90deg, #D4A017 0%, #D4A017 70%, #4169E1 70%, #4169E1 100%)',
-      zIndex: 1
-    },
-    bottomLeftCurve: {
-      position: 'absolute' as const,
-      bottom: 0,
-      left: 0,
-      width: isLandscape ? '25mm' : '20mm',
-      height: isLandscape ? '20mm' : '25mm',
-      background: 'linear-gradient(45deg, #4169E1 0%, #87CEEB 100%)',
-      borderTopRightRadius: '100%',
-      zIndex: 1
-    },
-    bottomRightCurve: {
-      position: 'absolute' as const,
-      bottom: 0,
-      right: 0,
-      width: isLandscape ? '30mm' : '25mm',
-      height: isLandscape ? '15mm' : '20mm',
-      background: 'linear-gradient(-45deg, #D4A017 0%, #87CEEB 50%)',
-      borderTopLeftRadius: '100%',
-      zIndex: 1
-    },
-    blueTab: {
-      position: 'absolute' as const,
-      top: '15mm',
-      left: isLandscape ? '15mm' : '10mm',
-      width: isLandscape ? '8mm' : '6mm',
-      height: isLandscape ? '25mm' : '30mm',
-      backgroundColor: '#4169E1',
-      borderBottomLeftRadius: '50%',
-      borderBottomRightRadius: '50%',
-      zIndex: 2
-    }
-  };
+  // Helper for Logo
+  const renderLogo = (size = '8mm') => (
+    settings.logoUrl ? (
+      <img src={settings.logoUrl} alt="Logo" style={{ width: size, height: size, objectFit: 'contain' }} />
+    ) : (
+      <div style={{ width: size, height: size, backgroundColor: accentColor, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: `calc(${size} * 0.5)` }}>??</div>
+    )
+  );
 
-  const renderLandscapeFront = () => (
-    <div style={{
-      ...cardStyle,
-      display: 'flex',
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      padding: '12px 16px',
-      position: 'relative',
-      overflow: 'hidden'
-    }}>
-      {/* Top Gold Bar - Thicker */}
-      <div style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        width: '100%',
-        height: '14mm',
-        backgroundColor: '#d29c00',
-        zIndex: 1
-      }}></div>
+  // Helper for Photo
+  const renderPhoto = (width = '22mm', height = '28mm', borderStyle = `2px solid ${accentColor}`) => (
+    <div style={{ width, height, border: borderStyle, borderRadius: '4px', overflow: 'hidden', backgroundColor: '#e5e7eb', flexShrink: 0 }}>
+      {student.profileImage ? (
+        <img src={student.profileImage} alt={student.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      ) : (
+        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: '8mm' }}>??</div>
+      )}
+    </div>
+  );
 
-      {/* Bottom Gradient Triangle */}
-      <div style={{
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        width: '100%',
-        height: '35%',
-        background: 'linear-gradient(135deg, #476fb3 40%, #d29c00 80%)',
-        clipPath: 'polygon(0 40%, 100% 100%, 0% 100%)',
-        zIndex: 1
-      }}></div>
+  // ==========================================
+  // LANDSCAPE DESIGNS
+  // ==========================================
+  
+  const renderModernLandscape = () => (
+    <div style={{ ...baseCardStyle, background: 'linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%)' }}>
+      {/* Curved Background Accent */}
+      <div style={{ position: 'absolute', top: '-10mm', right: '-10mm', width: '50mm', height: '50mm', backgroundColor: accentColor, borderRadius: '50%', opacity: 0.1, zIndex: 0 }}></div>
+      <div style={{ position: 'absolute', bottom: '-15mm', left: '-15mm', width: '40mm', height: '40mm', backgroundColor: headerColor, borderRadius: '50%', opacity: 0.05, zIndex: 0 }}></div>
 
-      {/* School Logo and Info */}
-      <div style={{
-        position: 'absolute',
-        top: '2mm',
-        left: '4mm',
-        right: '4mm',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        zIndex: 2
-      }}>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '3mm'
-        }}>
-          {settings.logoUrl ? (
-            <img
-              src={settings.logoUrl}
-              alt="School Logo"
-              style={{ width: '10mm', height: '10mm', objectFit: 'contain' }}
-            />
-          ) : (
-            <div style={{
-              width: '10mm',
-              height: '10mm',
-              backgroundColor: '#2a4b8d',
-              borderRadius: '2mm',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '8px',
-              color: 'white',
-              fontWeight: 'bold'
-            }}>
-              📚
-            </div>
-          )}
-          <div style={{
-            fontSize: '12px',
-            fontWeight: 'bold',
-            color: '#000',
-            maxWidth: '50mm'
-          }}>
-            <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {settings.schoolName}
-            </div>
-            <div style={{ fontSize: '7px', opacity: 0.8 }}>
-              {settings.schoolCode}
-            </div>
-          </div>
+      {/* Glassmorphism Header */}
+      <div style={{ display: 'flex', alignItems: 'center', padding: '3mm 4mm', background: 'rgba(255, 255, 255, 0.6)', backdropFilter: 'blur(10px)', borderBottom: '1px solid rgba(255, 255, 255, 0.8)', zIndex: 1, position: 'relative' }}>
+        <div style={{ marginRight: '3mm', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', borderRadius: '50%', padding: '1mm', backgroundColor: '#fff' }}>{renderLogo('7mm')}</div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: '3.8mm', fontWeight: '800', color: headerColor, letterSpacing: '0.2px' }}>{settings.schoolName}</div>
+          <div style={{ fontSize: '2.2mm', color: accentColor, fontWeight: '600' }}>{settings.schoolCode}</div>
         </div>
       </div>
-
-      {/* Content Area */}
-      <div style={{
-        position: 'absolute',
-        top: '50%',
-        left: 0,
-        right: 0,
-        transform: 'translateY(-50%)',
-        zIndex: 2,
-        display: 'flex',
-        justifyContent: 'space-between',
-        width: '100%',
-        alignItems: 'center',
-        padding: '0 16px'
-      }}>
-        {/* Student Info */}
-        <div style={{
-          flex: 1,
-          fontSize: '2.5mm',
-          lineHeight: 1.3,
-          marginTop: '0'
-        }}>
-          <div style={{ marginBottom: '1.2mm' }}>
-            <strong>Name</strong> : {student.name}
-          </div>
-          <div style={{ marginBottom: '1.2mm' }}>
-            <strong>ID Number</strong> : {student.sequenceId || student.rollNumber}
-          </div>
-          <div style={{ marginBottom: '1.2mm' }}>
-            <strong>Class/Section</strong> : {student.className} - {student.section}
-          </div>
-          <div style={{ marginBottom: '1.2mm' }}>
-            <strong>Date of Birth</strong> : {student.dateOfBirth || 'N/A'}
-          </div>
-          <div style={{ marginBottom: '1.2mm' }}>
-            <strong>Blood Group</strong> : {student.bloodGroup || 'N/A'}
-          </div>
+      
+      {/* Body Area */}
+      <div style={{ display: 'flex', padding: '3mm 4mm', flex: 1, position: 'relative', zIndex: 1, alignItems: 'center' }}>
+        <div style={{ marginRight: '5mm', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 8px 16px rgba(0,0,0,0.15)', border: `2px solid #fff`, flexShrink: 0 }}>
+          {renderPhoto('22mm', '28mm', 'none')}
         </div>
-
-        {/* Photo Frame */}
-        <div style={{
-          width: '22mm',
-          height: '28mm',
-          border: '1mm solid #2a4b8d',
-          borderRadius: '1mm',
-          overflow: 'hidden',
-          background: 'linear-gradient(to top, #a3d2ff, #ffffff)',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          fontSize: '2.5mm',
-          color: '#777',
-          marginTop: '4mm'
-        }}>
-          {student.profileImage ? (
-            <img
-              src={student.profileImage}
-              alt="Student Photo"
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            />
-          ) : (
-            'Photo'
-          )}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <div style={{ fontSize: '5mm', fontWeight: '800', color: '#1e293b', marginBottom: '1.5mm' }}>
+            {student.name}
+          </div>
+          <div style={{ width: '20mm', height: '3px', backgroundColor: accentColor, borderRadius: '2px', marginBottom: '3mm' }}></div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '1.5mm 3mm', fontSize: '2.6mm' }}>
+            <span style={{ color: '#64748b', fontWeight: '600' }}>ID NO:</span> <span style={{ fontWeight: '700', color: '#334155' }}>{student.sequenceId || student.rollNumber}</span>
+            <span style={{ color: '#64748b', fontWeight: '600' }}>CLASS:</span> <span style={{ fontWeight: '700', color: '#334155' }}>{student.className} - {student.section}</span>
+            <span style={{ color: '#64748b', fontWeight: '600' }}>DOB:</span> <span style={{ fontWeight: '700', color: '#334155' }}>{student.dateOfBirth || 'N/A'}</span>
+            <span style={{ color: '#64748b', fontWeight: '600' }}>BLOOD:</span> <span style={{ fontWeight: '700', color: '#334155' }}>{student.bloodGroup || 'N/A'}</span>
+          </div>
         </div>
       </div>
     </div>
   );
+
+  const renderClassicLandscape = () => (
+    <div style={{ ...baseCardStyle, backgroundColor: '#ffffff', flexDirection: 'row' }}>
+      {/* Left Sharp Solid Block */}
+      <div style={{ width: '30mm', backgroundColor: headerColor, position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '2mm 3mm' }}>
+        <div style={{ marginBottom: '2.5mm', padding: '1mm', backgroundColor: '#fff', flexShrink: 0 }}>{renderLogo('11mm')}</div>
+        <div style={{ position: 'relative', zIndex: 1, backgroundColor: '#fff', padding: '1mm', flexShrink: 0 }}>
+          {renderPhoto('21mm', '26mm', 'none')}
+        </div>
+        <div style={{ marginTop: 'auto', color: '#fff', fontSize: '2.5mm', fontWeight: 'bold', letterSpacing: '1px', flexShrink: 0 }}>{settings.schoolCode}</div>
+      </div>
+      
+      {/* Right Details Area */}
+      <div style={{ flex: 1, padding: '3mm', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+        {/* Geometric Accent */}
+        <div style={{ position: 'absolute', top: 0, right: 0, width: '0', height: '0', borderTop: `15mm solid ${accentColor}`, borderLeft: '15mm solid transparent' }}></div>
+        
+        <div style={{ fontSize: '4mm', fontWeight: 'bold', color: headerColor, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '1mm', maxWidth: '45mm', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: 0, lineHeight: 1.2 }}>
+          {settings.schoolName}
+        </div>
+        <div style={{ height: '2px', backgroundColor: headerColor, width: '100%', marginBottom: '2.5mm', flexShrink: 0 }}></div>
+        
+        <div style={{ fontSize: '5mm', fontWeight: 'bold', color: '#000', marginBottom: '2mm', flexShrink: 0 }}>
+          {student.name}
+        </div>
+        
+        <table style={{ width: '100%', fontSize: '2.8mm', borderCollapse: 'collapse' }}>
+          <tbody>
+            <tr>
+              <td style={{ padding: '0.5mm 0', fontWeight: 'bold', color: headerColor, width: '18mm' }}>ID NO</td>
+              <td style={{ padding: '0.5mm 0', color: '#000', borderBottom: '1px solid #e5e7eb' }}>{student.sequenceId || student.rollNumber}</td>
+            </tr>
+            <tr>
+              <td style={{ padding: '0.5mm 0', fontWeight: 'bold', color: headerColor }}>CLASS</td>
+              <td style={{ padding: '0.5mm 0', color: '#000', borderBottom: '1px solid #e5e7eb' }}>{student.className} - {student.section}</td>
+            </tr>
+            <tr>
+              <td style={{ padding: '0.5mm 0', fontWeight: 'bold', color: headerColor }}>D.O.B</td>
+              <td style={{ padding: '0.5mm 0', color: '#000', borderBottom: '1px solid #e5e7eb' }}>{student.dateOfBirth || 'N/A'}</td>
+            </tr>
+            <tr>
+              <td style={{ padding: '0.5mm 0', fontWeight: 'bold', color: headerColor }}>BLOOD</td>
+              <td style={{ padding: '0.5mm 0', color: '#000', borderBottom: '1px solid #e5e7eb' }}>{student.bloodGroup || 'N/A'}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  const renderMinimalistLandscape = () => (
+    <div style={{ ...baseCardStyle, backgroundColor: '#ffffff', padding: '2mm' }}>
+      <div style={{ border: '1px solid #e5e7eb', borderRadius: '6px', height: '100%', display: 'flex', flexDirection: 'column', padding: '3mm', position: 'relative' }}>
+        {/* Subtle accent border at the top */}
+        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '3px', backgroundColor: accentColor, borderTopLeftRadius: '5px', borderTopRightRadius: '5px' }}></div>
+        
+        {/* Top Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3mm', marginTop: '1mm' }}>
+          <div style={{ fontSize: '3.5mm', fontWeight: '700', color: '#1f2937', letterSpacing: '0.5px', textTransform: 'uppercase', maxWidth: '50mm', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{settings.schoolName}</div>
+          <div>{renderLogo('7mm')}</div>
+        </div>
+        
+        {/* Body */}
+        <div style={{ display: 'flex', flex: 1 }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', paddingRight: '4mm' }}>
+            <div style={{ fontSize: '4.5mm', fontWeight: '600', color: '#111827', marginBottom: '2mm', letterSpacing: '0.2px' }}>
+              {student.name}
+            </div>
+            <div style={{ fontSize: '2.5mm', display: 'flex', flexDirection: 'column', gap: '1.5mm', color: '#4b5563' }}>
+              <div style={{ borderBottom: '1px dotted #e5e7eb', paddingBottom: '0.5mm' }}><span style={{ display: 'inline-block', width: '12mm', color: '#9ca3af', fontWeight: '500' }}>ID NO:</span> <span style={{ color: '#1f2937', fontWeight: '500' }}>{student.sequenceId || student.rollNumber}</span></div>
+              <div style={{ borderBottom: '1px dotted #e5e7eb', paddingBottom: '0.5mm' }}><span style={{ display: 'inline-block', width: '12mm', color: '#9ca3af', fontWeight: '500' }}>CLASS:</span> <span style={{ color: '#1f2937', fontWeight: '500' }}>{student.className} - {student.section}</span></div>
+              <div style={{ paddingBottom: '0.5mm' }}><span style={{ display: 'inline-block', width: '12mm', color: '#9ca3af', fontWeight: '500' }}>DOB:</span> <span style={{ color: '#1f2937', fontWeight: '500' }}>{student.dateOfBirth || 'N/A'}</span></div>
+            </div>
+          </div>
+          <div style={{ alignSelf: 'center' }}>
+            <div style={{ padding: '1mm', border: '1px solid #f3f4f6', borderRadius: '4px', backgroundColor: '#f9fafb' }}>
+              {renderPhoto('20mm', '25mm', 'none')}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // ==========================================
+  // PORTRAIT DESIGNS
+  // ==========================================
+
+  const renderModernPortrait = () => (
+    <div style={{ ...baseCardStyle, background: 'linear-gradient(to bottom, #ffffff 0%, #f1f5f9 100%)' }}>
+      {/* Curved Header Background */}
+      <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '35mm', backgroundColor: headerColor, borderBottomLeftRadius: '50% 20%', borderBottomRightRadius: '50% 20%', zIndex: 0, boxShadow: '0 4px 10px rgba(0,0,0,0.1)' }}></div>
+      <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '35mm', backgroundImage: `linear-gradient(45deg, transparent 40%, ${accentColor} 100%)`, opacity: 0.5, borderBottomLeftRadius: '50% 20%', borderBottomRightRadius: '50% 20%', zIndex: 0 }}></div>
+
+      <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '3mm', flex: 1 }}>
+        {/* Header Text & Logo */}
+        <div style={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'center', marginBottom: '2mm' }}>
+          <div style={{ backgroundColor: '#fff', padding: '1mm', borderRadius: '50%', marginRight: '2mm', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>{renderLogo('8mm')}</div>
+          <div style={{ fontSize: '3.5mm', fontWeight: '800', color: '#ffffff', letterSpacing: '0.5px' }}>{settings.schoolName}</div>
+        </div>
+        
+        {/* Photo overlapping the curve */}
+        <div style={{ marginTop: '1mm', marginBottom: '1.5mm', borderRadius: '50%', padding: '1mm', backgroundColor: '#fff', boxShadow: '0 8px 16px rgba(0,0,0,0.2)', flexShrink: 0 }}>
+          <div style={{ borderRadius: '50%', overflow: 'hidden', width: '24mm', height: '24mm', border: `2px solid ${accentColor}` }}>
+            {student.profileImage ? (
+              <img src={student.profileImage} alt={student.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: '8mm', backgroundColor: '#e5e7eb' }}>??</div>
+            )}
+          </div>
+        </div>
+        
+        <div style={{ fontSize: '4.5mm', fontWeight: '900', color: '#1e293b', textAlign: 'center', marginBottom: '0.5mm', flexShrink: 0 }}>{student.name}</div>
+        <div style={{ fontSize: '2.2mm', color: accentColor, fontWeight: '700', marginBottom: '1.5mm', textTransform: 'uppercase', letterSpacing: '1px', flexShrink: 0 }}>STUDENT</div>
+        
+        {/* Details Grid (Glassmorphism look) */}
+        <div style={{ width: '90%', background: 'rgba(255, 255, 255, 0.7)', backdropFilter: 'blur(10px)', padding: '2mm', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.9)', fontSize: '2.4mm', display: 'grid', gridTemplateColumns: '1fr', gap: '0.8mm', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', flexShrink: 0, lineHeight: 1.1 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '0.5mm' }}>
+            <strong style={{ color: '#64748b' }}>ID NO:</strong> <span style={{ fontWeight: '700', color: '#334155' }}>{student.sequenceId || student.rollNumber}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '0.5mm' }}>
+            <strong style={{ color: '#64748b' }}>CLASS:</strong> <span style={{ fontWeight: '700', color: '#334155' }}>{student.className} - {student.section}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '0.5mm' }}>
+            <strong style={{ color: '#64748b' }}>DOB:</strong> <span style={{ fontWeight: '700', color: '#334155' }}>{student.dateOfBirth || 'N/A'}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <strong style={{ color: '#64748b' }}>BLOOD:</strong> <span style={{ fontWeight: '700', color: '#334155' }}>{student.bloodGroup || 'N/A'}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderClassicPortrait = () => (
+    <div style={{ ...baseCardStyle, backgroundColor: '#ffffff' }}>
+      {/* Sharp Diagonal Background Split */}
+      <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '35mm', backgroundColor: headerColor, clipPath: 'polygon(0 0, 100% 0, 100% 80%, 0 100%)', zIndex: 0 }}></div>
+      <div style={{ position: 'absolute', top: 0, right: 0, width: '0', height: '0', borderTop: `15mm solid ${accentColor}`, borderLeft: '15mm solid transparent', zIndex: 1 }}></div>
+      
+      <div style={{ position: 'relative', zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '3mm', flex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', marginBottom: '2mm', flexShrink: 0 }}>
+          <div style={{ padding: '1mm', backgroundColor: '#fff' }}>{renderLogo('8mm')}</div>
+          <div style={{ fontSize: '3.2mm', fontWeight: 'bold', color: '#ffffff', marginLeft: '2mm', textTransform: 'uppercase' }}>{settings.schoolName}</div>
+        </div>
+        
+        {/* Photo sharp border */}
+        <div style={{ marginBottom: '1.5mm', backgroundColor: '#fff', padding: '1.5mm', border: `1px solid ${headerColor}`, flexShrink: 0 }}>
+          {renderPhoto('22mm', '28mm', 'none')}
+        </div>
+        
+        <div style={{ fontSize: '5mm', fontWeight: 'bold', color: '#000', textAlign: 'center', marginBottom: '1mm', textTransform: 'uppercase', flexShrink: 0 }}>{student.name}</div>
+        <div style={{ height: '1px', width: '40mm', backgroundColor: accentColor, marginBottom: '2mm', flexShrink: 0 }}></div>
+        
+        <table style={{ width: '90%', fontSize: '2.6mm', borderCollapse: 'collapse', textAlign: 'left', flexShrink: 0 }}>
+          <tbody>
+            <tr>
+              <td style={{ padding: '0.8mm 0', fontWeight: 'bold', color: headerColor, borderBottom: '1px solid #e5e7eb', width: '20mm' }}>ID NO</td>
+              <td style={{ padding: '0.8mm 0', color: '#000', borderBottom: '1px solid #e5e7eb' }}>{student.sequenceId || student.rollNumber}</td>
+            </tr>
+            <tr>
+              <td style={{ padding: '0.8mm 0', fontWeight: 'bold', color: headerColor, borderBottom: '1px solid #e5e7eb' }}>CLASS</td>
+              <td style={{ padding: '0.8mm 0', color: '#000', borderBottom: '1px solid #e5e7eb' }}>{student.className} - {student.section}</td>
+            </tr>
+            <tr>
+              <td style={{ padding: '0.8mm 0', fontWeight: 'bold', color: headerColor, borderBottom: '1px solid #e5e7eb' }}>DOB</td>
+              <td style={{ padding: '0.8mm 0', color: '#000', borderBottom: '1px solid #e5e7eb' }}>{student.dateOfBirth || 'N/A'}</td>
+            </tr>
+            <tr>
+              <td style={{ padding: '0.8mm 0', fontWeight: 'bold', color: headerColor }}>BLOOD</td>
+              <td style={{ padding: '0.8mm 0', color: '#000' }}>{student.bloodGroup || 'N/A'}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      
+      {/* Bottom accent line */}
+      <div style={{ height: '3mm', width: '100%', backgroundColor: headerColor }}></div>
+    </div>
+  );
+
+  const renderMinimalistPortrait = () => (
+    <div style={{ ...baseCardStyle, backgroundColor: '#ffffff', padding: '2mm' }}>
+      <div style={{ border: '1px solid #e5e7eb', borderRadius: '6px', height: '100%', display: 'flex', flexDirection: 'column', padding: '2mm', position: 'relative' }}>
+        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '2px', backgroundColor: accentColor, borderTopLeftRadius: '5px', borderTopRightRadius: '5px' }}></div>
+        
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '2mm', marginTop: '1mm' }}>
+          <div style={{ marginBottom: '1mm' }}>{renderLogo('8mm')}</div>
+          <div style={{ fontSize: '3mm', fontWeight: '700', color: '#1f2937', textAlign: 'center', letterSpacing: '0.5px', textTransform: 'uppercase', lineHeight: '1.2' }}>{settings.schoolName}</div>
+        </div>
+        
+        <div style={{ alignSelf: 'center', marginBottom: '2mm' }}>
+          <div style={{ padding: '1mm', border: '1px solid #f3f4f6', borderRadius: '4px', backgroundColor: '#f9fafb' }}>
+            {renderPhoto('20mm', '25mm', 'none')}
+          </div>
+        </div>
+        
+        <div style={{ fontSize: '4.5mm', fontWeight: '600', color: '#111827', marginBottom: '1.5mm', textAlign: 'center', letterSpacing: '0.2px' }}>
+          {student.name}
+        </div>
+        
+        <div style={{ width: '100%', height: '1px', backgroundColor: '#f3f4f6', marginBottom: '1.5mm' }}></div>
+        
+        <div style={{ fontSize: '2.5mm', display: 'flex', flexDirection: 'column', gap: '1mm', color: '#4b5563', flex: 1, justifyContent: 'flex-start' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px dotted #e5e7eb', paddingBottom: '0.5mm' }}>
+            <span style={{ color: '#9ca3af', fontWeight: '500' }}>ID NO</span> <span style={{ color: '#1f2937', fontWeight: '500' }}>{student.sequenceId || student.rollNumber}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px dotted #e5e7eb', paddingBottom: '0.5mm' }}>
+            <span style={{ color: '#9ca3af', fontWeight: '500' }}>CLASS</span> <span style={{ color: '#1f2937', fontWeight: '500' }}>{student.className} - {student.section}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: '#9ca3af', fontWeight: '500' }}>DOB</span> <span style={{ color: '#1f2937', fontWeight: '500' }}>{student.dateOfBirth || 'N/A'}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // ==========================================
+  // BACK DESIGNS
+  // ==========================================
 
   const renderLandscapeBack = () => (
-    <div style={{
-      ...cardStyle,
-      padding: '10mm 8mm',
-      position: 'relative',
-      overflow: 'hidden'
-    }}>
-      {/* Top Gold Bar - Thicker */}
-      <div style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        width: '100%',
-        height: '14mm',
-        backgroundColor: '#d29c00',
-        zIndex: 1
-      }}></div>
-
-      {/* Bottom Gradient Triangle */}
-      <div style={{
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        width: '100%',
-        height: '14mm',
-        background: 'linear-gradient(145deg, #476fb3 40%, #d29c00 85%)',
-        clipPath: 'polygon(0 40%, 100% 100%, 0% 100%)',
-        zIndex: 1
-      }}></div>
-
-      {/* Content */}
-      <div style={{
-        position: 'relative',
-        zIndex: 2
-      }}>
-
-        {/* Back Info */}
-        <div style={{
-          fontSize: '2.2mm',
-          marginTop: '8mm',
-          lineHeight: 1.4,
-          textAlign: 'center'
-        }}>
-          <div style={{ marginBottom: '1.8mm', textAlign: 'left' }}>
-            <strong>Student Address</strong> : {student.address || '___________________________'}
-          </div>
-          <div style={{ marginBottom: '1.8mm', textAlign: 'left' }}>
-            <strong>Parent's Name</strong> : {student.fatherName || '____________________________'}
-          </div>
-          <div style={{ marginBottom: '1.8mm', textAlign: 'left' }}>
-            <strong>Mobile No.</strong> : {student.phone || '____________________________'}
-          </div>
-
-          <div style={{ marginTop: '2.5mm', marginBottom: '1mm', textAlign: 'left' }}>
-            <strong>School Address:</strong> {settings.schoolName}<br />
-            <span style={{ marginLeft: '20mm' }}>{settings.address}</span>
-          </div>
-
-          <div style={{ fontSize: '2mm', fontWeight: 'bold', textAlign: 'center', marginTop: '1.5mm' }}>
-            Return to above address if lost
-          </div>
-        </div>
-      </div>
-
-      {/* Logo */}
-      <div style={{
-        position: 'absolute',
-        bottom: '3mm',
-        right: '4mm',
-        textAlign: 'right',
-        zIndex: 3
-      }}>
-        <img
-          src="/logo.png"
-          alt="GOODSYNK ERP"
-          style={{ width: '14mm', height: '10mm', objectFit: 'contain' }}
-          onError={(e) => {
-            (e.target as HTMLImageElement).style.display = 'none';
-            (e.target as HTMLImageElement).parentElement!.innerHTML = '<div style="fontSize: 4mm; color: #000;">GOODSYNK ERP</div>';
-          }}
-        />
-      </div>
-    </div>
-  );
-
-  const renderPortraitFront = () => (
-    <div style={{
-      ...cardStyle,
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      padding: '8mm 6mm',
-      position: 'relative',
-      overflow: 'hidden'
-    }}>
-      {/* Top Gold Bar - Straight, no curves */}
-      <div style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        width: '100%',
-        height: '16mm',
-        backgroundColor: '#d29c00',
-        zIndex: 1
-      }}></div>
-
-      {/* Bottom Gradient Triangle */}
-      <div style={{
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        width: '100%',
-        height: '20mm',
-        background: 'linear-gradient(135deg, #476fb3 40%, #d29c00 85%)',
-        clipPath: 'polygon(0 40%, 100% 100%, 0% 100%)',
-        zIndex: 1
-      }}></div>
-
-      {/* School Logo and Info */}
-      <div style={{
-        position: 'absolute',
-        top: '4mm',
-        left: '4mm',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '2mm',
-        zIndex: 2
-      }}>
-        {settings.logoUrl ? (
-          <img
-            src={settings.logoUrl}
-            alt="School Logo"
-            style={{ width: '8mm', height: '8mm', objectFit: 'contain' }}
-          />
-        ) : (
-          <div style={{
-            width: '8mm',
-            height: '8mm',
-            backgroundColor: '#2a4b8d',
-            borderRadius: '1mm',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '6px',
-            color: 'white',
-            fontWeight: 'bold'
-          }}>
-            📚
+    <div style={{ ...baseCardStyle, backgroundColor: theme === 'modern' ? '#f8fafc' : '#ffffff', border: theme === 'minimalist' ? `1px solid #d1d5db` : 'none' }}>
+      {theme === 'modern' && <div style={{ position: 'absolute', bottom: '-20mm', right: '-20mm', width: '60mm', height: '60mm', backgroundColor: accentColor, borderRadius: '50%', opacity: 0.05, zIndex: 0 }}></div>}
+      {theme === 'classic' && <div style={{ position: 'absolute', top: 0, left: 0, width: '4mm', height: '100%', backgroundColor: headerColor, zIndex: 0 }}></div>}
+      
+      <div style={{ padding: '4mm', flex: 1, display: 'flex', flexDirection: 'column', fontSize: '2.5mm', zIndex: 1, marginLeft: theme === 'classic' ? '4mm' : '0' }}>
+        <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '3.2mm', marginBottom: '3mm', color: headerColor, borderBottom: theme !== 'minimalist' ? `2px solid ${accentColor}` : '1px solid #e5e7eb', paddingBottom: '1.5mm', letterSpacing: '0.5px' }}>TERMS & CONDITIONS</div>
+        
+        <ul style={{ paddingLeft: '4mm', margin: '0 0 3mm 0', color: '#4b5563', lineHeight: '1.6', flex: 1 }}>
+          <li>This card is the property of <strong style={{ color: '#111827' }}>{settings.schoolName}</strong>.</li>
+          <li>It must be carried at all times while in the school premises.</li>
+          <li>If found, please return to the school address.</li>
+          <li>This card is non-transferable.</li>
+        </ul>
+        
+        {student.address && (
+          <div style={{ marginBottom: '2mm', color: '#4b5563', lineHeight: '1.4' }}>
+            <strong style={{ color: '#111827' }}>Res. Address:</strong> {student.address}
           </div>
         )}
-        <div style={{
-          fontSize: '12px',
-          fontWeight: 'bold',
-          color: '#000',
-          textAlign: 'left',
-          maxWidth: '40mm'
-        }}>
-          <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {settings.schoolName}
-          </div>
-          <div style={{ fontSize: '7px', opacity: 0.8 }}>
-            {settings.schoolCode}
-          </div>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div style={{
-        position: 'relative',
-        zIndex: 2,
-        width: '100%',
-        textAlign: 'left',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        marginTop: '17mm',
-        padding: '0 4mm'
-      }}>
-        {/* Photo Frame */}
-        <div style={{
-          width: '24mm',
-          height: '28mm',
-          border: '1mm solid #2a4b8d',
-          borderRadius: '2mm',
-          overflow: 'hidden',
-          background: 'linear-gradient(to top, #a3d2ff, #ffffff)',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          fontSize: '3mm',
-          color: '#777',
-          marginBottom: '1.5mm'
-        }}>
-          {student.profileImage ? (
-            <img
-              src={student.profileImage}
-              alt="Student Photo"
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            />
-          ) : (
-            'Photo'
-          )}
-        </div>
-
-        {/* Student Info */}
-        <div style={{
-          width: '100%',
-          fontSize: '2.6mm',
-          lineHeight: 1.4,
-          textAlign: 'center'
-        }}>
-          <div style={{ marginBottom: '1mm', fontWeight: 'bold', fontSize: '3mm' }}>
-            <strong>Name :</strong> {student.name}
-          </div>
-          <div style={{ marginBottom: '0.8mm' }}>
-            <strong>ID Number :</strong> {student.sequenceId || student.rollNumber}
-          </div>
-          <div style={{ marginBottom: '0.8mm' }}>
-            <strong>Class/Section :</strong> {student.className} - {student.section}
-          </div>
-          <div style={{ marginBottom: '0.8mm' }}>
-            <strong>Date of Birth :</strong> {student.dateOfBirth || '15/01/2008'}
-          </div>
-          <div style={{ marginBottom: '0.8mm' }}>
-            <strong>Blood Group :</strong> {student.bloodGroup || 'O+'}
-          </div>
+        
+        <div style={{ marginTop: 'auto', backgroundColor: theme === 'modern' ? '#fff' : theme === 'classic' ? '#f3f4f6' : 'transparent', padding: theme === 'minimalist' ? '0' : '2.5mm', borderRadius: theme === 'modern' ? '8px' : '0', border: theme === 'modern' ? '1px solid #e5e7eb' : theme === 'classic' ? `1px solid ${headerColor}` : 'none', boxShadow: theme === 'modern' ? '0 2px 4px rgba(0,0,0,0.02)' : 'none' }}>
+          <div style={{ marginBottom: '1mm' }}><strong style={{ color: headerColor }}>Address:</strong> <span style={{ color: '#374151' }}>{settings.address}</span></div>
+          <div><strong style={{ color: headerColor }}>Phone:</strong> <span style={{ color: '#374151' }}>{settings.phone}</span></div>
         </div>
       </div>
     </div>
   );
 
   const renderPortraitBack = () => (
-    <div style={{
-      ...cardStyle,
-      padding: '4mm',
-      position: 'relative',
-      overflow: 'hidden'
-    }}>
-      {/* Top Gold Bar - Straight, no curves */}
-      <div style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        width: '100%',
-        height: '16mm',
-        backgroundColor: '#d29c00',
-        zIndex: 1
-      }}></div>
-
-      {/* Bottom Gradient Triangle */}
-      <div style={{
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        width: '100%',
-        height: '18mm',
-        background: 'linear-gradient(145deg, #476fb3 40%, #d29c00 85%)',
-        clipPath: 'polygon(0 40%, 100% 100%, 0% 100%)',
-        zIndex: 1
-      }}></div>
-
-      {/* Content */}
-      <div style={{
-        position: 'relative',
-        zIndex: 2
-      }}>
-        {/* Back Info */}
-        <div style={{
-          fontSize: '2.4mm',
-          marginTop: '18mm',
-          lineHeight: 1.4,
-          textAlign: 'left',
-          padding: '0 2mm'
-        }}>
-          <div style={{ marginBottom: '2mm' }}>
-            <strong>Student Address</strong> : {student.address || '123 Student Street, City, State 12345'}
-          </div>
-          <div style={{ marginBottom: '2mm' }}>
-            <strong>Parent's Name</strong> : {student.fatherName || 'Mr. Robert Doe'}
-          </div>
-          <div style={{ marginBottom: '2mm' }}>
-            <strong>Mobile No.</strong> : {student.phone || '+91-9876543210'}
-          </div>
-
-          <div style={{ marginTop: '2.5mm', marginBottom: '1mm', textAlign: 'left' }}>
-            <strong>School Address:</strong> {settings.schoolName}<br />
-            <span style={{ marginLeft: '18mm' }}>{settings.address}</span>
-          </div>
-
-          <div style={{ fontSize: '2mm', fontWeight: 'bold', textAlign: 'center', marginTop: '1.5mm' }}>
-            Return to above address if lost
+    <div style={{ ...baseCardStyle, backgroundColor: theme === 'modern' ? '#f8fafc' : '#ffffff', border: theme === 'minimalist' ? `1px solid #d1d5db` : 'none', padding: theme === 'minimalist' ? '4mm' : '0' }}>
+      <div style={{ border: theme === 'minimalist' ? '1px solid #e5e7eb' : 'none', height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+        {theme === 'modern' && <div style={{ position: 'absolute', top: '-20mm', left: '-20mm', width: '60mm', height: '60mm', backgroundColor: accentColor, borderRadius: '50%', opacity: 0.05, zIndex: 0 }}></div>}
+        {theme === 'classic' && <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '4mm', backgroundColor: headerColor, zIndex: 0 }}></div>}
+        
+        <div style={{ padding: '3mm', flex: 1, display: 'flex', flexDirection: 'column', fontSize: '2.6mm', zIndex: 1, marginTop: theme === 'classic' ? '4mm' : '0' }}>
+          <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '3.5mm', marginBottom: '2mm', color: headerColor, borderBottom: theme !== 'minimalist' ? `2px solid ${accentColor}` : '1px solid #e5e7eb', paddingBottom: '1mm', letterSpacing: '0.5px', flexShrink: 0 }}>TERMS & CONDITIONS</div>
+          
+          <ul style={{ paddingLeft: '4mm', margin: '0 0 2mm 0', color: '#4b5563', lineHeight: '1.4', flex: 1 }}>
+            <li style={{ marginBottom: '0.5mm' }}>This card is the property of <strong style={{ color: '#111827' }}>{settings.schoolName}</strong>.</li>
+            <li style={{ marginBottom: '0.5mm' }}>It must be carried at all times while in the school premises.</li>
+            <li style={{ marginBottom: '0.5mm' }}>If found, please return to the school address.</li>
+            <li>This card is non-transferable.</li>
+          </ul>
+          
+          {student.address && (
+            <div style={{ marginBottom: '2mm', color: '#4b5563', lineHeight: '1.3', textAlign: 'center', flexShrink: 0 }}>
+              <strong style={{ color: '#111827', display: 'block', marginBottom: '0.5mm' }}>Residential Address:</strong>
+              {student.address}
+            </div>
+          )}
+          
+          <div style={{ marginTop: 'auto', textAlign: 'center', lineHeight: '1.4', backgroundColor: theme === 'modern' ? '#fff' : theme === 'classic' ? '#f3f4f6' : 'transparent', padding: theme === 'minimalist' ? '2mm 0 0 0' : '2mm', borderRadius: theme === 'modern' ? '8px' : '0', border: theme === 'modern' ? '1px solid #e5e7eb' : theme === 'classic' ? `1px solid ${headerColor}` : 'none', borderTop: theme === 'minimalist' ? '1px solid #e5e7eb' : undefined, boxShadow: theme === 'modern' ? '0 2px 4px rgba(0,0,0,0.02)' : 'none', flexShrink: 0 }}>
+            <strong style={{ color: headerColor, fontSize: '2.8mm', display: 'block', marginBottom: '0.5mm' }}>{settings.schoolName}</strong>
+            <span style={{ color: '#4b5563', display: 'block', marginBottom: '0.5mm' }}>{settings.address}</span>
+            <strong style={{ color: headerColor }}>Phone:</strong> <span style={{ color: '#374151' }}>{settings.phone}</span>
           </div>
         </div>
-      </div>
-
-      {/* Logo */}
-      <div style={{
-        position: 'absolute',
-        bottom: '3mm',
-        right: '4mm',
-        textAlign: 'right',
-        zIndex: 3
-      }}>
-        <img
-          src="/logo.png"
-          alt="GOODSYNK ERP"
-          style={{ width: '14mm', height: '10mm', objectFit: 'contain' }}
-          onError={(e) => {
-            (e.target as HTMLImageElement).style.display = 'none';
-            (e.target as HTMLImageElement).parentElement!.innerHTML = '<div style="fontSize: 4mm; color: #000;">GOODSYNK ERP</div>';
-          }}
-        />
       </div>
     </div>
   );
 
-  const renderCard = () => {
-    if (isLandscape) {
-      return isFront ? renderLandscapeFront() : renderLandscapeBack();
+  // Router
+  let content = null;
+  if (isLandscape) {
+    if (isFront) {
+      if (theme === 'classic') content = renderClassicLandscape();
+      else if (theme === 'minimalist') content = renderMinimalistLandscape();
+      else content = renderModernLandscape();
     } else {
-      return isFront ? renderPortraitFront() : renderPortraitBack();
+      content = renderLandscapeBack();
     }
-  };
+  } else {
+    if (isFront) {
+      if (theme === 'classic') content = renderClassicPortrait();
+      else if (theme === 'minimalist') content = renderMinimalistPortrait();
+      else content = renderModernPortrait();
+    } else {
+      content = renderPortraitBack();
+    }
+  }
 
   return (
-    <div className={`id-card ${className}`} style={{
-      display: 'inline-block',
-      margin: mode === 'print' ? 0 : '10px',
-      pageBreakInside: 'avoid'
-    }}>
-      {renderCard()}
+    <div className={`id-card-template ${className}`} style={{ width: 'fit-content', height: 'fit-content' }}>
+      {content}
     </div>
   );
 };
