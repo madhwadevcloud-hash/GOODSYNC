@@ -287,10 +287,20 @@ const calculateGrade = (percentage, gradingSystem) => {
 };
 
 // Simpler CBSE/ICSE style grading used in some endpoints
-const calculateSimpleGrade = (obtainedMarks, totalMarks) => {
+const calculateSimpleGrade = (obtainedMarks, totalMarks, gradingSystem = null) => {
   if (obtainedMarks === null || obtainedMarks === undefined || !totalMarks || totalMarks === 0) return null;
 
   const percentage = (obtainedMarks / totalMarks) * 100;
+
+  if (gradingSystem && Array.isArray(gradingSystem) && gradingSystem.length > 0) {
+    for (const range of gradingSystem) {
+      const min = Number(range.minPercentage);
+      const max = Number(range.maxPercentage);
+      if (percentage >= min && percentage <= max) {
+        return range.grade;
+      }
+    }
+  }
 
   if (percentage >= 91) return 'A1';
   if (percentage >= 81) return 'A2';
@@ -572,6 +582,24 @@ exports.saveResults = async (req, res) => {
     const schoolConn = await DatabaseManager.getSchoolConnection(schoolCode);
     const resultsCollection = schoolConn.collection('results');
 
+    // Fetch grading scale for active academic year
+    const gradingScalesCollection = schoolConn.collection('gradingscales');
+    const normalizeAcademicYear = (year) => {
+      if (!year) return null;
+      const yearStr = String(year).trim();
+      const match = yearStr.match(/^(\d{4})-(\d{2})$/);
+      if (match) return `${match[1]}-20${match[2]}`;
+      return yearStr;
+    };
+    const activeYearForGrading = academicYear || getDynamicAcademicYear();
+    const gradingScale = await gradingScalesCollection.findOne({
+      $or: [
+        { academicYear: activeYearForGrading },
+        { academicYear: activeYearForGrading ? normalizeAcademicYear(activeYearForGrading) : null }
+      ].filter(Boolean)
+    });
+    const gradingSystemRules = gradingScale ? gradingScale.scales : null;
+
     const savedResults = [];
     const errors = [];
 
@@ -610,7 +638,7 @@ exports.saveResults = async (req, res) => {
           let updatedSubjects = existingResult.subjects || [];
 
           const totalMarksValue = parseInt(result.totalMarks || maxMarks);
-          const calculatedGrade = calculateSimpleGrade(obtainedMarks, totalMarksValue);
+          const calculatedGrade = calculateSimpleGrade(obtainedMarks, totalMarksValue, gradingSystemRules);
           const calculatedPercentage = obtainedMarks !== null && totalMarksValue > 0
             ? Math.round((obtainedMarks / totalMarksValue) * 100 * 100) / 100
             : null;
@@ -663,7 +691,7 @@ exports.saveResults = async (req, res) => {
         } else {
           // Create new result document
           const totalMarksValue = parseInt(result.totalMarks || maxMarks);
-          const calculatedGrade = calculateSimpleGrade(obtainedMarks, totalMarksValue);
+          const calculatedGrade = calculateSimpleGrade(obtainedMarks, totalMarksValue, gradingSystemRules);
           const calculatedPercentage = obtainedMarks !== null && totalMarksValue > 0
             ? Math.round((obtainedMarks / totalMarksValue) * 100 * 100) / 100
             : null;
@@ -1383,6 +1411,17 @@ exports.getResultsForTeacher = async (req, res) => {
       }
     }
 
+    // Fetch grading scale for active academic year
+    const gradingScalesCollection = schoolConn.collection('gradingscales');
+    const activeYearForGrading = yearToFilter || (academicYear ? normalizeAcademicYear(academicYear) : null);
+    const gradingScale = activeYearForGrading ? await gradingScalesCollection.findOne({
+      $or: [
+        { academicYear: activeYearForGrading },
+        { academicYear: activeYearForGrading ? normalizeAcademicYear(activeYearForGrading) : null }
+      ].filter(Boolean)
+    }) : null;
+    const gradingSystemRules = gradingScale ? gradingScale.scales : null;
+
     const query = {
       schoolCode: schoolCode.toUpperCase(),
       className,
@@ -1484,7 +1523,8 @@ exports.getResultsForTeacher = async (req, res) => {
             percentage: matchingSubject.obtainedMarks !== null && matchingSubject.obtainedMarks !== undefined ? matchingSubject.percentage : null,
             grade: matchingSubject.grade || calculateSimpleGrade(
               matchingSubject.obtainedMarks,
-              matchingSubject.maxMarks || matchingSubject.totalMarks || 100
+              matchingSubject.maxMarks || matchingSubject.totalMarks || 100,
+              gradingSystemRules
             ),
             frozen: matchingSubject.frozen || false,
             createdAt: doc.createdAt || doc.updatedAt || new Date(),

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Calendar, GraduationCap, Clock, Users, Award, BookOpen, ChevronDown, ChevronRight, FileText, CheckCircle } from 'lucide-react';
+import { Save, Calendar, GraduationCap, Clock, Users, Award, BookOpen, ChevronDown, ChevronRight, FileText, CheckCircle, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import api from '../../../services/api';
 import { useAuth } from '../../../auth/AuthContext';
@@ -48,6 +48,27 @@ const SchoolSettings: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [testScoring, setTestScoring] = useState<Record<string, { maxMarks: number; weightage: number }>>({});
   const [expandedTests, setExpandedTests] = useState<Set<string>>(new Set());
+  const [expandedClasses, setExpandedClasses] = useState<Set<string>>(new Set());
+
+  interface GradeScaleRule {
+    grade: string;
+    minPercentage: number;
+    maxPercentage: number;
+  }
+
+  const DEFAULT_GRADING_SYSTEM: GradeScaleRule[] = [
+    { grade: 'A1', minPercentage: 91, maxPercentage: 100 },
+    { grade: 'A2', minPercentage: 81, maxPercentage: 90 },
+    { grade: 'B1', minPercentage: 71, maxPercentage: 80 },
+    { grade: 'B2', minPercentage: 61, maxPercentage: 70 },
+    { grade: 'C1', minPercentage: 51, maxPercentage: 60 },
+    { grade: 'C2', minPercentage: 41, maxPercentage: 50 },
+    { grade: 'D', minPercentage: 33, maxPercentage: 40 },
+    { grade: 'E1', minPercentage: 21, maxPercentage: 32 },
+    { grade: 'E2', minPercentage: 0, maxPercentage: 20 }
+  ];
+
+  const [gradingSystem, setGradingSystem] = useState<GradeScaleRule[]>(DEFAULT_GRADING_SYSTEM);
 
   const [currentAcademicYear, setCurrentAcademicYear] = useState('');
   const [academicYearStart, setAcademicYearStart] = useState('');
@@ -126,6 +147,12 @@ const SchoolSettings: React.FC = () => {
         }
 
         setTests(tests);
+        const backendGradingSystem = response.data.data?.gradingSystem;
+        if (backendGradingSystem && Array.isArray(backendGradingSystem) && backendGradingSystem.length > 0) {
+          setGradingSystem(backendGradingSystem);
+        } else {
+          setGradingSystem(DEFAULT_GRADING_SYSTEM);
+        }
         console.log('✅ Fetched tests:', tests);
         toast.success(`Loaded ${tests.length} tests`);
       } else {
@@ -305,6 +332,19 @@ const SchoolSettings: React.FC = () => {
     });
   };
 
+  // Toggle class expansion
+  const toggleClassExpansion = (className: string) => {
+    setExpandedClasses(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(className)) {
+        newSet.delete(className);
+      } else {
+        newSet.add(className);
+      }
+      return newSet;
+    });
+  };
+
   // Handle test scoring changes
   const handleScoringChange = (testId: string, field: 'maxMarks' | 'weightage', value: number) => {
     setTestScoring(prev => ({
@@ -324,48 +364,114 @@ const SchoolSettings: React.FC = () => {
       return;
     }
 
-    // Get only configured tests (maxMarks must be set)
-    const configuredTests = tests.filter(test =>
-      testScoring[test._id]?.maxMarks
+    // Validate total weight percent is exactly 100% for each class that has configurations
+    const testsByClass: Record<string, TestData[]> = {};
+    tests.forEach(test => {
+      if (!testsByClass[test.className]) {
+        testsByClass[test.className] = [];
+      }
+      testsByClass[test.className].push(test);
+    });
+
+    const configuredClasses: string[] = [];
+    const unconfiguredClasses: string[] = [];
+
+    for (const className in testsByClass) {
+      const classTests = testsByClass[className];
+      
+      let totalWeight = 0;
+      for (const test of classTests) {
+        const currentScoring = testScoring[test._id];
+        const testWeight = currentScoring && currentScoring.weightage !== undefined
+          ? currentScoring.weightage
+          : (test.weightage || 0);
+        totalWeight += Number(testWeight);
+      }
+
+      if (totalWeight === 100) {
+        configuredClasses.push(className);
+      } else {
+        unconfiguredClasses.push(className);
+      }
+    }
+
+    // Get tests scoring data only for configured classes (where total weight is exactly 100%)
+    const configuredTests = tests.filter(test => 
+      configuredClasses.includes(test.className)
     );
 
-    // Validate that at least one test is configured
+    // Validate that at least one class is fully configured (weightage sum = 100%) before saving
     if (configuredTests.length === 0) {
-      toast.error('Please configure at least one test before saving.');
+      toast.error('Please configure at least one class (total weight must equal exactly 100%) before saving.');
       return;
+    }
+
+    // Validate grading scale has no overlaps and values are valid
+    const sortedScales = [...gradingSystem].sort((a, b) => a.minPercentage - b.minPercentage);
+    for (let i = 0; i < sortedScales.length; i++) {
+      const scale = sortedScales[i];
+      if (scale.minPercentage > scale.maxPercentage) {
+        toast.error(`Invalid range for grade ${scale.grade}: Min percentage cannot be greater than Max percentage.`);
+        return;
+      }
+      if (i > 0) {
+        const prevScale = sortedScales[i - 1];
+        if (scale.minPercentage <= prevScale.maxPercentage) {
+          toast.error(`Overlapping ranges detected between grade ${prevScale.grade} and ${scale.grade}.`);
+          return;
+        }
+      }
     }
 
     try {
       console.log('Saving scoring configuration:', testScoring);
-      console.log(`Saving ${configuredTests.length} configured test(s)`);
+      console.log('Saving grading scale:', gradingSystem);
 
-      // Prepare data for API - only send configured tests
-      const scoringData = configuredTests.map(test => ({
-        testId: test._id,
-        testName: test.testName,
-        className: test.className,
-        maxMarks: testScoring[test._id]?.maxMarks,
-        weightage: testScoring[test._id]?.weightage
-      }));
+      // Prepare data for API - send both newly edited and unchanged existing configurations
+      const scoringData = configuredTests.map(test => {
+        const currentScoring = testScoring[test._id];
+        const maxMarks = currentScoring && currentScoring.maxMarks !== undefined
+          ? currentScoring.maxMarks
+          : (test.maxMarks || 0);
+        const weightage = currentScoring && currentScoring.weightage !== undefined
+          ? currentScoring.weightage
+          : (test.weightage || 0);
+        return {
+          testId: test._id,
+          testName: test.testName || (test as any).name || 'Unnamed Test',
+          className: test.className,
+          maxMarks,
+          weightage
+        };
+      });
 
       const endpoint = `/admin/classes/${schoolCode}/test-scoring`;
-      const response = await api.post(endpoint, { scoring: scoringData });
+      const response = await api.post(endpoint, { 
+        scoring: scoringData,
+        gradingSystem: gradingSystem,
+        academicYear: viewingAcademicYear || currentAcademicYear
+      });
 
       if (response.data.success) {
-        const unconfiguredCount = tests.length - configuredTests.length;
-        const message = unconfiguredCount > 0
-          ? `Saved ${configuredTests.length} test(s). ${unconfiguredCount} test(s) not configured yet.`
-          : `All ${configuredTests.length} test(s) configured successfully!`;
+        let message = 'All configurations saved successfully!';
+        if (configuredClasses.length > 0 && unconfiguredClasses.length > 0) {
+          const classListStr = configuredClasses.map(c => `${c}`).join(', ');
+          if (configuredClasses.length === 1) {
+            message = `Only class ${classListStr} percent is configured, rest all class are needed to be configured.`;
+          } else {
+            message = `Only classes ${classListStr} percent are configured, rest all classes need to be configured.`;
+          }
+        }
         toast.success(message);
-        console.log('✅ Saved scoring:', response.data);
+        console.log('✅ Saved configurations:', response.data);
         // Refresh tests to get updated data
         await fetchTests();
       } else {
-        toast.error(response.data.message || 'Failed to save scoring');
+        toast.error(response.data.message || 'Failed to save configuration');
       }
     } catch (error: any) {
-      console.error('❌ Error saving scoring:', error);
-      toast.error(error.response?.data?.message || 'Failed to save scoring configuration');
+      console.error('❌ Error saving configuration:', error);
+      toast.error(error.response?.data?.message || 'Failed to save configuration');
     }
   };
 
@@ -618,147 +724,246 @@ const SchoolSettings: React.FC = () => {
 
           {activeTab === 'scoring' && (
             <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-medium text-gray-900">Scoring System</h3>
-                <p className="text-sm text-gray-600">Configure max marks and weightage for tests</p>
-              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Left column: Tests list (takes 2 cols) */}
+                <div className="lg:col-span-2 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-medium text-gray-900 font-semibold">Test Scoring Configuration</h3>
+                    <p className="text-sm text-gray-500">Configure max marks and weightage for tests</p>
+                  </div>
 
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                <p className="text-sm text-blue-800">
-                  <strong>Note:</strong> Tests are created by SuperAdmin. Here you can configure the scoring parameters (Max Marks and Weightage) for each test.
-                </p>
-              </div>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                    <p className="text-sm text-blue-800">
+                      <strong>Note:</strong> Tests are created by SuperAdmin. Here you can configure the scoring parameters (Max Marks and Weightage) for each test.
+                    </p>
+                  </div>
 
-              {loading ? (
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                  <p className="mt-4 text-gray-600">Loading tests...</p>
-                </div>
-              ) : tests.length === 0 ? (
-                <div className="text-center py-12">
-                  <Award className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Tests Found</h3>
-                  <p className="text-gray-600">Tests created by SuperAdmin will appear here.</p>
-                  <p className="text-sm text-gray-500 mt-2">Ask your SuperAdmin to create tests in the Academics section.</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {tests.sort((a, b) => {
-                    // Sort tests by class order: LKG, UKG, 1-12
-                    const classOrder = ['LKG', 'UKG', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
-                    const aClassName = a.className;
-                    const bClassName = b.className;
+                  {loading ? (
+                    <div className="text-center py-8">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                      <p className="mt-4 text-gray-600">Loading tests...</p>
+                    </div>
+                  ) : tests.length === 0 ? (
+                    <div className="text-center py-12">
+                      <Award className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">No Tests Found</h3>
+                      <p className="text-gray-600">Tests created by SuperAdmin will appear here.</p>
+                      <p className="text-sm text-gray-500 mt-2">Ask your SuperAdmin to create tests in the Academics section.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {(() => {
+                        const groupedTests: Record<string, TestData[]> = {};
+                        tests.forEach(test => {
+                          if (!groupedTests[test.className]) {
+                            groupedTests[test.className] = [];
+                          }
+                          groupedTests[test.className].push(test);
+                        });
 
-                    const aIndex = classOrder.indexOf(aClassName);
-                    const bIndex = classOrder.indexOf(bClassName);
+                        const classOrder = ['LKG', 'UKG', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
+                        const sortedClasses = Object.keys(groupedTests).sort((a, b) => {
+                          const aIndex = classOrder.indexOf(a);
+                          const bIndex = classOrder.indexOf(b);
+                          if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+                          if (aIndex !== -1) return -1;
+                          if (bIndex !== -1) return 1;
+          return a.localeCompare(b);
+                        });
 
-                    if (aIndex !== -1 && bIndex !== -1) {
-                      return aIndex - bIndex;
-                    }
-                    if (aIndex !== -1) return -1;
-                    if (bIndex !== -1) return 1;
-                    return aClassName.localeCompare(bClassName);
-                  }).map((test) => {
-                    // Check if configured - only maxMarks is enough to determine configuration
-                    const isConfigured = testScoring[test._id]?.maxMarks || test.maxMarks;
-                    const isExpanded = expandedTests.has(test._id);
+                        return sortedClasses.map((className) => {
+                          const classTests = groupedTests[className];
+                          const isExpanded = expandedClasses.has(className);
+                          
+                          // Calculate total weightage configured for this class so far
+                          const totalClassWeight = classTests.reduce((sum, test) => {
+                            const currentScoring = testScoring[test._id];
+                            const weight = currentScoring && currentScoring.weightage !== undefined
+                              ? currentScoring.weightage
+                              : (test.weightage || 0);
+                            return sum + weight;
+                          }, 0);
+                          
+                          // Check if all tests for this class are configured
+                          const allConfigured = classTests.every(test => {
+                            const currentScoring = testScoring[test._id];
+                            return (currentScoring && currentScoring.maxMarks) || test.maxMarks;
+                          });
 
-                    // Get test name - handle both testName and name fields
-                    const testName = test.testName || (test as any).name || 'Unnamed Test';
-
-                    // Debug log for each test
-                    if (!test.testName && !(test as any).name) {
-                      console.warn('⚠️ Test missing name:', test);
-                    }
-
-                    return (
-                      <div key={test._id} className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
-                        {/* Clickable Header */}
-                        <div
-                          onClick={() => toggleTestExpansion(test._id)}
-                          className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors"
-                        >
-                          <div className="flex items-center gap-3 flex-1">
-                            {isExpanded ? (
-                              <ChevronDown className="h-5 w-5 text-gray-500 flex-shrink-0" />
-                            ) : (
-                              <ChevronRight className="h-5 w-5 text-gray-500 flex-shrink-0" />
-                            )}
-                            <div className="flex-1">
-                              <div className="flex items-baseline gap-2">
-                                <h3 className="text-base font-semibold text-gray-900">{testName}</h3>
+                          return (
+                            <div key={className} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow transition-shadow mb-4">
+                              {/* Class Card Header / Dropdown Toggle */}
+                              <div 
+                                onClick={() => toggleClassExpansion(className)}
+                                className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors bg-gray-50/50"
+                              >
+                                <div className="flex items-center gap-3">
+                                  {isExpanded ? (
+                                    <ChevronDown className="h-5 w-5 text-gray-500" />
+                                  ) : (
+                                    <ChevronRight className="h-5 w-5 text-gray-500" />
+                                  )}
+                                  <div>
+                                    <h4 className="text-base font-bold text-gray-900">Class {className}</h4>
+                                    <p className="text-xs text-gray-500 mt-0.5">
+                                      {classTests.length} SuperAdmin-configured test{classTests.length > 1 ? 's' : ''} • Total weight: {totalClassWeight}%
+                                    </p>
+                                  </div>
+                                </div>
+                                <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
+                                  totalClassWeight === 100
+                                    ? 'bg-green-100 text-green-800'
+                                    : 'bg-yellow-100 text-yellow-800'
+                                }`}>
+                                  {totalClassWeight === 100 ? 'Configured (100%)' : 'Needs Configuration'}
+                                </span>
                               </div>
-                              <p className="text-sm text-gray-600 mt-0.5">Class {test.className}</p>
+
+                              {/* Class Card Dropdown Content */}
+                              {isExpanded && (
+                                <div className="p-6 border-t border-gray-100 bg-white space-y-6">
+                                  {classTests.map((test) => {
+                                    const testName = test.testName || (test as any).name || 'Unnamed Test';
+                                    return (
+                                      <div key={test._id} className="pb-4 border-b border-gray-100 last:border-b-0 last:pb-0">
+                                        <div className="mb-2">
+                                          <h5 className="text-sm font-bold text-gray-800 uppercase tracking-wide">{testName}</h5>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                          <div>
+                                            <label className="block text-xs font-medium text-gray-500 mb-1.5">Total Marks (Max)</label>
+                                            <input
+                                              type="number"
+                                              min="0"
+                                              placeholder="e.g. 100"
+                                              value={testScoring[test._id]?.maxMarks !== undefined ? testScoring[test._id].maxMarks : (test.maxMarks || '')}
+                                              onChange={(e) => handleScoringChange(test._id, 'maxMarks', parseInt(e.target.value) || 0)}
+                                              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white font-medium"
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="block text-xs font-medium text-gray-500 mb-1.5">Weightage (%)</label>
+                                            <input
+                                              type="number"
+                                              min="0"
+                                              max="100"
+                                              placeholder="e.g. 25"
+                                              value={testScoring[test._id]?.weightage !== undefined ? testScoring[test._id].weightage : (test.weightage || '')}
+                                              onChange={(e) => handleScoringChange(test._id, 'weightage', parseInt(e.target.value) || 0)}
+                                              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white font-medium"
+                                            />
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
                             </div>
-                          </div>
-                          <span className={`px-3 py-1 text-xs font-medium rounded-full flex-shrink-0 ${isConfigured
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-yellow-100 text-yellow-800'
-                            }`}>
-                            {isConfigured ? 'Configured' : 'Not Configured'}
-                          </span>
+                          );
+                        });
+                      })()}
+                    </div>
+                  )}
+
+                  <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                    <p className="text-sm text-gray-600">
+                      <strong>How it works:</strong> SuperAdmin creates tests (e.g., "Maths for Class 1"). You configure the scoring parameters here. Tests will appear automatically when SuperAdmin adds them.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Right column: Grading System (takes 1 col) */}
+                <div className="space-y-4 bg-gray-50 p-6 rounded-xl border border-gray-200 h-fit">
+                  <div className="flex items-center justify-between border-b border-gray-200 pb-3 mb-2">
+                    <div>
+                      <h3 className="text-md font-semibold text-gray-900 flex items-center gap-2">
+                        <Award className="h-5 w-5 text-blue-600" />
+                        Grading Scale
+                      </h3>
+                      <p className="text-xs text-gray-500 mt-0.5">Customize grade name and percentage thresholds.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGradingSystem(prev => [
+                          ...prev,
+                          { grade: `G${prev.length + 1}`, minPercentage: 0, maxPercentage: 0 }
+                        ]);
+                      }}
+                      className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline flex items-center"
+                    >
+                      + Add Grade
+                    </button>
+                  </div>
+
+                  <div className="space-y-3 max-h-[450px] overflow-y-auto pr-1">
+                    {gradingSystem.map((scale, index) => (
+                      <div key={index} className="flex items-center gap-2 bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
+                        <div className="w-16">
+                          <label className="block text-[10px] font-bold text-gray-400 uppercase">Grade</label>
+                          <input
+                            type="text"
+                            value={scale.grade}
+                            onChange={(e) => {
+                              const updated = [...gradingSystem];
+                              updated[index].grade = e.target.value;
+                              setGradingSystem(updated);
+                            }}
+                            placeholder="A+"
+                            className="w-full text-sm font-semibold border-b border-gray-300 focus:border-blue-500 focus:ring-0 py-1 bg-transparent text-center"
+                          />
                         </div>
-
-                        {/* Collapsible Content */}
-                        {isExpanded && (
-                          <div className="p-4 pt-0 border-t border-gray-100">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Max Marks</label>
-                                <select
-                                  value={testScoring[test._id]?.maxMarks || test.maxMarks || ''}
-                                  onChange={(e) => handleScoringChange(test._id, 'maxMarks', parseInt(e.target.value) || 0)}
-                                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                                >
-                                  <option value="">Select max marks</option>
-                                  <option value="20">20</option>
-                                  <option value="25">25</option>
-                                  <option value="30">30</option>
-                                  <option value="40">40</option>
-                                  <option value="50">50</option>
-                                  <option value="60">60</option>
-                                  <option value="70">70</option>
-                                  <option value="80">80</option>
-                                  <option value="90">90</option>
-                                  <option value="100">100</option>
-                                </select>
-                              </div>
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Weightage (%)</label>
-                                <select
-                                  value={testScoring[test._id]?.weightage || test.weightage || ''}
-                                  onChange={(e) => handleScoringChange(test._id, 'weightage', parseInt(e.target.value) || 0)}
-                                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                                >
-                                  <option value="">Select weightage</option>
-                                  <option value="5">5%</option>
-                                  <option value="10">10%</option>
-                                  <option value="15">15%</option>
-                                  <option value="20">20%</option>
-                                  <option value="25">25%</option>
-                                  <option value="30">30%</option>
-                                  <option value="35">35%</option>
-                                  <option value="40">40%</option>
-                                  <option value="50">50%</option>
-                                  <option value="60">60%</option>
-                                  <option value="70">70%</option>
-                                  <option value="80">80%</option>
-                                  <option value="100">100%</option>
-                                </select>
-                              </div>
-                            </div>
-                          </div>
-                        )}
+                        <div className="flex-1">
+                          <label className="block text-[10px] font-bold text-gray-400 uppercase text-center">Min (%)</label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={scale.minPercentage}
+                            onChange={(e) => {
+                              const updated = [...gradingSystem];
+                              updated[index].minPercentage = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
+                              setGradingSystem(updated);
+                            }}
+                            className="w-full text-sm text-center border border-gray-300 rounded px-1.5 py-1 focus:ring-1 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div className="text-gray-400 text-sm font-medium pt-3">-</div>
+                        <div className="flex-1">
+                          <label className="block text-[10px] font-bold text-gray-400 uppercase text-center">Max (%)</label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={scale.maxPercentage}
+                            onChange={(e) => {
+                              const updated = [...gradingSystem];
+                              updated[index].maxPercentage = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
+                              setGradingSystem(updated);
+                            }}
+                            className="w-full text-sm text-center border border-gray-300 rounded px-1.5 py-1 focus:ring-1 focus:ring-blue-500"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setGradingSystem(prev => prev.filter((_, i) => i !== index));
+                          }}
+                          className="text-red-500 hover:text-red-700 pt-3 flex-shrink-0"
+                          title="Delete"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
+                    ))}
+                  </div>
 
-              <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                <p className="text-sm text-gray-600">
-                  <strong>How it works:</strong> SuperAdmin creates tests (e.g., "Maths for Class 1"). You configure the scoring parameters here. Tests will appear automatically when SuperAdmin adds them.
-                </p>
+                  <div className="pt-2 text-[11px] text-gray-500 italic flex items-start gap-1">
+                    <span>💡</span>
+                    <span>Click "Save Scoring" above to apply your changes to the grading scale.</span>
+                  </div>
+                </div>
               </div>
             </div>
           )}

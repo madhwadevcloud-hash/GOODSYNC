@@ -3,6 +3,7 @@ import { Search, Edit, Save, Check, X } from 'lucide-react';
 import { useAuth } from '../../../auth/AuthContext';
 import { testDetailsAPI } from '../../../api/testDetails';
 import { toast } from 'react-hot-toast';
+import api from '../../../api/axios';
 
 interface StudentResult {
   id: string;
@@ -21,6 +22,23 @@ const AcademicResultsEntry: React.FC = () => {
   const [selectedClass, setSelectedClass] = useState('');
   const [selectedSection, setSelectedSection] = useState('');
   const [selectedTestType, setSelectedTestType] = useState('');
+  const [gradingSystem, setGradingSystem] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchGradingSystem = async () => {
+      try {
+        const schoolCode = localStorage.getItem('erp.schoolCode') || user?.schoolCode || '';
+        if (!schoolCode) return;
+        const response = await api.get(`/admin/classes/${schoolCode}/tests`);
+        if (response.data.success && response.data.data?.gradingSystem) {
+          setGradingSystem(response.data.data.gradingSystem);
+        }
+      } catch (err) {
+        console.error('Failed to load grading system in entry:', err);
+      }
+    };
+    fetchGradingSystem();
+  }, [user?.schoolCode]);
   const [showResultsTable, setShowResultsTable] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -211,9 +229,19 @@ const AcademicResultsEntry: React.FC = () => {
   };
 
   const calculateGrade = (obtained: number | null, total: number | null): string => {
-    if (!obtained || !total || total === 0) return 'N/A';
+    if (obtained === null || obtained === undefined || !total || total === 0) return 'N/A';
     
     const percentage = (obtained / total) * 100;
+
+    if (gradingSystem && gradingSystem.length > 0) {
+      for (const range of gradingSystem) {
+        const min = Number(range.minPercentage);
+        const max = Number(range.maxPercentage);
+        if (percentage >= min && percentage <= max) {
+          return range.grade;
+        }
+      }
+    }
     
     if (percentage >= 90) return 'A+';
     if (percentage >= 80) return 'A';

@@ -297,6 +297,7 @@ exports.getSchoolTests = async (req, res) => {
       className: test.className,
       academicYear: test.academicYear,
       maxMarks: test.maxMarks,
+      weightage: test.weightage,
       duration: test.duration,
       description: test.description,
       displayName: `${test.name || test.testName} (${test.testType || 'Test'})`,
@@ -312,6 +313,10 @@ exports.getSchoolTests = async (req, res) => {
       testsByClass[test.className].push(test);
     });
 
+    // Fetch grading scale for active academic year
+    const gradingScalesCollection = schoolConnection.collection('gradingscales');
+    const gradingScale = await gradingScalesCollection.findOne({ academicYear: activeYear });
+
     res.json({
       success: true,
       data: {
@@ -320,7 +325,8 @@ exports.getSchoolTests = async (req, res) => {
         schoolCode: school.code,
         tests: formattedTests,
         testsByClass: testsByClass,
-        totalTests: formattedTests.length
+        totalTests: formattedTests.length,
+        gradingSystem: gradingScale ? gradingScale.scales : null
       }
     });
 
@@ -338,7 +344,7 @@ exports.getSchoolTests = async (req, res) => {
 exports.saveTestScoring = async (req, res) => {
   try {
     const { schoolCode } = req.params;
-    const { scoring } = req.body;
+    const { scoring, gradingSystem, academicYear } = req.body;
     
     console.log(`💾 Saving test scoring for school: ${schoolCode}`);
     console.log('Scoring data:', scoring);
@@ -387,9 +393,26 @@ exports.saveTestScoring = async (req, res) => {
 
     console.log(`✅ Updated ${updatedCount} tests with scoring configuration`);
 
+    // Save grading system configuration if provided
+    if (gradingSystem && Array.isArray(gradingSystem) && academicYear) {
+      const gradingScalesCollection = schoolConnection.collection('gradingscales');
+      await gradingScalesCollection.updateOne(
+        { academicYear: academicYear },
+        { 
+          $set: { 
+            scales: gradingSystem,
+            updatedAt: new Date(),
+            updatedBy: req.user.userId || req.user._id
+          } 
+        },
+        { upsert: true }
+      );
+      console.log(`✅ Saved grading scale for academic year ${academicYear}`);
+    }
+
     res.json({
       success: true,
-      message: `Successfully updated scoring for ${updatedCount} tests`,
+      message: `Successfully updated scoring${gradingSystem ? ' and grading system' : ''} for tests`,
       data: {
         updatedCount: updatedCount,
         totalTests: scoring.length
