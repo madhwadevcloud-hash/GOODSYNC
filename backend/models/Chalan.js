@@ -3,8 +3,7 @@ const mongoose = require('mongoose');
 const chalanSchema = new mongoose.Schema({
   chalanNumber: {
     type: String,
-    required: true,
-    unique: true
+    required: true
   },
   schoolId: {
     type: mongoose.Schema.Types.ObjectId,

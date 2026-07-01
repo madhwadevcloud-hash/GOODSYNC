@@ -370,15 +370,14 @@ class ReportService {
       switch (exportType) {
         case 'dues':
           const duesQuery = { 
-            schoolId: new ObjectId(schoolId),
-            totalPending: { $gt: 0 }
+            schoolId: new ObjectId(schoolId)
           };
           
           if (targetClass && targetClass !== 'ALL') duesQuery.studentClass = targetClass;
           if (targetSection && targetSection !== 'ALL') duesQuery.studentSection = targetSection;
-          if (filters.status && filters.status !== 'ALL') {
-            // Status should be lowercase to match database enum
-            duesQuery.status = filters.status.toLowerCase();
+          if (filters.status && String(filters.status).trim().toLowerCase() !== 'all') {
+            const normalizedStatus = String(filters.status).trim().toLowerCase();
+            duesQuery.status = { $regex: `^${new RegExp(escapeRegExp(normalizedStatus)).source}$`, $options: 'i' };
           }
           if (filters.search) {
             const searchRegex = new RegExp(filters.search, 'i');

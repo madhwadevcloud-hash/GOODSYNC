@@ -1,9 +1,5 @@
 const mongoose = require('mongoose');
-const NodeCache = require('node-cache');
-// Initialize local cache: 
-// stdTTL: 1 hour (3600 seconds) for connection items/metadata strings
-// checkperiod: checks and deletes expired elements every 60 seconds
-const dbCache = new NodeCache({ stdTTL: 3600, checkperiod: 60 });
+
 /**
  * Database Manager for Multi-Tenant Architecture
  * Each school gets its own database with complete isolation
@@ -75,26 +71,20 @@ class DatabaseManager {
 
     if (!this.connections.has(databaseName)) {
       try {
-        const cacheKey = `uri_${databaseName}`;
-        let connectionUri = dbCache.get(cacheKey);
-
-        if (!connectionUri) {
-          const baseUri = process.env.MONGODB_URI || 'mongodb://localhost:27017';
-          
-          // Handle both local and Atlas connection strings properly
-          if (baseUri.includes('mongodb+srv://')) {
-            // Atlas connection - replace database name in the connection string
-            connectionUri = baseUri.replace(/\/[^\/]*\?/, `/${databaseName}?`);
+        const baseUri = process.env.MONGODB_URI || 'mongodb://localhost:27017';
+        
+        // Handle both local and Atlas connection strings properly
+        let connectionUri;
+        if (baseUri.includes('mongodb+srv://')) {
+          // Atlas connection - replace database name in the connection string
+          connectionUri = baseUri.replace(/\/[^\/]*\?/, `/${databaseName}?`);
+        } else {
+          // Local MongoDB - append database name to base URI
+          if (baseUri.endsWith('/')) {
+            connectionUri = baseUri + databaseName;
           } else {
-            // Local MongoDB - append database name to base URI
-            if (baseUri.endsWith('/')) {
-              connectionUri = baseUri + databaseName;
-            } else {
-              connectionUri = baseUri + '/' + databaseName;
-            }
+            connectionUri = baseUri + '/' + databaseName;
           }
-          // Cache the computed connection URI indefinitely (since DB strings don't change at runtime)
-          dbCache.set(cacheKey, connectionUri, 0);
         }
 
         console.log(`🔗 Connecting to: ${databaseName}`);
@@ -262,8 +252,6 @@ class DatabaseManager {
    * Get next sequence number for a school
    */
   async getNextSequence(schoolCode, entityType) {
-    const seqCacheKey = `seq_${schoolCode}_${entityType}`;
-    
     const connection = await this.getSchoolConnection(schoolCode);
     await this.ensureConnectionReady(connection);
     const sequenceCollection = connection.db.collection('id_sequences');
@@ -307,14 +295,9 @@ class DatabaseManager {
       if (!retryDoc || typeof retryDoc[entityType] !== 'number') {
         throw new Error(`Failed to access sequence for ${entityType} in school ${schoolCode}`);
       }
-      
-      // Cache sequence value for 5 seconds to reduce concurrency friction
-      dbCache.set(seqCacheKey, retryDoc[entityType], 5);
       return retryDoc[entityType];
     }
 
-    // Cache sequence value for 5 seconds to reduce concurrency friction
-    dbCache.set(seqCacheKey, doc[entityType], 5);
     return doc[entityType];
   }
   
@@ -357,10 +340,7 @@ class DatabaseManager {
     if (connection) {
       await connection.close();
       this.connections.delete(databaseName);
-      
-      // Clean up cache keys for this tenant
-      dbCache.del(`uri_${databaseName}`);
-      console.log(`✅ Closed connection and cleared cache for school: ${schoolCode}`);
+      console.log(`✅ Closed connection for school: ${schoolCode}`);
     }
   }
   

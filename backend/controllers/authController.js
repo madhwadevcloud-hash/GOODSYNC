@@ -38,6 +38,11 @@ exports.logout = async (req, res) => {
 
 exports.getDemoCredentials = async (req, res) => {
   try {
+    // SECURITY: Return demo credentials from database (not environment variables)
+    // This provides access to admin credentials created by super admin
+    const User = require('../models/User');
+    
+    // Look for admin user created by super admin (not super admin itself)
     const adminUser = await User.findOne({ 
       role: 'admin',
       isActive: true 
@@ -69,13 +74,7 @@ exports.register = async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
     let user = await User.findOne({ email });
-if (!user) {
-      console.log(`[LOGIN FAIL] Email not found: [EMAIL_HIDDEN]`);
-      return res.status(401).json({ message: 'Invalid email or password' });
-    }
-    
-    // We pass the 'user' object directly without the triple dots
-    res.json({ success: true, token, user });
+    if (user) return res.status(400).json({ message: 'User already exists' });
     const hashedPassword = await bcrypt.hash(password, 10);
     user = new User({ name, email, password: hashedPassword, role });
     await user.save();
@@ -124,7 +123,7 @@ exports.login = async (req, res) => {
       await user.save();
 
       const token = jwt.sign(
-        { id: user._id, userId: user._id, role: user.role, type: 'superadmin' },
+        { userId: user._id, role: user.role },
         process.env.JWT_SECRET,
         { expiresIn: '24h' }
       );
@@ -178,35 +177,11 @@ exports.login = async (req, res) => {
 
     const token = jwt.sign({
       id: user._id,
-      userId: user.userId || user._id,
       role: user.role,
-      schoolId: user.schoolId?._id,
-      type: 'core_user'
+      schoolId: user.schoolId?._id
     }, process.env.JWT_SECRET, { expiresIn: '1d' });
 
     console.log(`[LOGIN SUCCESS] User: ${user.email} (${user.role}) from school: ${user.schoolId?.name || 'None'}`);
-
-    res.cookie('token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 24 * 60 * 60 * 1000
-    });
-
-    return res.json({
-      success: true,
-      token,
-      user: {
-        id: user._id,
-        userId: user.userId,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        schoolId: user.schoolId?._id,
-        schoolName: user.schoolId?.name || 'N/A',
-        lastLogin: user.lastLogin
-      }
-    });
 
     // Set token in cookie
     res.cookie('token', token, {
@@ -336,27 +311,24 @@ exports.schoolLogin = async (req, res) => {
       }
     );
 
-    const upperSchoolCode = schoolCode.toUpperCase();
-
     // Get access matrix for this school (robust check)
-    const matrixCollection = connection.collection('access_matrix');
-    let accessMatrix = await matrixCollection.findOne({
-      $or: [{ _id: 'school_permissions' }, { schoolCode: upperSchoolCode }]
+    const accessCollection = connection.collection('access_matrix');
+    let accessMatrix = await accessCollection.findOne({
+      $or: [{ _id: 'school_permissions' }, { schoolCode: schoolCode.toUpperCase() }]
     });
 
     if (!accessMatrix) {
       const accessMatricesPlural = connection.collection('access_matrices');
-      accessMatrix = await accessMatricesPlural.findOne({ schoolCode: upperSchoolCode }) || 
+      accessMatrix = await accessMatricesPlural.findOne({ schoolCode: schoolCode.toUpperCase() }) || 
                     await accessMatricesPlural.findOne({ _id: 'school_permissions' });
     }
 
-    // Generate JWT token with uniform ID keys
+    // Generate JWT token
     const token = jwt.sign(
       {
-        id: user._id,
-        userId: user.userId || user._id,
+        userId: user.userId,
         role: user.role,
-        schoolCode: upperSchoolCode,
+        schoolCode: schoolCode,
         userType: 'school_user'
       },
       process.env.JWT_SECRET,
