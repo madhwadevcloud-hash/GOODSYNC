@@ -82,7 +82,18 @@ const EditAssignmentModal: React.FC<EditAssignmentModalProps> = ({
         const date = new Date(dateString);
         return date.toISOString().split('T')[0];
       };
+      
+      const canEditAssignment = (dueDate: string) => {
+  if (!dueDate) return true;
 
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const due = new Date(dueDate);
+  due.setHours(23, 59, 59, 999);
+
+  return today <= due;
+};
       setFormData({
         title: assignment.title || '',
         subject: assignment.subject || '',

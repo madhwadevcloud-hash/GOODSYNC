@@ -36,13 +36,36 @@ const MarkAttendance: React.FC = () => {
   const [selectedClass, setSelectedClass] = useState('');
   const [selectedSection, setSelectedSection] = useState('');
   const [availableSections, setAvailableSections] = useState<any[]>([]);
-  const [session, setSession] = useState<'morning' | 'afternoon'>('morning');
+ const getCurrentSession = (): 'morning' | 'afternoon' => {
+  const hour = new Date().getHours();
+
+  // 12:00 AM - 12:59 PM
+  if (hour < 13) return 'morning';
+
+  // 1:00 PM onwards
+  return 'afternoon';
+};
+
+const [session, setSession] = useState<'morning' | 'afternoon'>(getCurrentSession());
+useEffect(() => {
+  const updateSession = () => {
+    setSession(getCurrentSession());
+  };
+
+  updateSession();
+
+  const timer = setInterval(updateSession, 60000);
+
+  return () => clearInterval(timer);
+}, []);
   const [students, setStudents] = useState<Student[]>([]);
   const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [allClasses, setAllClasses] = useState(false);
+const [allSections, setAllSections] = useState(false);
 
   // Session status tracking
   const [sessionStatus, setSessionStatus] = useState<{
@@ -498,10 +521,15 @@ const MarkAttendance: React.FC = () => {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Academic Year</label>
             <select
-              value={viewingAcademicYear}
-              onChange={(e) => setViewingYear(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
+  value={viewingAcademicYear}
+  onChange={(e) => setViewingYear(e.target.value)}
+  disabled={user?.role !== 'superadmin'}
+  className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+    user?.role !== 'superadmin'
+      ? 'bg-gray-100 cursor-not-allowed'
+      : ''
+  }`}
+>
               {availableYears.map((year) => (
                 <option key={year} value={year}>
                   {year} {year === currentAcademicYear && '(Current)'}
@@ -515,11 +543,13 @@ const MarkAttendance: React.FC = () => {
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="pl-10 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
+  type="date"
+  value={selectedDate}
+  min={new Date().toISOString().split('T')[0]}
+  max={new Date().toISOString().split('T')[0]}
+  onChange={(e) => setSelectedDate(e.target.value)}
+  className="pl-10 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+/>
             </div>
           </div>
 
@@ -560,12 +590,14 @@ const MarkAttendance: React.FC = () => {
             <label className="block text-sm font-medium text-gray-700 mb-2">Session</label>
             <div className="flex rounded-lg border border-gray-300">
               <button
-                type="button"
-                onClick={() => setSession('morning')}
-                className={`flex-1 py-2 px-3 text-sm font-medium rounded-l-lg flex items-center justify-center relative ${session === 'morning'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-50'
-                  } ${sessionStatus.morning.isFrozen ? 'opacity-75' : ''}`}
+    type="button"
+    disabled={session !== 'morning'}
+                className={`flex-1 py-2 px-3 text-sm font-medium rounded-l-lg flex items-center justify-center relative
+${
+  session === 'morning'
+    ? 'bg-blue-600 text-white'
+    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+}`}
               >
                 <Sun className="h-4 w-4 mr-1" />
                 Morning
@@ -576,12 +608,14 @@ const MarkAttendance: React.FC = () => {
                 )}
               </button>
               <button
-                type="button"
-                onClick={() => setSession('afternoon')}
-                className={`flex-1 py-2 px-3 text-sm font-medium rounded-r-lg flex items-center justify-center relative ${session === 'afternoon'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-50'
-                  } ${sessionStatus.afternoon.isFrozen ? 'opacity-75' : ''}`}
+    type="button"
+    disabled={session !== 'afternoon'}
+                className={`flex-1 py-2 px-3 text-sm font-medium rounded-r-lg flex items-center justify-center relative
+${
+  session === 'afternoon'
+    ? 'bg-blue-600 text-white'
+    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+}`}
               >
                 <Moon className="h-4 w-4 mr-1" />
                 Afternoon

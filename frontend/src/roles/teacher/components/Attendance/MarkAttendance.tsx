@@ -11,11 +11,23 @@ const MarkAttendance: React.FC = () => {
   const { user, token } = useAuth();
   const { classesData, loading: classesLoading, getSectionsByClass } = useSchoolClasses();
   const { currentAcademicYear } = useAcademicYear();
-  
+  const classList = [
+  ...new Set(
+    classesData?.classes?.map((c: any) => c.className) || []
+  )
+];
+  const getCurrentSession = (): 'morning' | 'afternoon' => {
+  const hour = new Date().getHours();
+
+  // 12:00 AM - 12:59 PM = Morning
+  // 1:00 PM - 11:59 PM = Afternoon
+  return hour < 13 ? 'morning' : 'afternoon';
+};
+
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedClass, setSelectedClass] = useState('');
   const [selectedSection, setSelectedSection] = useState('');
-  const [selectedSession, setSelectedSession] = useState<'morning' | 'afternoon'>('morning');
+  const [selectedSession, setSelectedSession] = useState<'morning' | 'afternoon'>(getCurrentSession());
   const [availableSections, setAvailableSections] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
   const [attendance, setAttendance] = useState<Record<string, 'present' | 'absent'>>({});
@@ -26,8 +38,18 @@ const MarkAttendance: React.FC = () => {
     canModify: boolean;
   }>({ isMarked: false, isFrozen: false, canModify: true });
 
-  const classList = classesData?.classes?.map(c => c.className) || [];
+  
+useEffect(() => {
+  const updateSession = () => {
+    setSelectedSession(getCurrentSession());
+  };
 
+  updateSession();
+
+  const timer = setInterval(updateSession, 60000);
+
+  return () => clearInterval(timer);
+}, []);
   // Update sections when class changes
   useEffect(() => {
     if (selectedClass && classesData) {
@@ -264,14 +286,17 @@ const MarkAttendance: React.FC = () => {
         studentId: student.userId,
         status: attendance[student._id] || 'present'
       }));
+      const currentSession = getCurrentSession();
 
-      const response = await attendanceAPI.markSessionAttendance({
-        class: selectedClass,
-        section: selectedSection,
-        date: selectedDate,
-        session: selectedSession,
-        students: attendanceRecords
-      });
+setSelectedSession(currentSession);
+
+const response = await attendanceAPI.markSessionAttendance({
+    class: selectedClass,
+    section: selectedSection,
+    date: selectedDate,
+    session: currentSession,
+    students: attendanceRecords
+});
 
       if (response.success) {
         toast.success('Attendance saved successfully!');
@@ -347,11 +372,14 @@ const MarkAttendance: React.FC = () => {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
             <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+  type="date"
+  value={selectedDate}
+  min={new Date().toISOString().split('T')[0]}
+  max={new Date().toISOString().split('T')[0]}
+  onChange={(e) => setSelectedDate(e.target.value)}
+  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+  disabled
+/>
           </div>
 
           <div>
@@ -401,29 +429,42 @@ const MarkAttendance: React.FC = () => {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Session</label>
             <div className="flex gap-2">
-              <button
-                onClick={() => setSelectedSession('morning')}
-                className={`flex-1 flex items-center justify-center px-3 py-2 rounded-lg border-2 transition-colors ${
-                  selectedSession === 'morning'
-                    ? 'bg-blue-600 border-blue-600 text-white'
-                    : 'bg-white border-gray-300 text-gray-700 hover:border-blue-400'
-                }`}
-              >
-                <Sun className="h-4 w-4 mr-1" />
-                Morning
-              </button>
-              <button
-                onClick={() => setSelectedSession('afternoon')}
-                className={`flex-1 flex items-center justify-center px-3 py-2 rounded-lg border-2 transition-colors ${
-                  selectedSession === 'afternoon'
-                    ? 'bg-blue-600 border-blue-600 text-white'
-                    : 'bg-white border-gray-300 text-gray-700 hover:border-blue-400'
-                }`}
-              >
-                <Moon className="h-4 w-4 mr-1" />
-                Afternoon
-              </button>
-            </div>
+
+  {/* Morning */}
+  <button
+    disabled={selectedSession !== 'morning'}
+    className={`flex-1 flex items-center justify-center px-3 py-2 rounded-lg border-2 transition-colors ${
+      selectedSession === 'morning'
+        ? 'bg-blue-600 border-blue-600 text-white'
+        : 'bg-white border-gray-300 text-gray-700'
+    } ${
+      getCurrentSession() !== 'morning'
+        ? 'opacity-50 cursor-not-allowed'
+        : ''
+    }`}
+  >
+    <Sun className="h-4 w-4 mr-1" />
+    Morning
+  </button>
+
+  {/* Afternoon */}
+  <button
+    disabled={selectedSession !== 'afternoon'}
+    className={`flex-1 flex items-center justify-center px-3 py-2 rounded-lg border-2 transition-colors ${
+      selectedSession === 'afternoon'
+        ? 'bg-blue-600 border-blue-600 text-white'
+        : 'bg-white border-gray-300 text-gray-700'
+    } ${
+      getCurrentSession() !== 'afternoon'
+        ? 'opacity-50 cursor-not-allowed'
+        : ''
+    }`}
+  >
+    <Moon className="h-4 w-4 mr-1" />
+    Afternoon
+  </button>
+
+</div>
           </div>
         </div>
       </div>
