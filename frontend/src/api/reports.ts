@@ -180,6 +180,7 @@ export async function exportFeeRecordsToCSV(params: {
 
 export interface StudentDetail {
   studentId: string;
+  dbId?: string;
   studentName: string;
   avgMarks: number;
   avgAttendance: number;

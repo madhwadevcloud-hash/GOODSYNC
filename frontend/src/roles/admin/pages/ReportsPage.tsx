@@ -89,6 +89,9 @@ const ReportsPage: React.FC = () => {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [studentDetails, setStudentDetails] = useState<Map<string, StudentDetail[]>>(new Map());
   const [loadingStudents, setLoadingStudents] = useState<Set<string>>(new Set());
+  const [expandedStudents, setExpandedStudents] = useState<Set<string>>(new Set());
+  const [classTests, setClassTests] = useState<any[]>([]);
+  const [classResults, setClassResults] = useState<any[]>([]);
 
   // State for dues list
   const [duesList, setDuesList] = useState<StudentFeeRecord[]>([]);
@@ -552,6 +555,89 @@ const ReportsPage: React.FC = () => {
     }
   }, [studentDetails, viewingAcademicYear]);
 
+  const fetchClassTestsAndResults = useCallback(async (className: string, section: string) => {
+    try {
+      const schoolCode = localStorage.getItem('erp.schoolCode') || user?.schoolCode || '';
+      if (!schoolCode) return;
+
+      const testsResp = await api.get(`/admin/classes/${schoolCode}/tests`, {
+        params: { academicYear: viewingAcademicYear }
+      });
+      if (testsResp.data.success) {
+        const testsForClass = (testsResp.data.data?.tests || []).filter(
+          (t: any) => String(t.className) === String(className)
+        );
+        setClassTests(testsForClass);
+      }
+
+      const resultsResp = await api.get(`/results`, {
+        params: {
+          schoolCode,
+          class: className,
+          section,
+          academicYear: viewingAcademicYear
+        }
+      });
+      if (resultsResp.data.success) {
+        setClassResults(resultsResp.data.data || resultsResp.data.results || []);
+      }
+    } catch (err) {
+      console.error("Failed to load class tests or results:", err);
+    }
+  }, [viewingAcademicYear, user?.schoolCode]);
+
+  const cleanTestName = (name: string) => String(name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  const getTestMarksForStudent = useCallback((studentId: string, testType: string, dbId?: string) => {
+    const testResults = classResults.filter((r: any) => 
+      (
+        (r.userId && String(r.userId) === String(studentId)) ||
+        (r.studentId && String(r.studentId) === String(studentId)) ||
+        (dbId && r.userId && String(r.userId) === String(dbId)) ||
+        (dbId && r.studentId && String(r.studentId) === String(dbId))
+      ) && 
+      cleanTestName(r.testType) === cleanTestName(testType)
+    );
+
+    if (testResults.length === 0) return { obtained: null, max: null, percentage: 0 };
+
+    const hasAnyMarks = testResults.some(r => r.obtainedMarks !== null && r.obtainedMarks !== undefined);
+    if (!hasAnyMarks) return { obtained: null, max: null, percentage: 0 };
+
+    const obtained = testResults.reduce((sum, r) => sum + Number(r.obtainedMarks || 0), 0);
+    const max = testResults.reduce((sum, r) => sum + Number(r.maxMarks || r.totalMarks || 100), 0);
+    const percentage = max > 0 ? (obtained / max) * 100 : 0;
+
+    return { obtained, max, percentage };
+  }, [classResults]);
+
+  const calculateStudentFinalPercent = useCallback((studentId: string, studentAvgMarks: number, dbId?: string) => {
+    const uniqueTestTypes = [...new Set(classTests.map(t => t.testName || t.displayName || t.name || t.testType).filter(Boolean))];
+    let totalWeightedPercent = 0;
+    let totalWeight = 0;
+    let hasAnyWeighted = false;
+
+    uniqueTestTypes.forEach(testType => {
+      const marks = getTestMarksForStudent(studentId, String(testType), dbId);
+      const testConfig = classTests.find(t => 
+        cleanTestName(t.testName || t.displayName || t.name || t.testType) === cleanTestName(testType)
+      );
+      const weightage = testConfig ? Number(testConfig.weightage || 0) : 0;
+
+      if (marks.max !== null) {
+        totalWeightedPercent += marks.percentage * (weightage / 100);
+        totalWeight += weightage;
+        hasAnyWeighted = true;
+      }
+    });
+
+    if (hasAnyWeighted && totalWeight > 0) {
+      return `${totalWeightedPercent.toFixed(1)}%`;
+    }
+
+    return studentAvgMarks > 0 ? `${Number(studentAvgMarks).toFixed(1)}%` : 'N/A';
+  }, [classTests, getTestMarksForStudent]);
+
   // Toggle row expansion
   const toggleRowExpansion = useCallback((className: string, section: string) => {
     // Use same key format as fetchStudentsForClassSection
@@ -565,10 +651,12 @@ const ReportsPage: React.FC = () => {
         newSet.add(key);
         // Fetch students when expanding
         fetchStudentsForClassSection(className, section);
+        // Fetch detailed tests and results
+        fetchClassTestsAndResults(className, section);
       }
       return newSet;
     });
-  }, [fetchStudentsForClassSection, viewingAcademicYear]);
+  }, [fetchStudentsForClassSection, fetchClassTestsAndResults, viewingAcademicYear]);
 
   // Export overview data to CSV with student details
   const handleExportOverview = useCallback(async () => {
@@ -833,7 +921,7 @@ const ReportsPage: React.FC = () => {
                 <div className="bg-white rounded-lg shadow p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">Avg. Marks</h3>
+                      <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">Avg. Percent</h3>
                       <p className="mt-2 text-3xl font-bold text-yellow-600">
                         {summaryLoading ? (
                           <span className="inline-block h-8 w-16 bg-gray-200 rounded animate-pulse"></span>
@@ -876,7 +964,7 @@ const ReportsPage: React.FC = () => {
                             Students
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Avg. Marks
+                            Avg. Percent
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Avg. Attendance
@@ -948,43 +1036,95 @@ const ReportsPage: React.FC = () => {
                                             <span className="ml-3 text-gray-600">Loading students...</span>
                                           </div>
                                         ) : students.length > 0 ? (
-                                          <div className="space-y-2">
-                                            <h4 className="text-sm font-semibold text-gray-700 mb-3">Student Details</h4>
-                                            <table className="min-w-full divide-y divide-gray-200">
-                                              <thead className="bg-gray-100">
-                                                <tr>
-                                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                                                    Student Name
-                                                  </th>
-                                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                                                    Avg. Marks
-                                                  </th>
-                                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                                                    Avg. Attendance
-                                                  </th>
-                                                </tr>
-                                              </thead>
-                                              <tbody className="bg-white divide-y divide-gray-200">
-                                                {students.map((student) => (
-                                                  <tr key={student.studentId} className="hover:bg-gray-50">
-                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
-                                                      {student.studentName}
-                                                    </td>
-                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
-                                                      {student.avgMarks !== undefined && student.avgMarks !== null
-                                                        ? `${Number(student.avgMarks).toFixed(1)}%`
-                                                        : 'N/A'}
-                                                    </td>
-                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
-                                                      {student.avgAttendance !== undefined && student.avgAttendance !== null
-                                                        ? `${Number(student.avgAttendance).toFixed(1)}%`
-                                                        : 'N/A'}
-                                                    </td>
-                                                  </tr>
-                                                ))}
-                                              </tbody>
-                                            </table>
-                                          </div>
+                                           
+                                          <div className="space-y-4">
+                                             <h4 className="text-sm font-semibold text-gray-700 mb-3">Student Details</h4>
+                                             {students.map((student) => {
+                                               const isStudentExpanded = expandedStudents.has(student.studentId);
+                                               const uniqueTestTypes = [...new Set(classTests.map(t => t.testName || t.displayName || t.name || t.testType).filter(Boolean))];
+                                               
+                                               return (
+                                                 <div key={student.studentId} className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden mb-2">
+                                                   {/* Student Header / Trigger */}
+                                                   <div 
+                                                     className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
+                                                     onClick={() => {
+                                                       setExpandedStudents(prev => {
+                                                         const newSet = new Set(prev);
+                                                         if (newSet.has(student.studentId)) {
+                                                           newSet.delete(student.studentId);
+                                                          } else {
+                                                           newSet.add(student.studentId);
+                                                         }
+                                                         return newSet;
+                                                       });
+                                                     }}
+                                                   >
+                                                     <div>
+                                                       <div className="font-semibold text-gray-900 text-sm">{student.studentName}</div>
+                                                       <div className="text-xs text-gray-500 mt-1">Attendance: {student.avgAttendance > 0 ? `${student.avgAttendance.toFixed(1)}%` : 'N/A'}</div>
+                                                     </div>
+                                                     <div className="flex items-center space-x-4">
+                                                       <div className="text-right">
+                                                          <span className="text-[10px] text-gray-400 block uppercase font-bold tracking-wider">Final Percent</span>
+                                                          <span className="text-sm font-extrabold text-blue-600">
+                                                            {calculateStudentFinalPercent(student.studentId, student.avgMarks, student.dbId)}
+                                                          </span>
+                                                        </div>
+                                                        {isStudentExpanded ? (
+                                                          <ChevronUp className="h-4 w-4 text-gray-500" />
+                                                        ) : (
+                                                          <ChevronDown className="h-4 w-4 text-gray-500" />
+                                                        )}
+                                                      </div>
+                                                    </div>
+
+                                                    {/* Student Collapsible Dropdown Content */}
+                                                    {isStudentExpanded && (
+                                                      <div className="p-4 bg-gray-50 border-t border-gray-150 overflow-x-auto">
+                                                        <table className="min-w-full divide-y divide-gray-200 text-sm">
+                                                          <thead>
+                                                            <tr>
+                                                              {uniqueTestTypes.map(testType => (
+                                                                <th key={String(testType)} className="px-4 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-100 border border-gray-200">
+                                                                  {String(testType)}
+                                                                </th>
+                                                              ))}
+                                                              <th className="px-4 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-100 border border-gray-200">
+                                                                Percent Column
+                                                              </th>
+                                                            </tr>
+                                                          </thead>
+                                                          <tbody>
+                                                            <tr>
+                                                              {uniqueTestTypes.map(testType => {
+                                                                const marks = getTestMarksForStudent(student.studentId, String(testType), student.dbId);
+                                                                return (
+                                                                  <td key={String(testType)} className="px-4 py-3 text-center border border-gray-200 font-medium text-gray-700 bg-white">
+                                                                    {marks.max !== null ? (
+                                                                      <div>
+                                                                        <div className="text-base font-bold text-gray-900">{marks.obtained}</div>
+                                                                        <div className="text-xs text-gray-400 border-t border-gray-100 pt-1 mt-1">out of {marks.max}</div>
+                                                                        <div className="text-[10px] text-blue-500 font-semibold mt-1">({marks.percentage.toFixed(1)}%)</div>
+                                                                      </div>
+                                                                    ) : (
+                                                                      <span className="text-gray-400 italic">No Marks</span>
+                                                                    )}
+                                                                  </td>
+                                                                );
+                                                              })}
+                                                              <td className="px-4 py-3 text-center border border-gray-200 font-bold text-blue-600 bg-white text-base">
+                                                                {calculateStudentFinalPercent(student.studentId, student.avgMarks, student.dbId)}
+                                                              </td>
+                                                            </tr>
+                                                          </tbody>
+                                                        </table>
+                                                      </div>
+                                                    )}
+                                                 </div>
+                                               );
+                                             })}
+                                           </div>
                                         ) : (
                                           <div className="text-center py-4 text-gray-500">
                                             No student data available

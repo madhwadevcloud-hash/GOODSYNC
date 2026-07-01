@@ -1,7 +1,9 @@
 const SchoolDatabaseManager = require('../utils/schoolDatabaseManager');
 const ReportCalculations = require('./reportCalculations');
 const { ObjectId } = require('mongodb');
-const Result = require('../models/Result');
+const cleanTestName = (name) => {
+  return String(name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+};
 
 class ReportService {
   async getSchoolSummary(schoolId, schoolCode, filters = {}) {
@@ -119,55 +121,15 @@ class ReportService {
       }
       
       // Get class-wise results using school database
-      const [classResults, attendanceData] = await Promise.all([
-        // Get academic results from school database (subjects array structure)
-        db.collection('results').aggregate([
-          { 
-            $match: { 
-              ...matchQuery,
-              subjects: { $exists: true, $ne: [] },
-              className: { $exists: true, $ne: null, $ne: '' }  
-            } 
-          },
-          {
-            $unwind: '$subjects'
-          },
-          {
-            $group: {
-              _id: {
-                class: '$className',
-                section: '$section',
-                userId: '$userId'
-              },
-              studentName: { $first: '$studentName' },
-              avgPercentage: { $avg: '$subjects.percentage' }
-            }
-          },
-          {
-            $group: {
-              _id: {
-                class: '$_id.class',
-                section: '$_id.section'
-              },
-              totalStudents: { $addToSet: '$_id.userId' },
-              avgPercentage: { $avg: '$avgPercentage' },
-              totalResults: { $sum: 1 }
-            }
-          },
-          {
-            $project: {
-              _id: 0,
-              class: '$_id.class',
-              section: '$_id.section',
-              totalStudents: { $size: '$totalStudents' },
-              avgMarks: { $round: ['$avgPercentage', 2] },
-              totalResults: 1
-            }
-          },
-          { $sort: { class: 1, section: 1 } }
-        ]).toArray(),
+      const [allResults, allTests, attendanceData] = await Promise.all([
+        db.collection('results').find({
+          ...matchQuery,
+          subjects: { $exists: true, $ne: [] },
+          className: { $exists: true, $ne: null, $ne: '' }
+        }).toArray(),
         
-        // Get attendance data from school database (session-based structure)
+        db.collection('testdetails').find({ isActive: true }).toArray(),
+        
         db.collection('attendances').aggregate([
           {
             $match: {
@@ -244,15 +206,107 @@ class ReportService {
         ]).toArray()
       ]);
 
+      // Group results by class and section
+      const classSectionGroups = {};
+      allResults.forEach(doc => {
+        const cls = doc.className || 'Unknown';
+        const sec = doc.section || 'Not Assigned';
+        const key = `${cls}-${sec}`;
+        if (!classSectionGroups[key]) {
+          classSectionGroups[key] = {
+            class: cls,
+            section: sec,
+            students: []
+          };
+        }
+        classSectionGroups[key].students.push(doc);
+      });
+
+      const classResults = [];
+      let totalStudentsCount = 0;
+      let totalWeightedSum = 0;
+      let totalStudentsWithResults = 0;
+
+      for (const key in classSectionGroups) {
+        const group = classSectionGroups[key];
+        let studentPercentsSum = 0;
+        let studentsCount = 0;
+
+        group.students.forEach(studentDoc => {
+          const studentClass = studentDoc.className;
+          const classTests = allTests.filter(t => t.className === studentClass);
+
+          const testGroup = {};
+          if (studentDoc.subjects && Array.isArray(studentDoc.subjects)) {
+            studentDoc.subjects.forEach(subj => {
+              const testType = subj.testType || 'Unknown';
+              if (!testGroup[testType]) {
+                testGroup[testType] = { obtained: 0, total: 0 };
+              }
+              testGroup[testType].obtained += Number(subj.obtainedMarks || 0);
+              testGroup[testType].total += Number(subj.maxMarks || subj.totalMarks || 100);
+            });
+          }
+
+          let weightedPercentSum = 0;
+          let totalWeight = 0;
+
+          for (const testType in testGroup) {
+            const grp = testGroup[testType];
+            if (grp.total > 0) {
+              const testPercent = (grp.obtained / grp.total) * 100;
+              const testConfig = classTests.find(t => 
+                (cleanTestName(t.name) === cleanTestName(testType) || 
+                 cleanTestName(t.testName) === cleanTestName(testType) || 
+                 cleanTestName(t.testType) === cleanTestName(testType))
+              );
+              const weight = testConfig ? Number(testConfig.weightage || 0) : 0;
+              weightedPercentSum += testPercent * (weight / 100);
+              totalWeight += weight;
+            }
+          }
+
+          let finalStudentPercent = 0;
+          if (totalWeight > 0) {
+            finalStudentPercent = weightedPercentSum;
+          } else {
+            const percentages = studentDoc.subjects.map(s => s.percentage).filter(p => typeof p === 'number');
+            if (percentages.length > 0) {
+              finalStudentPercent = percentages.reduce((s, p) => s + p, 0) / percentages.length;
+            }
+          }
+
+          studentPercentsSum += finalStudentPercent;
+          studentsCount++;
+          totalWeightedSum += finalStudentPercent;
+          totalStudentsWithResults++;
+        });
+
+        const avgPercent = studentsCount > 0 ? studentPercentsSum / studentsCount : 0;
+        totalStudentsCount += studentsCount;
+
+        classResults.push({
+          class: group.class,
+          section: group.section,
+          totalStudents: studentsCount,
+          avgMarks: Math.round(avgPercent * 100) / 100,
+          totalResults: studentsCount
+        });
+      }
+
+      classResults.sort((a, b) => {
+        const classCompare = String(a.class).localeCompare(String(b.class));
+        if (classCompare !== 0) return classCompare;
+        return String(a.section).localeCompare(String(b.section));
+      });
+
       // Debug: Log raw data before calculations
       console.log(' [getSchoolSummary] Raw classResults:', JSON.stringify(classResults, null, 2));
       console.log(' [getSchoolSummary] Raw attendanceData:', JSON.stringify(attendanceData, null, 2));
       
       // Calculate overall summary
       let totalStudents = classResults.reduce((sum, item) => sum + (item.totalStudents || 0), 0);
-      const totalMarks = classResults.reduce((sum, item) => sum + (item.avgMarks * item.totalResults), 0);
-      const totalResults = classResults.reduce((sum, item) => sum + (item.totalResults || 0), 0);
-      const avgMarks = totalResults > 0 ? totalMarks / totalResults : 0;
+      const avgMarks = totalStudentsWithResults > 0 ? totalWeightedSum / totalStudentsWithResults : 0;
       
       // Calculate average attendance
       const totalAttendance = attendanceData.reduce((sum, item) => sum + (item.attendancePercentage || 0), 0);
@@ -594,54 +648,72 @@ class ReportService {
       const studentIds = allStudents.map(s => s.userId);
       console.log(`📝 Student IDs to lookup:`, studentIds.slice(0, 5), `... (${studentIds.length} total)`);
 
-      // STEP 2: Fetch results for these students
+      // STEP 2: Fetch results and test details to calculate weightage-based averages
       const resultsMatchQuery = {
         userId: { $in: studentIds },
         subjects: { $exists: true, $ne: [] }
       };
 
-      // Add academic year filter to results
       if (academicYear) {
         resultsMatchQuery.academicYear = academicYear;
       }
 
       console.log('📊 Results query:', JSON.stringify(resultsMatchQuery, null, 2));
       
-      const studentResults = await db.collection('results').aggregate([
-        { $match: resultsMatchQuery },
-        { $unwind: '$subjects' },
-        {
-          $group: {
-            _id: '$userId',
-            totalObtained: { $sum: '$subjects.obtainedMarks' },
-            totalMarks: { $sum: '$subjects.totalMarks' },
-            avgPercentage: { $avg: '$subjects.percentage' }
-          }
-        },
-        {
-          $project: {
-            _id: 0,
-            studentId: '$_id',
-            avgMarks: {
-              $round: [
-                {
-                  $cond: [
-                    { $gt: ['$totalMarks', 0] },
-                    { $multiply: [{ $divide: ['$totalObtained', '$totalMarks'] }, 100] },
-                    '$avgPercentage'
-                  ]
-                },
-                2
-              ]
+      const [studentResultsDocs, classTests] = await Promise.all([
+        db.collection('results').find(resultsMatchQuery).toArray(),
+        db.collection('testdetails').find({ className: className, isActive: true }).toArray()
+      ]);
+      
+      const studentResults = studentResultsDocs.map(doc => {
+        const testGroup = {};
+        if (doc.subjects && Array.isArray(doc.subjects)) {
+          doc.subjects.forEach(subj => {
+            const testType = subj.testType || 'Unknown';
+            if (!testGroup[testType]) {
+              testGroup[testType] = { obtained: 0, total: 0 };
             }
+            testGroup[testType].obtained += Number(subj.obtainedMarks || 0);
+            testGroup[testType].total += Number(subj.maxMarks || subj.totalMarks || 100);
+          });
+        }
+
+        let weightedPercentSum = 0;
+        let totalWeight = 0;
+
+        for (const testType in testGroup) {
+          const grp = testGroup[testType];
+          if (grp.total > 0) {
+            const testPercent = (grp.obtained / grp.total) * 100;
+            const testConfig = classTests.find(t => 
+              (cleanTestName(t.name) === cleanTestName(testType) || 
+               cleanTestName(t.testName) === cleanTestName(testType) || 
+               cleanTestName(t.testType) === cleanTestName(testType))
+            );
+            const weight = testConfig ? Number(testConfig.weightage || 0) : 0;
+            weightedPercentSum += testPercent * (weight / 100);
+            totalWeight += weight;
           }
         }
-      ]).toArray();
+
+        let finalStudentPercent = 0;
+        if (totalWeight > 0) {
+          finalStudentPercent = weightedPercentSum;
+        } else {
+          const percentages = doc.subjects.map(s => s.percentage).filter(p => typeof p === 'number');
+          if (percentages.length > 0) {
+            finalStudentPercent = percentages.reduce((s, p) => s + p, 0) / percentages.length;
+          }
+        }
+
+        return {
+          studentId: doc.userId || doc.studentId?.toString(),
+          dbId: doc.studentId?.toString() || doc.userId,
+          avgMarks: Math.round(finalStudentPercent * 100) / 100
+        };
+      });
       
       console.log(`✅ Found results for ${studentResults.length} students`);
-      if (studentResults.length > 0) {
-        console.log(`📊 Sample result calculation:`, studentResults[0]);
-      }
 
       // STEP 3: Fetch attendance for these students
       const attendanceMatchQuery = {
@@ -714,7 +786,8 @@ class ReportService {
       // STEP 4: Create lookup maps
       const resultsMap = new Map();
       studentResults.forEach(result => {
-        resultsMap.set(result.studentId, result.avgMarks);
+        if (result.studentId) resultsMap.set(result.studentId, result.avgMarks);
+        if (result.dbId) resultsMap.set(result.dbId, result.avgMarks);
       });
 
       const attendanceMap = new Map();
@@ -747,9 +820,10 @@ class ReportService {
         
         studentsArray.push({
           studentId: student.userId,
+          dbId: student._id.toString(),
           studentName: studentName,
-          avgMarks: resultsMap.get(student.userId) || 0,
-          avgAttendance: attendanceMap.get(student.userId) || 0
+          avgMarks: resultsMap.get(student.userId) || resultsMap.get(student._id.toString()) || 0,
+          avgAttendance: attendanceMap.get(student.userId) || attendanceMap.get(student._id.toString()) || 0
         });
       });
       

@@ -996,6 +996,17 @@ const Results: React.FC = () => {
 
     const percentage = (obtained / total) * 100;
 
+    const dynamicGradingSystem = (classesData as any)?.gradingSystem;
+    if (dynamicGradingSystem && Array.isArray(dynamicGradingSystem) && dynamicGradingSystem.length > 0) {
+      for (const range of dynamicGradingSystem) {
+        const min = Number(range.minPercentage);
+        const max = Number(range.maxPercentage);
+        if (percentage >= min && percentage <= max) {
+          return range.grade;
+        }
+      }
+    }
+
     // Standard CBSE/ICSE Grading Scheme
     if (percentage >= 91) return 'A1';
     if (percentage >= 81) return 'A2';
