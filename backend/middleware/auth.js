@@ -3,6 +3,11 @@ const mongoose = require('mongoose');
 const User = require('../models/User');
 const SuperAdmin = require('../models/SuperAdmin');
 const TokenBlacklist = require('../models/TokenBlacklist');
+const NodeCache = require('node-cache');
+
+// Initialize a dedicated fast memory cache for session sessions
+// stdTTL: 120 seconds (2 minutes) to balance safety and performance drop
+const authCache = new NodeCache({ stdTTL: 120, checkperiod: 30 });
 
 // Authentication middleware
 const auth = async (req, res, next) => {
@@ -29,6 +34,14 @@ const auth = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Check if this validated session profile is already sitting in local memory
+    const cacheKey = `user_session_${token.slice(-30)}`; // Use last 30 chars of token as key
+    const cachedUserPayload = authCache.get(cacheKey);
+    if (cachedUserPayload) {
+      req.user = cachedUserPayload;
+      return next();
+    }
 
     // Note: mainDb is not always required in auth middleware, it's set by setMainDbContext middleware when needed
 
@@ -102,7 +115,9 @@ const auth = async (req, res, next) => {
 
     // User fetched successfully
     // Ensure user object is a plain object with role property
-    req.user = {
+    // User fetched successfully
+    // Ensure user object is a plain object with role property
+    const finalUserPayload = {
       ...user,
       role: user.role, // Don't fallback to admin - let it be undefined if missing
       _id: user._id,
@@ -115,6 +130,11 @@ const auth = async (req, res, next) => {
       class: user.studentDetails?.class || user.class,
       section: user.studentDetails?.section || user.section
     };
+
+    // Store verified profile context for 2 minutes
+    authCache.set(cacheKey, finalUserPayload);
+
+    req.user = finalUserPayload;
     next();
   } catch (error) {
     console.error('[AUTH ERROR] Token verification failed:', error);
