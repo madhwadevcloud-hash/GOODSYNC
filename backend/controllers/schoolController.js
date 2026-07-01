@@ -1674,6 +1674,7 @@ exports.getAllSchools = async (req, res) => {
 };
 
 // Get school by ID
+// Get school by ID
 exports.getSchoolById = async (req, res) => {
   try {
     const { schoolId } = req.params;
@@ -1704,15 +1705,18 @@ exports.getSchoolById = async (req, res) => {
       const mongoose = require('mongoose');
 
       // Try to find by ID first if it's a valid ObjectId
+      // IMPORTANT: use .lean() to avoid Mongoose hydration/CastErrors on
+      // legacy documents that may have stringified JSON in object fields
+      // (settings, features, stats, accessMatrix, bankDetails)
       if (mongoose.Types.ObjectId.isValid(schoolId)) {
         console.log(`[getSchoolById] Looking up by ID: ${schoolId}`);
-        school = await School.findById(schoolId);
+        school = await School.findById(schoolId).lean();
       }
 
       // If not found by ID, try by code (case-insensitive)
       if (!school) {
         console.log(`[getSchoolById] Looking up by code: ${schoolId}`);
-        school = await School.findOne({ code: new RegExp(`^${schoolId}$`, 'i') });
+        school = await School.findOne({ code: new RegExp(`^${schoolId}$`, 'i') }).lean();
       }
 
       // If still not found, return 404
@@ -1726,6 +1730,18 @@ exports.getSchoolById = async (req, res) => {
         });
       }
 
+      // Normalize fields that might be stored as JSON strings on legacy documents
+      ['settings', 'features', 'stats', 'accessMatrix', 'bankDetails'].forEach((field) => {
+        if (typeof school[field] === 'string') {
+          try {
+            school[field] = JSON.parse(school[field]);
+          } catch (e) {
+            console.error(`[getSchoolById] Error parsing ${field} for school ${school.code}:`, e);
+            school[field] = {};
+          }
+        }
+      });
+
       console.log(`[getSchoolById] Found school: ${school.name} (${school.code})`);
 
       // Return the school data from main database
@@ -1736,6 +1752,7 @@ exports.getSchoolById = async (req, res) => {
 
     } catch (dbError) {
       console.error('[getSchoolById] Database error:', dbError);
+      console.error('[getSchoolById] Error stack:', dbError.stack);
       return res.status(500).json({
         success: false,
         message: 'Database error while fetching school',
@@ -1757,9 +1774,18 @@ exports.getSchoolById = async (req, res) => {
 };
 
 // Get school info directly from main database (no school-specific database lookup)
+// Get school info directly from main database (no school-specific database lookup)
 exports.getSchoolInfo = async (req, res) => {
   try {
-    const { schoolId } = req.params;
+    const { id, schoolId: schoolIdParam } = req.params;
+    const schoolId = id || schoolIdParam;
+    const shouldRefresh = ['true', '1', 'yes'].includes(String(req.query.refresh || '').toLowerCase());
+
+    if (shouldRefresh && schoolId) {
+      clearSchoolInfoCache(schoolId);
+      console.log(`[getSchoolInfo] Cache cleared for refresh request: ${schoolId}`);
+    }
+
     console.log(`[getSchoolInfo] Fetching school info for: ${schoolId}`);
 
     const cacheKey = getSchoolInfoCacheKey('school-info:main', { schoolId });
@@ -1770,17 +1796,22 @@ exports.getSchoolInfo = async (req, res) => {
 
     let school = null;
 
-    // Check if schoolId is a valid ObjectId before attempting findById 
-    const mongoose = require('mongoose');
+    const centralSchoolModel = req.mainDb?.model?.('School') || mongoose.connection.model('School');
+
+    // IMPORTANT: use .lean() to avoid Mongoose hydration/CastErrors on
+    // legacy documents that may have stringified JSON in object fields
+    // (settings, features, stats, accessMatrix, bankDetails). Without
+    // .lean(), a malformed field throws during document hydration and
+    // produces a 500 here.
     if (mongoose.Types.ObjectId.isValid(schoolId)) {
       console.log(`[getSchoolInfo] Attempting find by ID: ${schoolId}`);
-      school = await School.findById(schoolId);
+      school = await centralSchoolModel.findById(schoolId).lean();
     }
 
     // Fallback: Try to find by school code (case-insensitive) if not found by ID or if ID format was invalid
     if (!school) {
       console.log(`[getSchoolInfo] Attempting find by code: ${schoolId}`);
-      school = await School.findOne({ code: new RegExp(`^${schoolId}$`, 'i') });
+      school = await centralSchoolModel.findOne({ code: new RegExp(`^${schoolId}$`, 'i') }).lean();
     }
 
     if (!school) {
@@ -1789,6 +1820,18 @@ exports.getSchoolInfo = async (req, res) => {
         message: 'School not found'
       });
     }
+
+    // Normalize fields that might be stored as JSON strings on legacy documents
+    ['settings', 'features', 'stats', 'accessMatrix', 'bankDetails'].forEach((field) => {
+      if (typeof school[field] === 'string') {
+        try {
+          school[field] = JSON.parse(school[field]);
+        } catch (e) {
+          console.error(`[getSchoolInfo] Error parsing ${field} for school ${school.code}:`, e);
+          school[field] = {};
+        }
+      }
+    });
 
     console.log(`[getSchoolInfo] Found school: ${school.name} (${school.code})`);
 
