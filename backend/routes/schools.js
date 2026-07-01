@@ -85,10 +85,12 @@ router.post('/:schoolId/sync', setMainDbContext, requireSuperAdmin, schoolContro
 
 // School-specific routes (require school context)
 router.get('/profile', schoolController.getSchoolProfile);
+
+// Direct school info route (must stay on the main/central connection)
+router.get('/:id/info', authMiddleware.auth, setMainDbContext, schoolController.getSchoolInfo);
+
 router.get('/:schoolId', setSchoolContext, validateSchoolAccess(['admin', 'superadmin']), schoolController.getSchoolById);
 
-// Direct school info route (bypasses school-specific database issues)
-router.get('/:schoolId/info', authMiddleware.auth, schoolController.getSchoolInfo);
 // Get school info from school_info collection in school's database
 router.get('/database/school-info', authMiddleware.auth, schoolController.getSchoolInfoFromDatabase);
 router.put('/:schoolId', logoUpload.single('logo'), schoolController.updateSchool);
