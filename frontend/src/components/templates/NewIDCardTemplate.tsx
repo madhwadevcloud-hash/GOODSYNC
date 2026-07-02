@@ -8,6 +8,8 @@ const NewIDCardTemplate: React.FC<IDCardTemplateProps> = ({
   side,
   mode = 'preview',
   theme = 'modern',
+  principalSign,
+  termsAndConditions,
   className = ''
 }) => {
   const isLandscape = templateId === 'landscape';
@@ -52,6 +54,26 @@ const NewIDCardTemplate: React.FC<IDCardTemplateProps> = ({
     </div>
   );
 
+  // Helper for Dynamic Font Size
+  const getDynamicFontSize = (text: string, baseSize: number, minSize: number = 2.0, threshold: number = 20) => {
+    if (!text || text.length <= threshold) return `${baseSize}mm`;
+    const diff = text.length - threshold;
+    const newSize = baseSize - (diff * 0.08);
+    return `${Math.max(minSize, newSize)}mm`;
+  };
+
+  // Helper for Principal Signature
+  const renderPrincipalSignature = (color = '#1f2937', absolutePosition: React.CSSProperties = { bottom: '2mm', right: '4mm' }) => (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'absolute', ...absolutePosition, zIndex: 2 }}>
+      {principalSign ? (
+        <img src={principalSign} alt="Principal Signature" style={{ height: '6mm', objectFit: 'contain', marginBottom: '0.5mm' }} />
+      ) : (
+        <div style={{ height: '6mm', marginBottom: '0.5mm' }}></div>
+      )}
+      <div style={{ fontSize: '1.6mm', fontWeight: 'bold', color, textTransform: 'uppercase' }}>Principal</div>
+    </div>
+  );
+
   // ==========================================
   // LANDSCAPE DESIGNS
   // ==========================================
@@ -65,9 +87,13 @@ const NewIDCardTemplate: React.FC<IDCardTemplateProps> = ({
       {/* Glassmorphism Header */}
       <div style={{ display: 'flex', alignItems: 'center', padding: '3mm 4mm', background: 'rgba(255, 255, 255, 0.6)', backdropFilter: 'blur(10px)', borderBottom: '1px solid rgba(255, 255, 255, 0.8)', zIndex: 1, position: 'relative' }}>
         <div style={{ marginRight: '3mm', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', borderRadius: '50%', padding: '1mm', backgroundColor: '#fff' }}>{renderLogo('7mm')}</div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: '3.8mm', fontWeight: '800', color: headerColor, letterSpacing: '0.2px' }}>{settings.schoolName}</div>
-          <div style={{ fontSize: '2.2mm', color: accentColor, fontWeight: '600' }}>{settings.schoolCode}</div>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <div style={{ fontSize: getDynamicFontSize(settings.schoolName, 3.8, 2.5, 20), fontWeight: '800', color: headerColor, letterSpacing: '0.2px', lineHeight: '1.2' }}>{settings.schoolName}</div>
+          {settings.address ? (
+            <div style={{ fontSize: '1.8mm', color: '#64748b', marginTop: '0.5mm', lineHeight: '1.2', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{settings.address}</div>
+          ) : (
+            <div style={{ fontSize: '2.2mm', color: accentColor, fontWeight: '600' }}>{settings.schoolCode}</div>
+          )}
         </div>
       </div>
       
@@ -87,7 +113,6 @@ const NewIDCardTemplate: React.FC<IDCardTemplateProps> = ({
             <span style={{ color: '#64748b', fontWeight: '600' }}>DOB:</span> <span style={{ fontWeight: '700', color: '#334155' }}>{student.dateOfBirth || 'N/A'}</span>
             <span style={{ color: '#64748b', fontWeight: '600' }}>BLOOD:</span> <span style={{ fontWeight: '700', color: '#334155' }}>{student.bloodGroup || 'N/A'}</span>
             <span style={{ color: '#64748b', fontWeight: '600' }}>PHONE:</span> <span style={{ fontWeight: '700', color: '#334155' }}>{student.phone || 'N/A'}</span>
-            <span style={{ color: '#64748b', fontWeight: '600' }}>ADDRESS:</span> <span style={{ fontWeight: '700', color: '#334155', lineHeight: '1.1' }} title={student.address || 'N/A'}>{student.address || 'N/A'}</span>
           </div>
         </div>
       </div>
@@ -110,8 +135,15 @@ const NewIDCardTemplate: React.FC<IDCardTemplateProps> = ({
         {/* Geometric Accent */}
         <div style={{ position: 'absolute', top: 0, right: 0, width: '0', height: '0', borderTop: `15mm solid ${accentColor}`, borderLeft: '15mm solid transparent' }}></div>
         
-        <div style={{ fontSize: '4mm', fontWeight: 'bold', color: headerColor, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '1mm', maxWidth: '45mm', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: 0, lineHeight: 1.2 }}>
-          {settings.schoolName}
+        <div style={{ display: 'flex', flexDirection: 'column', marginBottom: '1mm', flexShrink: 0 }}>
+          <div style={{ fontSize: getDynamicFontSize(settings.schoolName, 4.0, 2.5, 20), fontWeight: 'bold', color: headerColor, textTransform: 'uppercase', letterSpacing: '0.5px', lineHeight: '1.2' }}>
+            {settings.schoolName}
+          </div>
+          {settings.address && (
+            <div style={{ fontSize: '1.8mm', color: '#64748b', marginTop: '0.5mm', lineHeight: '1.2', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+              {settings.address}
+            </div>
+          )}
         </div>
         <div style={{ height: '2px', backgroundColor: headerColor, width: '100%', marginBottom: '2.5mm', flexShrink: 0 }}></div>
         
@@ -139,15 +171,12 @@ const NewIDCardTemplate: React.FC<IDCardTemplateProps> = ({
             </tr>
             <tr>
               <td style={{ padding: '0.2mm 0', fontWeight: 'bold', color: headerColor }}>PHONE</td>
-              <td style={{ padding: '0.2mm 0', color: '#000', borderBottom: '1px solid #e5e7eb' }}>{student.phone || 'N/A'}</td>
-            </tr>
-            <tr>
-              <td style={{ padding: '0.2mm 0', fontWeight: 'bold', color: headerColor }}>ADDRESS</td>
-              <td style={{ padding: '0.2mm 0', color: '#000', display: 'inline-block', lineHeight: '1.1' }} title={student.address || 'N/A'}>{student.address || 'N/A'}</td>
+              <td style={{ padding: '0.2mm 0', color: '#000' }}>{student.phone || 'N/A'}</td>
             </tr>
           </tbody>
         </table>
       </div>
+      {renderPrincipalSignature('#1f2937', { bottom: '2mm', right: '4mm' })}
     </div>
   );
 
@@ -158,9 +187,16 @@ const NewIDCardTemplate: React.FC<IDCardTemplateProps> = ({
         <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '3px', backgroundColor: accentColor, borderTopLeftRadius: '5px', borderTopRightRadius: '5px' }}></div>
         
         {/* Top Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3mm', marginTop: '1mm' }}>
-          <div style={{ fontSize: '3.5mm', fontWeight: '700', color: '#1f2937', letterSpacing: '0.5px', textTransform: 'uppercase', maxWidth: '50mm', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{settings.schoolName}</div>
-          <div>{renderLogo('7mm')}</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '3mm', marginTop: '1mm' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', maxWidth: '55mm' }}>
+            <div style={{ fontSize: getDynamicFontSize(settings.schoolName, 3.5, 2.2, 18), fontWeight: '700', color: '#1f2937', letterSpacing: '0.5px', textTransform: 'uppercase', lineHeight: '1.2' }}>{settings.schoolName}</div>
+            {settings.address && (
+              <div style={{ fontSize: '1.8mm', color: '#6b7280', marginTop: '0.5mm', lineHeight: '1.2', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                {settings.address}
+              </div>
+            )}
+          </div>
+          <div style={{ flexShrink: 0, marginLeft: '2mm' }}>{renderLogo('7mm')}</div>
         </div>
         
         {/* Body */}
@@ -173,14 +209,14 @@ const NewIDCardTemplate: React.FC<IDCardTemplateProps> = ({
               <div style={{ borderBottom: '1px dotted #e5e7eb', paddingBottom: '0.2mm' }}><span style={{ display: 'inline-block', width: '12mm', color: '#9ca3af', fontWeight: '500' }}>ID NO:</span> <span style={{ color: '#1f2937', fontWeight: '500' }}>{student.sequenceId || student.rollNumber}</span></div>
               <div style={{ borderBottom: '1px dotted #e5e7eb', paddingBottom: '0.2mm' }}><span style={{ display: 'inline-block', width: '12mm', color: '#9ca3af', fontWeight: '500' }}>CLASS:</span> <span style={{ color: '#1f2937', fontWeight: '500' }}>{student.className} - {student.section}</span></div>
               <div style={{ paddingBottom: '0.2mm', borderBottom: '1px dotted #e5e7eb' }}><span style={{ display: 'inline-block', width: '12mm', color: '#9ca3af', fontWeight: '500' }}>DOB:</span> <span style={{ color: '#1f2937', fontWeight: '500' }}>{student.dateOfBirth || 'N/A'}</span></div>
-              <div style={{ paddingBottom: '0.2mm', borderBottom: '1px dotted #e5e7eb' }}><span style={{ display: 'inline-block', width: '12mm', color: '#9ca3af', fontWeight: '500' }}>PHONE:</span> <span style={{ color: '#1f2937', fontWeight: '500' }}>{student.phone || 'N/A'}</span></div>
-              <div style={{ paddingBottom: '0.2mm', display: 'flex' }}><span style={{ display: 'inline-block', width: '12mm', color: '#9ca3af', fontWeight: '500', flexShrink: 0 }}>ADDR:</span> <span style={{ color: '#1f2937', fontWeight: '500', display: 'inline-block', flex: 1, lineHeight: '1.1' }} title={student.address || 'N/A'}>{student.address || 'N/A'}</span></div>
+              <div style={{ paddingBottom: '0.2mm' }}><span style={{ display: 'inline-block', width: '12mm', color: '#9ca3af', fontWeight: '500' }}>PHONE:</span> <span style={{ color: '#1f2937', fontWeight: '500' }}>{student.phone || 'N/A'}</span></div>
             </div>
           </div>
-          <div style={{ alignSelf: 'center' }}>
-            <div style={{ padding: '1mm', border: '1px solid #f3f4f6', borderRadius: '4px', backgroundColor: '#f9fafb' }}>
-              {renderPhoto('20mm', '25mm', 'none')}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ padding: '1mm', border: '1px solid #f3f4f6', borderRadius: '4px', backgroundColor: '#f9fafb', marginBottom: '1mm' }}>
+              {renderPhoto('20mm', '23mm', 'none')}
             </div>
+            {renderPrincipalSignature('#1f2937', { position: 'relative' })}
           </div>
         </div>
       </div>
@@ -232,13 +268,11 @@ const NewIDCardTemplate: React.FC<IDCardTemplateProps> = ({
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '0.2mm' }}>
             <strong style={{ color: '#64748b' }}>BLOOD:</strong> <span style={{ fontWeight: '700', color: '#334155' }}>{student.bloodGroup || 'N/A'}</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '0.2mm' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '0.2mm' }}>
             <strong style={{ color: '#64748b' }}>PHONE:</strong> <span style={{ fontWeight: '700', color: '#334155' }}>{student.phone || 'N/A'}</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <strong style={{ color: '#64748b', marginRight: '2mm' }}>ADDR:</strong> <span style={{ fontWeight: '700', color: '#334155', textAlign: 'right', lineHeight: '1.1' }} title={student.address || 'N/A'}>{student.address || 'N/A'}</span>
-          </div>
         </div>
+        {renderPrincipalSignature('#1f2937', { bottom: '2mm', right: '4mm' })}
       </div>
     </div>
   );
@@ -282,12 +316,8 @@ const NewIDCardTemplate: React.FC<IDCardTemplateProps> = ({
               <td style={{ padding: '0.2mm 0', color: '#000', borderBottom: '1px solid #e5e7eb' }}>{student.bloodGroup || 'N/A'}</td>
             </tr>
             <tr>
-              <td style={{ padding: '0.2mm 0', fontWeight: 'bold', color: headerColor, borderBottom: '1px solid #e5e7eb' }}>PHONE</td>
-              <td style={{ padding: '0.2mm 0', color: '#000', borderBottom: '1px solid #e5e7eb' }}>{student.phone || 'N/A'}</td>
-            </tr>
-            <tr>
-              <td style={{ padding: '0.2mm 0', fontWeight: 'bold', color: headerColor }}>ADDR</td>
-              <td style={{ padding: '0.2mm 0', color: '#000', display: 'inline-block', lineHeight: '1.1' }} title={student.address || 'N/A'}>{student.address || 'N/A'}</td>
+              <td style={{ padding: '0.2mm 0', fontWeight: 'bold', color: headerColor }}>PHONE</td>
+              <td style={{ padding: '0.2mm 0', color: '#000' }}>{student.phone || 'N/A'}</td>
             </tr>
           </tbody>
         </table>
@@ -295,6 +325,7 @@ const NewIDCardTemplate: React.FC<IDCardTemplateProps> = ({
       
       {/* Bottom accent line */}
       <div style={{ height: '3mm', width: '100%', backgroundColor: headerColor }}></div>
+      {renderPrincipalSignature('#1f2937', { bottom: '4mm', right: '4mm' })}
     </div>
   );
 
@@ -330,13 +361,11 @@ const NewIDCardTemplate: React.FC<IDCardTemplateProps> = ({
           <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px dotted #e5e7eb', paddingBottom: '0.2mm' }}>
             <span style={{ color: '#9ca3af', fontWeight: '500' }}>DOB</span> <span style={{ color: '#1f2937', fontWeight: '500' }}>{student.dateOfBirth || 'N/A'}</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px dotted #e5e7eb', paddingBottom: '0.2mm' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.2mm' }}>
             <span style={{ color: '#9ca3af', fontWeight: '500' }}>PHONE</span> <span style={{ color: '#1f2937', fontWeight: '500' }}>{student.phone || 'N/A'}</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <span style={{ color: '#9ca3af', fontWeight: '500', marginRight: '2mm' }}>ADDR</span> <span style={{ color: '#1f2937', fontWeight: '500', textAlign: 'right', lineHeight: '1.1' }} title={student.address || 'N/A'}>{student.address || 'N/A'}</span>
-          </div>
         </div>
+        {renderPrincipalSignature('#1f2937', { bottom: '1mm', right: '2mm' })}
       </div>
     </div>
   );
@@ -354,11 +383,21 @@ const NewIDCardTemplate: React.FC<IDCardTemplateProps> = ({
         <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '3.2mm', marginBottom: '3mm', color: headerColor, borderBottom: theme !== 'minimalist' ? `2px solid ${accentColor}` : '1px solid #e5e7eb', paddingBottom: '1.5mm', letterSpacing: '0.5px' }}>TERMS & CONDITIONS</div>
         
         <ul style={{ paddingLeft: '4mm', margin: '0 0 3mm 0', color: '#4b5563', lineHeight: '1.6', flex: 1 }}>
-          <li>This card is the property of <strong style={{ color: '#111827' }}>{settings.schoolName}</strong>.</li>
-          <li>It must be carried at all times while in the school premises.</li>
-          <li>If found, please return to the school address.</li>
-          <li>This card is non-transferable.</li>
+          {(termsAndConditions || [
+            `This card is the property of ${settings.schoolName}.`,
+            "It must be carried at all times while in the school premises.",
+            "If found, please return to the school address.",
+            "This card is non-transferable."
+          ]).map((term, idx) => (
+            <li key={idx} style={{ marginBottom: '0.5mm' }}>{term}</li>
+          ))}
         </ul>
+        
+        {student.address && (
+          <div style={{ marginTop: 'auto', textAlign: 'center', color: '#1f2937', fontSize: '2.2mm', borderTop: '1px dashed #e5e7eb', paddingTop: '1.5mm', lineHeight: '1.2' }}>
+            <strong>Student Address:</strong> {student.address}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -373,11 +412,21 @@ const NewIDCardTemplate: React.FC<IDCardTemplateProps> = ({
           <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '3.5mm', marginBottom: '2mm', color: headerColor, borderBottom: theme !== 'minimalist' ? `2px solid ${accentColor}` : '1px solid #e5e7eb', paddingBottom: '1mm', letterSpacing: '0.5px', flexShrink: 0 }}>TERMS & CONDITIONS</div>
           
           <ul style={{ paddingLeft: '4mm', margin: '0 0 2mm 0', color: '#4b5563', lineHeight: '1.4', flex: 1 }}>
-            <li style={{ marginBottom: '0.5mm' }}>This card is the property of <strong style={{ color: '#111827' }}>{settings.schoolName}</strong>.</li>
-            <li style={{ marginBottom: '0.5mm' }}>It must be carried at all times while in the school premises.</li>
-            <li style={{ marginBottom: '0.5mm' }}>If found, please return to the school address.</li>
-            <li>This card is non-transferable.</li>
+            {(termsAndConditions || [
+              `This card is the property of ${settings.schoolName}.`,
+              "It must be carried at all times while in the school premises.",
+              "If found, please return to the school address.",
+              "This card is non-transferable."
+            ]).map((term, idx) => (
+              <li key={idx} style={{ marginBottom: '0.5mm' }}>{term}</li>
+            ))}
           </ul>
+          
+          {student.address && (
+            <div style={{ textAlign: 'center', color: '#1f2937', fontSize: '2.2mm', marginBottom: '2mm', lineHeight: '1.2' }}>
+              <strong>Address:</strong> {student.address}
+            </div>
+          )}
           
           <div style={{ marginTop: 'auto', textAlign: 'center', lineHeight: '1.4', backgroundColor: theme === 'modern' ? '#fff' : theme === 'classic' ? '#f3f4f6' : 'transparent', padding: theme === 'minimalist' ? '2mm 0 0 0' : '2mm', borderRadius: theme === 'modern' ? '8px' : '0', border: theme === 'modern' ? '1px solid #e5e7eb' : theme === 'classic' ? `1px solid ${headerColor}` : 'none', borderTop: theme === 'minimalist' ? '1px solid #e5e7eb' : undefined, boxShadow: theme === 'modern' ? '0 2px 4px rgba(0,0,0,0.02)' : 'none', flexShrink: 0 }}>
             <strong style={{ color: headerColor, fontSize: '2.8mm', display: 'block' }}>{settings.schoolName}</strong>

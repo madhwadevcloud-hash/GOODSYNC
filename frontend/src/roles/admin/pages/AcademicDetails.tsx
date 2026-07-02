@@ -2430,8 +2430,30 @@ const AcademicDetails: React.FC = () => {
                           : 'border-gray-200 hover:border-gray-300'
                           }`}
                       >
-                        <h4 className="font-semibold text-gray-800 mb-1">{theme.name}</h4>
-                        <p className="text-sm text-gray-500">{theme.description}</p>
+                        <div className="flex justify-center mb-4 overflow-hidden">
+                          <div
+                            style={{
+                              transform: 'scale(0.5)',
+                              transformOrigin: 'top center',
+                              height: (selectedOrientation || 'landscape') === 'landscape' ? '100px' : '160px',
+                              display: 'flex',
+                              justifyContent: 'center'
+                            }}
+                          >
+                            <NewIDCardTemplate
+                              settings={templateSettings}
+                              student={idCardStudents[0]}
+                              templateId={(selectedOrientation as 'landscape' | 'portrait') || 'landscape'}
+                              side="front"
+                              mode="preview"
+                              theme={theme.id}
+                            />
+                          </div>
+                        </div>
+                        <div className="text-center">
+                          <h4 className="font-semibold text-gray-800 mb-1">{theme.name}</h4>
+                          <p className="text-sm text-gray-500">{theme.description}</p>
+                        </div>
                       </div>
                     ))}
                   </div>
