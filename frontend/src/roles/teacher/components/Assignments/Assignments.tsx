@@ -72,9 +72,19 @@ const Assignments: React.FC<AssignmentsProps> = ({ onNavigate }) => {
         </div>
 
         {/* Tab Content */}
-        <div className="p-6">
-          {activeTab === 'view' ? <ViewAssignments /> : <AddAssignments />}
-        </div>
+        {/* Tab Content */}
+<div className="p-6">
+
+  {activeTab === "view" && (
+    <div className="flex items-center gap-2 mb-4 rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 text-sm text-gray-600">
+      <AlertCircle className="h-4 w-4 text-gray-400" />
+      <span>Assignments cannot be edited after the due date.</span>
+    </div>
+  )}
+
+  {activeTab === "view" ? <ViewAssignments /> : <AddAssignments />}
+
+</div>
       </div>
     </div>
   );
