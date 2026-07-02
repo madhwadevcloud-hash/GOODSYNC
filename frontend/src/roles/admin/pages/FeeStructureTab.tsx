@@ -463,19 +463,7 @@ const FeeStructureTab: React.FC = () => {
                 </div>
               </div>
             </div>
-
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="applyToStudents"
-                checked={applyToStudents}
-                onChange={(e) => setApplyToStudents(e.target.checked)}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              />
-              <label htmlFor="applyToStudents" className="ml-2 block text-sm text-gray-900">
-                Apply this fee structure to all students in the selected class
-              </label>
-            </div>
+            
 
             <button
               onClick={handleSaveStructure}
