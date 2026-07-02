@@ -6,9 +6,10 @@ import { schoolUserAPI } from '../../../api/schoolUsers';
 import AcademicTestConfiguration from './AcademicTestConfiguration';
 import { ImportUsersDialog } from './ImportUsersDialog'; // Import the dialog
 import { getDynamicFallbackYear, normalizeAcademicYear } from '../../../utils/academicYearUtils';
+import { SuperAdminPromotionTab } from './PromotionTab';
 
 // Define proper types for the component
-type TabType = 'overview' | 'users' | 'academics' | 'academic-year' | 'settings';
+type TabType = 'overview' | 'users' | 'academics' | 'academic-year' | 'promotion' | 'settings';
 type UserRole = 'admin' | 'teacher' | 'student' | 'parent';
 
 interface User {
@@ -848,6 +849,16 @@ function SchoolDetailsContent() {
             <Calendar className="h-4 w-4" />
             <span>Academic Year</span>
           </button>
+          <button
+            className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${activeTab === 'promotion'
+                ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md'
+                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+            }`}
+            onClick={() => setActiveTab('promotion')}
+          >
+            <TrendingUp className="h-4 w-4" />
+            <span>Promotion</span>
+          </button>
         </nav>
       </div>
 
@@ -1226,6 +1237,21 @@ function SchoolDetailsContent() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {activeTab === 'promotion' && (
+        <div className="bg-white p-6 rounded-lg shadow-md w-full">
+          <div className="flex items-center space-x-3 mb-6">
+            <div className="bg-blue-100 p-3 rounded-xl">
+              <TrendingUp className="h-6 w-6 text-blue-600" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold font-semibold">School Student Promotion Requests</h2>
+              <p className="text-sm text-gray-500">Approve or reject student promotion requests for this school.</p>
+            </div>
+          </div>
+          <SuperAdminPromotionTab schoolCode={schoolCode || undefined} />
         </div>
       )}
 

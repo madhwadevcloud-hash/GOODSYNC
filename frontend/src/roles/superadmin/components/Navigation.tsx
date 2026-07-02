@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Plus, School } from 'lucide-react';
+import { Home, Plus, School, TrendingUp } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 export function Navigation() {
@@ -8,6 +8,7 @@ export function Navigation() {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
     { id: 'add-school', label: 'Add New School', icon: Plus },
+    { id: 'promotion', label: 'Promotion Requests', icon: TrendingUp },
   ];
 
   return (

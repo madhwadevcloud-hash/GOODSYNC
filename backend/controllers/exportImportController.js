@@ -356,11 +356,10 @@ exports.importUsers = async (req, res) => {
 
   const classesCollection = db.collection('classes');
   
-  // Fetch active classes using flexible year format matching
-  console.log(`🔍 Querying classes collection for academic year formats: [${possibleYearFormats.join(', ')}]`);
+  // Fetch active classes (all active classes for this school)
+  console.log(`🔍 Querying all active classes for school ${upperSchoolCode}`);
   const schoolClasses = await classesCollection.find({ 
-    isActive: true,
-    academicYear: { $in: possibleYearFormats }
+    isActive: true
   }).toArray();
   
   console.log(`📊 Raw classes query returned ${schoolClasses.length} documents.`);
@@ -383,7 +382,18 @@ exports.importUsers = async (req, res) => {
     }
   });
   
-  console.log(`✅ Configured classes for ${upperSchoolCode} (year: ${currentAcademicYear}):`, 
+  // Expand possibleYearFormats to include any academic years present in the school's configured classes
+  const classesYears = schoolClasses.map(c => c.academicYear).filter(Boolean);
+  const possibleYearFormatsList = [
+    ...possibleYearFormats
+  ];
+  classesYears.forEach(cy => {
+    possibleYearFormatsList.push(...getPossibleYearFormats(cy));
+  });
+  const uniqueYearFormats = [...new Set(possibleYearFormatsList)];
+  console.log(`✅ Allowed year formats for validation: [${uniqueYearFormats.join(', ')}]`);
+
+  console.log(`✅ Configured classes for ${upperSchoolCode}:`, 
     configuredClassesMap.size > 0 
       ? Array.from(configuredClassesMap.entries()).map(([k,v]) => `${k}:[${[...v].join(',')}]`).join(', ')
       : '⚠️ NONE FOUND — all student rows will be skipped!'
@@ -391,10 +401,10 @@ exports.importUsers = async (req, res) => {
 
   // EARLY EXIT: If no classes configured and role is student, skip the entire import
   if (inferredRole === 'student' && configuredClassesMap.size === 0) {
-    console.error(`❌ No active classes found for ${upperSchoolCode} in year ${currentAcademicYear}. Aborting student import.`);
+    console.error(`❌ No active classes found for ${upperSchoolCode}. Aborting student import.`);
     return res.status(400).json({
       success: false,
-      message: `No classes are configured for school ${upperSchoolCode} for academic year ${currentAcademicYear}. Please create classes in the SuperAdmin panel first.`,
+      message: `No classes are configured for school ${upperSchoolCode}. Please create classes in the SuperAdmin panel first.`,
       results: {
         successData: [], errors: [], skipped: [],
         totalRows: csvData.length, insertedCount: 0, skippedCount: csvData.length,
@@ -528,9 +538,9 @@ exports.importUsers = async (req, res) => {
             // 1. Academic Year Flexible Check (handles "2025-26" vs "2025-2026")
             if (rowAcademicYear) {
               const rowYearFormats = getPossibleYearFormats(rowAcademicYear);
-              const yearMatches = rowYearFormats.some(f => possibleYearFormats.includes(f));
+              const yearMatches = rowYearFormats.some(f => uniqueYearFormats.includes(f));
               if (!yearMatches) {
-                results.skipped.push({ row: currentRowNumber, reason: 'academic_year_mismatch', studentName: `${row['firstname'] || ''} ${row['lastname'] || ''}`.trim(), email: email, message: `Academic year '${rowAcademicYear}' doesn't match school's current year '${currentAcademicYear}'.` });
+                results.skipped.push({ row: currentRowNumber, reason: 'academic_year_mismatch', studentName: `${row['firstname'] || ''} ${row['lastname'] || ''}`.trim(), email: email, message: `Academic year '${rowAcademicYear}' doesn't match configured classes academic years.` });
                 return null;
               }
             }
@@ -553,7 +563,7 @@ exports.importUsers = async (req, res) => {
             // Normalize with matched system values
             row['currentclass'] = matchedClassName;
             row['currentsection'] = sectionToUse;
-            row['academicyear'] = currentAcademicYear;
+            row['academicyear'] = rowAcademicYear || currentAcademicYear;
           }
         } else if (inferredRole === 'teacher') {
           validationErrors = (row['qualification'] && !row['highestqualification']) ? validateTeacherRowSimplified(row, currentRowNumber) : validateTeacherRow(row, currentRowNumber);
