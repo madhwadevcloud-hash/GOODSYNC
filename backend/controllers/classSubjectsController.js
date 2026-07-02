@@ -481,7 +481,7 @@ const getSubjectsForClass = async (req, res) => {
     }
 
     const { className } = req.params;
-    const schoolCode = req.user.schoolCode;
+    const schoolCode = String(req.user.schoolCode || req.headers['x-school-code'] || '').trim().toUpperCase();
     const { academicYear = require('../utils/dateUtils').getDefaultAcademicYear(), section } = req.query;
 
     console.log(`[GET CLASS SUBJECTS] Fetching subjects for class: ${className}, section: ${section || 'ALL'}, academicYear: ${academicYear}`);
@@ -558,18 +558,36 @@ const getSubjectsForClass = async (req, res) => {
       console.error('[GET CLASS SUBJECTS] Connection error:', connectionError.message);
     }
 
-    // Return empty subjects array if not found in either database
-    console.log(`[GET CLASS SUBJECTS] Class "${className}" not found in either database, returning empty subjects`);
+    // Fetch global fallback subjects from school info in main database
+    let fallbackSubjects = [];
+    try {
+      const School = require('../models/School');
+      const school = await School.findOne({ code: { $regex: new RegExp(`^${schoolCode}$`, 'i') } });
+      if (school && school.settings && Array.isArray(school.settings.subjects)) {
+        fallbackSubjects = school.settings.subjects.map(name => ({
+          name,
+          code: name.toUpperCase().replace(/[^A-Z0-9]/g, '_'),
+          isActive: true
+        }));
+      }
+    } catch (schoolFetchError) {
+      console.error('[GET CLASS SUBJECTS] Failed to fetch school fallback subjects:', schoolFetchError.message);
+    }
+
+    // Return school fallback subjects if not found in either database
+    console.log(`[GET CLASS SUBJECTS] Class "${className}" not found in either database. Fallback subjects found: [${fallbackSubjects.map(s => s.name).join(', ')}]`);
     return res.status(200).json({
       success: true,
-      message: `Class "${className}" exists but has no subjects configured yet`,
+      message: fallbackSubjects.length > 0 
+        ? `Class "${className}" has no specific subjects configured; returned school fallback subjects` 
+        : `Class "${className}" exists but has no subjects configured yet`,
       data: {
         className: className,
         grade: className,
-        section: null,
+        section: section || null,
         academicYear: academicYear,
-        totalSubjects: 0,
-        subjects: []
+        totalSubjects: fallbackSubjects.length,
+        subjects: fallbackSubjects
       }
     });
   } catch (error) {
