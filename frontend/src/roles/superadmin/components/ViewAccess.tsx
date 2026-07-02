@@ -184,17 +184,11 @@ export function ViewAccess() {
   return (
     <div className="p-4 sm:p-6">
       <div className="max-w-6xl mx-auto">
-        <button 
-          onClick={() => {
-          if (window.history.length > 1) {
-            window.history.back();
-          } else {
-            setCurrentView('dashboard'); // Falls back to dashboard if no history exists
-          }
-        }} 
+        <button
+        onClick={() => setCurrentView('dashboard')}
         className="mb-4 px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-50 transition flex items-center gap-1"
         >
-         ← Back
+          ← Back
         </button>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 sm:mb-6">
           <div>

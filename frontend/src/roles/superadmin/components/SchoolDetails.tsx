@@ -783,14 +783,8 @@ function SchoolDetailsContent() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 sm:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
-        <button 
-          onClick={() => {
-          if (window.history.length > 1) {
-            window.history.back();
-          } else {
-            setCurrentView('dashboard'); // Falls back to dashboard if no history exists
-          }   
-        }} 
+        <button
+        onClick={() => setCurrentView('dashboard')}
         className="mb-4 px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-50 transition flex items-center gap-1"
         >
           ← Back
