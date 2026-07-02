@@ -292,18 +292,6 @@ const SchoolEditDetails: React.FC = () => {
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      <button 
-        onClick={() => {
-        if (window.history.length > 1) {
-          window.history.back();
-        } else {
-          setCurrentView('dashboard'); // Falls back to dashboard if no history exists
-        }   
-      }} 
-      className="mb-4 px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-50 transition flex items-center gap-1"
-      >
-        ← Back
-      </button>
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center space-x-4">
           <button onClick={() => setCurrentView('school-details')} className="flex items-center space-x-2 text-gray-600 hover:text-gray-900">
