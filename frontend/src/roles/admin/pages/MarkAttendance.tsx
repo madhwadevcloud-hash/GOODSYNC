@@ -471,7 +471,7 @@ const [allSections, setAllSections] = useState(false);
         <div className="flex space-x-3">
           <button
             onClick={markAllPresent}
-            disabled={sessionStatus[session].isFrozen}
+disabled={sessionStatus[session].isFrozen || isAttendanceClosed()}
             className={`bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center transition-colors ${sessionStatus[session].isFrozen ? 'opacity-50 cursor-not-allowed' : ''
               }`}
             title={sessionStatus[session].isFrozen ? 'Attendance is frozen and cannot be modified' : ''}
@@ -481,7 +481,7 @@ const [allSections, setAllSections] = useState(false);
           </button>
           <button
             onClick={markAllAbsent}
-            disabled={sessionStatus[session].isFrozen}
+            disabled={sessionStatus[session].isFrozen || isAttendanceClosed()}
             className={`bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center transition-colors ${sessionStatus[session].isFrozen ? 'opacity-50 cursor-not-allowed' : ''
               }`}
             title={sessionStatus[session].isFrozen ? 'Attendance is frozen and cannot be modified' : ''}
@@ -612,9 +612,11 @@ disabled={
               <button
     type="button"
     disabled={session !== 'morning'}
-                className={`flex-1 py-2 px-3 text-sm font-medium rounded-l-lg flex items-center justify-center relative
+                className={`flex-1 py-2 px-3 text-sm font-medium rounded-r-lg flex items-center justify-center relative
 ${
-  session === 'morning'
+  isAttendanceClosed()
+    ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+    : session === 'afternoon'
     ? 'bg-blue-600 text-white'
     : 'bg-gray-200 text-gray-400 cursor-not-allowed'
 }`}
@@ -666,8 +668,10 @@ ${
                   <div className="flex items-center text-blue-600">
                     <AlertCircle className="h-4 w-4 mr-1" />
                     <span>
-                      {session.charAt(0).toUpperCase() + session.slice(1)} attendance can be marked
-                    </span>
+  {isAttendanceClosed()
+    ? "Attendance is closed for today."
+    : `${session.charAt(0).toUpperCase() + session.slice(1)} attendance can be marked`}
+</span>
                   </div>
                 )}
               </div>
@@ -686,17 +690,25 @@ ${
 
   <span><strong> Afternoon:</strong> 1:00 PM–7:00 PM</span>
 
-  <span className={session === "afternoon" ? "text-green-600 font-medium" : "text-orange-600"}>
-    {session === "afternoon" ? "● Active" : "● Starts at 1:00 PM"}
-  </span>
-
-  <span className="text-xs text-gray-500">
-    Attendance is locked after saving.
-  </span>
+  <span
+  className={
+    isAttendanceClosed()
+      ? "text-red-600 font-medium"
+      : session === "afternoon"
+      ? "text-green-600 font-medium"
+      : "text-orange-600"
+  }
+>
+  {isAttendanceClosed()
+    ? "● Closed"
+    : session === "afternoon"
+    ? "● Active"
+    : "● Starts at 1:00 PM"}
+</span>
 </div>
 
       {/* Search */}
-      {selectedClass && selectedSection && (
+      {selectedClass && selectedSection && !isAttendanceClosed() && (
         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
           <div className="relative max-w-md">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -712,7 +724,7 @@ ${
       )}
 
       {/* Summary Cards */}
-      {selectedClass && selectedSection && (
+      {selectedClass && selectedSection && !isAttendanceClosed() && (
         <div className="grid grid-cols-3 gap-4">
           <div className="bg-white p-4 rounded-lg shadow-sm border">
             <div className="flex items-center justify-between">
@@ -745,7 +757,8 @@ ${
       )}
 
       {/* Students List */}
-      {selectedClass && selectedSection && (
+    
+{selectedClass && selectedSection && !isAttendanceClosed() && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200">
           <div className="p-6">
             <div className="flex items-center justify-between mb-4">
@@ -785,7 +798,7 @@ ${
                     <div className="flex items-center space-x-2">
                       <button
                         onClick={() => updateStudentStatus(student._id, 'present')}
-                        disabled={sessionStatus[session].isFrozen}
+                      disabled={sessionStatus[session].isFrozen || isAttendanceClosed()}
                         className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors flex items-center space-x-1 ${getCurrentStatus(student) === 'present'
                           ? 'bg-green-100 text-green-800 border-green-200'
                           : 'bg-white text-gray-700 border-gray-300 hover:bg-green-50'
@@ -797,7 +810,7 @@ ${
                       </button>
                       <button
                         onClick={() => updateStudentStatus(student._id, 'absent')}
-                        disabled={sessionStatus[session].isFrozen}
+                      disabled={sessionStatus[session].isFrozen || isAttendanceClosed()}
                         className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors flex items-center space-x-1 ${getCurrentStatus(student) === 'absent'
                           ? 'bg-red-100 text-red-800 border-red-200'
                           : 'bg-white text-gray-700 border-gray-300 hover:bg-red-50'

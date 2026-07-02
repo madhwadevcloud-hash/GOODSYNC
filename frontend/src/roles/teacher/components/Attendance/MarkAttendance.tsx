@@ -501,19 +501,41 @@ disabled={
 <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 text-sm flex flex-wrap items-center gap-4">
   <span><strong>Morning:</strong> 8:00 AM – 12:59 PM</span>
 
-  <span className={selectedSession === "morning" ? "text-green-600 font-medium" : "text-gray-500"}>
-    {selectedSession === "morning" ? "● Active" : "● Completed"}
-  </span>
+  <span
+  className={
+    isAttendanceClosed()
+      ? "text-gray-500"
+      : selectedSession === "morning"
+      ? "text-green-600 font-medium"
+      : "text-gray-500"
+  }
+>
+  {isAttendanceClosed()
+    ? "● Completed"
+    : selectedSession === "morning"
+    ? "● Active"
+    : "● Completed"}
+</span>
 
   <span className="text-gray-300">|</span>
 
   <span><strong>Afternoon:</strong> 1:00 PM – 7:00 PM</span>
 
-  <span className={selectedSession === "afternoon" ? "text-green-600 font-medium" : "text-orange-600"}>
-    {selectedSession === "afternoon"
-      ? "● Active"
-      : "● Starts at 1:00 PM"}
-  </span>
+  <span
+  className={
+    isAttendanceClosed()
+      ? "text-red-600 font-medium"
+      : selectedSession === "afternoon"
+      ? "text-green-600 font-medium"
+      : "text-orange-600"
+  }
+>
+  {isAttendanceClosed()
+    ? "● Closed"
+    : selectedSession === "afternoon"
+    ? "● Active"
+    : "● Starts at 1:00 PM"}
+</span>
 
   <span className="text-xs text-gray-500">
     Attendance is locked after saving.
@@ -541,7 +563,7 @@ disabled={
       )}
 
       {/* Student List */}
-      {students.length > 0 && (
+      {students.length > 0 && !isAttendanceClosed() && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200">
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-center justify-between">
@@ -591,7 +613,9 @@ disabled={sessionStatus.isFrozen || isAttendanceClosed()}                      c
                     
                     <button
                       onClick={() => handleStatusChange(student._id, 'absent')}
-disabled={sessionStatus.isFrozen || isAttendanceClosed()}                      className={`flex items-center px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+
+                 disabled={sessionStatus.isFrozen || isAttendanceClosed()}                      
+                    className={`flex items-center px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
                         attendance[student._id] === 'absent'
                           ? 'bg-red-100 text-red-800 border-red-200' 
                           : attendance[student._id] === 'present'
