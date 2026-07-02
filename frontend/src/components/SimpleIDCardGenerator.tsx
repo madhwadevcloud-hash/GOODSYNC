@@ -51,6 +51,24 @@ const SimpleIDCardGenerator: React.FC<SimpleIDCardGeneratorProps> = ({
   const [orientationLocked, setOrientationLocked] = useState(lockOrientation);
   const [principalSign, setPrincipalSign] = useState<string | null>(null);
 
+  const DEFAULT_TERMS = [
+    "This card is the property of the school.",
+    "It must be carried at all times while in the school premises.",
+    "If found, please return to the school address.",
+    "This card is non-transferable."
+  ];
+  const [termsAndConditions, setTermsAndConditions] = useState<string>(DEFAULT_TERMS.join(' '));
+
+  const handleTermsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const text = e.target.value;
+    const words = text.split(/\s+/).filter(w => w.length > 0);
+    if (words.length <= 40) {
+      setTermsAndConditions(text);
+    }
+  };
+
+  const termsArray = termsAndConditions.split('\n').filter(t => t.trim().length > 0);
+
   const [customColor, setCustomColor] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -172,7 +190,7 @@ const SimpleIDCardGenerator: React.FC<SimpleIDCardGeneratorProps> = ({
         if (!studentFolder) continue;
 
         await new Promise<void>(resolve => {
-          root.render(<NewIDCardTemplate settings={getStudentColorSettings(student)} student={student as any} templateId={orientation} side="front" theme={theme} />);
+          root.render(<NewIDCardTemplate settings={getStudentColorSettings(student)} student={student as any} templateId={orientation} side="front" theme={theme} principalSign={principalSign} termsAndConditions={termsArray} />);
           setTimeout(resolve, 800);
         });
         const frontCanvas = await html2canvas(container.firstChild as HTMLElement, { useCORS: true, allowTaint: true, scale: 2, backgroundColor: null });
@@ -180,7 +198,7 @@ const SimpleIDCardGenerator: React.FC<SimpleIDCardGeneratorProps> = ({
 
         if (includeBack) {
           await new Promise<void>(resolve => {
-            root.render(<NewIDCardTemplate settings={getStudentColorSettings(student)} student={student as any} templateId={orientation} side="back" theme={theme} />);
+            root.render(<NewIDCardTemplate settings={getStudentColorSettings(student)} student={student as any} templateId={orientation} side="back" theme={theme} principalSign={principalSign} termsAndConditions={termsArray} />);
             setTimeout(resolve, 800);
           });
           const backCanvas = await html2canvas(container.firstChild as HTMLElement, { useCORS: true, allowTaint: true, scale: 2, backgroundColor: null });
@@ -228,7 +246,7 @@ const SimpleIDCardGenerator: React.FC<SimpleIDCardGeneratorProps> = ({
       const folderName = student.sequenceId || student.rollNumber || `student`;
 
       await new Promise<void>(resolve => {
-        root.render(<NewIDCardTemplate settings={getStudentColorSettings(student)} student={student as any} templateId={orientation} side="front" theme={theme} />);
+        root.render(<NewIDCardTemplate settings={getStudentColorSettings(student)} student={student as any} templateId={orientation} side="front" theme={theme} principalSign={principalSign} termsAndConditions={termsArray} />);
         setTimeout(resolve, 800);
       });
       const frontCanvas = await html2canvas(container.firstChild as HTMLElement, { useCORS: true, allowTaint: true, scale: 2, backgroundColor: null });
@@ -236,7 +254,7 @@ const SimpleIDCardGenerator: React.FC<SimpleIDCardGeneratorProps> = ({
 
       if (includeBack) {
         await new Promise<void>(resolve => {
-          root.render(<NewIDCardTemplate settings={getStudentColorSettings(student)} student={student as any} templateId={orientation} side="back" theme={theme} />);
+          root.render(<NewIDCardTemplate settings={getStudentColorSettings(student)} student={student as any} templateId={orientation} side="back" theme={theme} principalSign={principalSign} termsAndConditions={termsArray} />);
           setTimeout(resolve, 800);
         });
         const backCanvas = await html2canvas(container.firstChild as HTMLElement, { useCORS: true, allowTaint: true, scale: 2, backgroundColor: null });
@@ -419,7 +437,7 @@ const SimpleIDCardGenerator: React.FC<SimpleIDCardGeneratorProps> = ({
                     </div>
                   </div>
 
-                  <div>
+                  <div className="flex flex-col gap-4">
                     <label className="flex items-center">
                       <input
                         type="checkbox"
@@ -432,7 +450,28 @@ const SimpleIDCardGenerator: React.FC<SimpleIDCardGeneratorProps> = ({
                       </span>
                     </label>
                   </div>
-                </div>
+
+                  {includeBack && (
+                    <div className="mt-6 mb-6">
+                      <div className="flex justify-between items-center mb-2">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Terms and Conditions (Back Side)
+                        </label>
+                        <span className="text-xs text-gray-500 font-medium bg-gray-100 px-2 py-1 rounded">
+                          {termsAndConditions.split(/\s+/).filter(w => w.length > 0).length}/40 words
+                        </span>
+                      </div>
+                      <input
+                        type="text"
+                        value={termsAndConditions}
+                        onChange={(e) => handleTermsChange(e as any)}
+                        className="block w-full text-sm border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-3 border"
+                        placeholder="Enter terms and conditions (max 40 words)"
+                      />
+                    </div>
+                  )}
+
+                  </div>
 
                 {/* Selected Students */}
                 <div className="mb-6">
@@ -656,6 +695,7 @@ const SimpleIDCardGenerator: React.FC<SimpleIDCardGeneratorProps> = ({
                     templateId={orientation}
                     side={previewSide}
                     theme={theme}
+                    principalSign={principalSign} termsAndConditions={termsArray}
                   />
                 </div>
               </div>
