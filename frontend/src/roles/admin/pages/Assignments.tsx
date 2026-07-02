@@ -506,7 +506,14 @@ const Assignments: React.FC = () => {
           </div>
         </div>
       </div>
-
+      
+{/* Due Date Information */}
+<div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm">
+  <div className="flex items-center gap-2 text-gray-600">
+    <Calendar className="h-4 w-4 text-gray-400" />
+    <span>Assignments cannot be edited after the due date.</span>
+  </div>
+</div>
       {/* Assignments Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">

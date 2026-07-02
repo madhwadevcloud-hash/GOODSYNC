@@ -469,6 +469,29 @@ const response = await attendanceAPI.markSessionAttendance({
         </div>
       </div>
 
+  {/* Attendance Session Information */}
+<div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 text-sm flex flex-wrap items-center gap-4">
+  <span><strong>Morning:</strong> 8:00 AM – 12:59 PM</span>
+
+  <span className={selectedSession === "morning" ? "text-green-600 font-medium" : "text-gray-500"}>
+    {selectedSession === "morning" ? "● Active" : "● Completed"}
+  </span>
+
+  <span className="text-gray-300">|</span>
+
+  <span><strong>Afternoon:</strong> 1:00 PM – 5:00 PM</span>
+
+  <span className={selectedSession === "afternoon" ? "text-green-600 font-medium" : "text-orange-600"}>
+    {selectedSession === "afternoon"
+      ? "● Active"
+      : "● Starts at 1:00 PM"}
+  </span>
+
+  <span className="text-xs text-gray-500">
+    Attendance is locked after saving.
+  </span>
+</div>
+
       {/* Get Started Instructions */}
       {students.length === 0 && (
         <div className="bg-blue-50 rounded-lg p-6 border border-blue-200">

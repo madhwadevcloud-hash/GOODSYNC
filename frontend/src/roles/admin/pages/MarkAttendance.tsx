@@ -655,6 +655,25 @@ ${
           </div>
         </div>
       </div>
+<div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 text-sm flex flex-wrap items-center gap-4">
+  <span><strong> Morning:</strong> 8:00 AM–12:59 PM</span>
+
+  <span className={session === "morning" ? "text-green-600 font-medium" : "text-gray-500"}>
+    {session === "morning" ? "● Active" : "● Completed"}
+  </span>
+
+  <span>|</span>
+
+  <span><strong> Afternoon:</strong> 1:00 PM–5:00 PM</span>
+
+  <span className={session === "afternoon" ? "text-green-600 font-medium" : "text-orange-600"}>
+    {session === "afternoon" ? "● Active" : "● Starts at 1:00 PM"}
+  </span>
+
+  <span className="text-xs text-gray-500">
+    Attendance is locked after saving.
+  </span>
+</div>
 
       {/* Search */}
       {selectedClass && selectedSection && (
