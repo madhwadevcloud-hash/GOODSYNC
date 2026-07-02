@@ -121,7 +121,7 @@ class ReportService {
       }
       
       // Get class-wise results using school database
-      const [allResults, allTests, attendanceData] = await Promise.all([
+      const [allResults, allTests, attendanceData, classSubjectsList] = await Promise.all([
         db.collection('results').find({
           ...matchQuery,
           subjects: { $exists: true, $ne: [] },
@@ -203,8 +203,17 @@ class ReportService {
             }
           },
           { $sort: { class: 1, section: 1 } }
-        ]).toArray()
+        ]).toArray(),
+
+        db.collection('classsubjects').find({ isActive: true }).toArray()
       ]);
+
+      // Map classSubjects to group subjects by `${className}-${section}`
+      const subjectsByClassMap = {};
+      classSubjectsList.forEach(cs => {
+        const key = `${cs.className}-${cs.section}`;
+        subjectsByClassMap[key] = cs.subjects?.filter(s => s.isActive).map(s => s.name) || [];
+      });
 
       // Group results by class and section
       const classSectionGroups = {};
@@ -229,68 +238,72 @@ class ReportService {
 
       for (const key in classSectionGroups) {
         const group = classSectionGroups[key];
+        const classKey = `${group.class}-${group.section}`;
+        const expectedSubjects = subjectsByClassMap[classKey] || [];
+        const classTests = allTests.filter(t => t.className === group.class && t.isActive);
+
         let studentPercentsSum = 0;
-        let studentsCount = 0;
+        let eligibleStudentsCount = 0;
 
         group.students.forEach(studentDoc => {
-          const studentClass = studentDoc.className;
-          const classTests = allTests.filter(t => t.className === studentClass);
-
-          const testGroup = {};
-          if (studentDoc.subjects && Array.isArray(studentDoc.subjects)) {
-            studentDoc.subjects.forEach(subj => {
-              const testType = subj.testType || 'Unknown';
-              if (!testGroup[testType]) {
-                testGroup[testType] = { obtained: 0, total: 0 };
-              }
-              testGroup[testType].obtained += Number(subj.obtainedMarks || 0);
-              testGroup[testType].total += Number(subj.maxMarks || subj.totalMarks || 100);
-            });
-          }
-
           let weightedPercentSum = 0;
           let totalWeight = 0;
+          let isStudentComplete = true;
 
-          for (const testType in testGroup) {
-            const grp = testGroup[testType];
-            if (grp.total > 0) {
-              const testPercent = (grp.obtained / grp.total) * 100;
-              const testConfig = classTests.find(t => 
-                (cleanTestName(t.name) === cleanTestName(testType) || 
-                 cleanTestName(t.testName) === cleanTestName(testType) || 
-                 cleanTestName(t.testType) === cleanTestName(testType))
-              );
-              const weight = testConfig ? Number(testConfig.weightage || 0) : 0;
+          if (classTests.length === 0 || expectedSubjects.length === 0) {
+            isStudentComplete = false;
+          } else {
+            for (const test of classTests) {
+              const testName = test.name || test.testName;
+              let testObtained = 0;
+              let testMax = 0;
+              let testHasMarks = true;
+
+              for (const subjectName of expectedSubjects) {
+                const match = studentDoc.subjects?.find(s => 
+                  cleanTestName(s.testType) === cleanTestName(testName) && 
+                  s.subjectName === subjectName
+                );
+
+                if (!match || match.obtainedMarks === null || match.obtainedMarks === undefined) {
+                  testHasMarks = false;
+                  break;
+                } else {
+                  testObtained += Number(match.obtainedMarks);
+                  testMax += Number(match.maxMarks || match.totalMarks || test.maxMarks || 100);
+                }
+              }
+
+              if (!testHasMarks) {
+                isStudentComplete = false;
+                break;
+              }
+
+              const testPercent = testMax > 0 ? (testObtained / testMax) * 100 : 0;
+              const weight = Number(test.weightage || 0);
               weightedPercentSum += testPercent * (weight / 100);
               totalWeight += weight;
             }
           }
 
-          let finalStudentPercent = 0;
-          if (totalWeight > 0) {
-            finalStudentPercent = weightedPercentSum;
-          } else {
-            const percentages = studentDoc.subjects.map(s => s.percentage).filter(p => typeof p === 'number');
-            if (percentages.length > 0) {
-              finalStudentPercent = percentages.reduce((s, p) => s + p, 0) / percentages.length;
-            }
+          if (isStudentComplete && totalWeight > 0) {
+            const finalStudentPercent = weightedPercentSum;
+            studentPercentsSum += finalStudentPercent;
+            eligibleStudentsCount++;
+            totalWeightedSum += finalStudentPercent;
+            totalStudentsWithResults++;
           }
-
-          studentPercentsSum += finalStudentPercent;
-          studentsCount++;
-          totalWeightedSum += finalStudentPercent;
-          totalStudentsWithResults++;
         });
 
-        const avgPercent = studentsCount > 0 ? studentPercentsSum / studentsCount : 0;
-        totalStudentsCount += studentsCount;
+        const avgPercent = eligibleStudentsCount > 0 ? studentPercentsSum / eligibleStudentsCount : 0;
+        totalStudentsCount += group.students.length;
 
         classResults.push({
           class: group.class,
           section: group.section,
-          totalStudents: studentsCount,
+          totalStudents: group.students.length,
           avgMarks: Math.round(avgPercent * 100) / 100,
-          totalResults: studentsCount
+          totalResults: eligibleStudentsCount
         });
       }
 
@@ -661,56 +674,70 @@ class ReportService {
 
       console.log('📊 Results query:', JSON.stringify(resultsMatchQuery, null, 2));
       
-      const [studentResultsDocs, classTests] = await Promise.all([
+      const defaultYear = require('../utils/dateUtils').getDefaultAcademicYear();
+      const [studentResultsDocs, classTests, classSubjectsDoc] = await Promise.all([
         db.collection('results').find(resultsMatchQuery).toArray(),
-        db.collection('testdetails').find({ className: className, isActive: true }).toArray()
+        db.collection('testdetails').find({ className: className, isActive: true }).toArray(),
+        db.collection('classsubjects').findOne({
+          className: className,
+          section: section || 'A',
+          academicYear: academicYear || defaultYear,
+          isActive: true
+        })
       ]);
+
+      const expectedSubjects = classSubjectsDoc?.subjects?.filter(s => s.isActive).map(s => s.name) || [];
       
       const studentResults = studentResultsDocs.map(doc => {
-        const testGroup = {};
-        if (doc.subjects && Array.isArray(doc.subjects)) {
-          doc.subjects.forEach(subj => {
-            const testType = subj.testType || 'Unknown';
-            if (!testGroup[testType]) {
-              testGroup[testType] = { obtained: 0, total: 0 };
-            }
-            testGroup[testType].obtained += Number(subj.obtainedMarks || 0);
-            testGroup[testType].total += Number(subj.maxMarks || subj.totalMarks || 100);
-          });
-        }
-
         let weightedPercentSum = 0;
         let totalWeight = 0;
+        let isComplete = true;
 
-        for (const testType in testGroup) {
-          const grp = testGroup[testType];
-          if (grp.total > 0) {
-            const testPercent = (grp.obtained / grp.total) * 100;
-            const testConfig = classTests.find(t => 
-              (cleanTestName(t.name) === cleanTestName(testType) || 
-               cleanTestName(t.testName) === cleanTestName(testType) || 
-               cleanTestName(t.testType) === cleanTestName(testType))
-            );
-            const weight = testConfig ? Number(testConfig.weightage || 0) : 0;
+        if (classTests.length === 0 || expectedSubjects.length === 0) {
+          isComplete = false;
+        } else {
+          for (const test of classTests) {
+            const testName = test.name || test.testName;
+            let testObtained = 0;
+            let testMax = 0;
+            let testHasMarks = true;
+
+            for (const subjectName of expectedSubjects) {
+              const match = doc.subjects?.find(s => 
+                cleanTestName(s.testType) === cleanTestName(testName) && 
+                s.subjectName === subjectName
+              );
+
+              if (!match || match.obtainedMarks === null || match.obtainedMarks === undefined) {
+                testHasMarks = false;
+                break;
+              } else {
+                testObtained += Number(match.obtainedMarks);
+                testMax += Number(match.maxMarks || match.totalMarks || test.maxMarks || 100);
+              }
+            }
+
+            if (!testHasMarks) {
+              isComplete = false;
+              break;
+            }
+
+            const testPercent = testMax > 0 ? (testObtained / testMax) * 100 : 0;
+            const weight = Number(test.weightage || 0);
             weightedPercentSum += testPercent * (weight / 100);
             totalWeight += weight;
           }
         }
 
-        let finalStudentPercent = 0;
-        if (totalWeight > 0) {
-          finalStudentPercent = weightedPercentSum;
-        } else {
-          const percentages = doc.subjects.map(s => s.percentage).filter(p => typeof p === 'number');
-          if (percentages.length > 0) {
-            finalStudentPercent = percentages.reduce((s, p) => s + p, 0) / percentages.length;
-          }
+        let finalStudentPercent = null;
+        if (isComplete && totalWeight > 0) {
+          finalStudentPercent = Math.round(weightedPercentSum * 100) / 100;
         }
 
         return {
           studentId: doc.userId || doc.studentId?.toString(),
           dbId: doc.studentId?.toString() || doc.userId,
-          avgMarks: Math.round(finalStudentPercent * 100) / 100
+          avgMarks: finalStudentPercent
         };
       });
       
@@ -819,11 +846,18 @@ class ReportService {
           console.log(`📝 Student: ${studentName} (ID: ${student.userId}), Class: ${className}, Section: ${section}`);
         }
         
+        let avgMarksVal = null;
+        if (resultsMap.has(student.userId)) {
+          avgMarksVal = resultsMap.get(student.userId);
+        } else if (resultsMap.has(student._id.toString())) {
+          avgMarksVal = resultsMap.get(student._id.toString());
+        }
+
         studentsArray.push({
           studentId: student.userId,
           dbId: student._id.toString(),
           studentName: studentName,
-          avgMarks: resultsMap.get(student.userId) || resultsMap.get(student._id.toString()) || 0,
+          avgMarks: avgMarksVal,
           avgAttendance: attendanceMap.get(student.userId) || attendanceMap.get(student._id.toString()) || 0
         });
       });

@@ -92,6 +92,7 @@ const ReportsPage: React.FC = () => {
   const [expandedStudents, setExpandedStudents] = useState<Set<string>>(new Set());
   const [classTests, setClassTests] = useState<any[]>([]);
   const [classResults, setClassResults] = useState<any[]>([]);
+  const [classSubjectsMap, setClassSubjectsMap] = useState<Record<string, string[]>>({});
 
   // State for dues list
   const [duesList, setDuesList] = useState<StudentFeeRecord[]>([]);
@@ -555,9 +556,23 @@ const ReportsPage: React.FC = () => {
       const schoolCode = localStorage.getItem('erp.schoolCode') || user?.schoolCode || '';
       if (!schoolCode) return;
 
-      const testsResp = await api.get(`/admin/classes/${schoolCode}/tests`, {
-        params: { academicYear: viewingAcademicYear }
-      });
+      const [testsResp, resultsResp, subjectsResp] = await Promise.all([
+        api.get(`/admin/classes/${schoolCode}/tests`, {
+          params: { academicYear: viewingAcademicYear }
+        }),
+        api.get(`/results`, {
+          params: {
+            schoolCode,
+            class: className,
+            section,
+            academicYear: viewingAcademicYear
+          }
+        }),
+        api.get(`/class-subjects/class/${encodeURIComponent(className)}`, {
+          params: { academicYear: viewingAcademicYear, section }
+        })
+      ]);
+
       if (testsResp.data.success) {
         const testsForClass = (testsResp.data.data?.tests || []).filter(
           (t: any) => String(t.className) === String(className)
@@ -565,16 +580,17 @@ const ReportsPage: React.FC = () => {
         setClassTests(testsForClass);
       }
 
-      const resultsResp = await api.get(`/results`, {
-        params: {
-          schoolCode,
-          class: className,
-          section,
-          academicYear: viewingAcademicYear
-        }
-      });
       if (resultsResp.data.success) {
         setClassResults(resultsResp.data.data || resultsResp.data.results || []);
+      }
+
+      if (subjectsResp.data.success && subjectsResp.data.data) {
+        const activeList = subjectsResp.data.data.subjects?.filter((s: any) => s.isActive !== false) || [];
+        const activeSubjects = activeList.map((s: any) => s.name || s.subjectName).filter(Boolean);
+        setClassSubjectsMap(prev => ({
+          ...prev,
+          [`${className}-${section}`]: activeSubjects
+        }));
       }
     } catch (err) {
       console.error("Failed to load class tests or results:", err);
@@ -583,55 +599,91 @@ const ReportsPage: React.FC = () => {
 
   const cleanTestName = (name: string) => String(name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
-  const getTestMarksForStudent = useCallback((studentId: string, testType: string, dbId?: string) => {
-    const testResults = classResults.filter((r: any) => 
-      (
-        (r.userId && String(r.userId) === String(studentId)) ||
-        (r.studentId && String(r.studentId) === String(studentId)) ||
-        (dbId && r.userId && String(r.userId) === String(dbId)) ||
-        (dbId && r.studentId && String(r.studentId) === String(dbId))
-      ) && 
-      cleanTestName(r.testType) === cleanTestName(testType)
-    );
-
-    if (testResults.length === 0) return { obtained: null, max: null, percentage: 0 };
-
-    const hasAnyMarks = testResults.some(r => r.obtainedMarks !== null && r.obtainedMarks !== undefined);
-    if (!hasAnyMarks) return { obtained: null, max: null, percentage: 0 };
-
-    const obtained = testResults.reduce((sum, r) => sum + Number(r.obtainedMarks || 0), 0);
-    const max = testResults.reduce((sum, r) => sum + Number(r.maxMarks || r.totalMarks || 100), 0);
-    const percentage = max > 0 ? (obtained / max) * 100 : 0;
-
-    return { obtained, max, percentage };
-  }, [classResults]);
-
-  const calculateStudentFinalPercent = useCallback((studentId: string, studentAvgMarks: number, dbId?: string) => {
+  const getDetailedTestCalculations = useCallback((studentId: string, className: string, section: string, dbId?: string) => {
+    const expectedSubjects = classSubjectsMap[`${className}-${section}`] || [];
     const uniqueTestTypes = [...new Set(classTests.map(t => t.testName || t.displayName || t.name || t.testType).filter(Boolean))];
-    let totalWeightedPercent = 0;
-    let totalWeight = 0;
-    let hasAnyWeighted = false;
 
-    uniqueTestTypes.forEach(testType => {
-      const marks = getTestMarksForStudent(studentId, String(testType), dbId);
+    let overallComplete = true;
+    let finalWeightedPercent = 0;
+    let totalWeight = 0;
+
+    const testRows = uniqueTestTypes.map(testType => {
       const testConfig = classTests.find(t => 
         cleanTestName(t.testName || t.displayName || t.name || t.testType) === cleanTestName(testType)
       );
       const weightage = testConfig ? Number(testConfig.weightage || 0) : 0;
 
-      if (marks.max !== null) {
-        totalWeightedPercent += marks.percentage * (weightage / 100);
-        totalWeight += weightage;
-        hasAnyWeighted = true;
+      // Filter results for this student and test
+      const studentResults = classResults.filter((r: any) => 
+        (
+          (r.userId && String(r.userId) === String(studentId)) ||
+          (r.studentId && String(r.studentId) === String(studentId)) ||
+          (dbId && r.userId && String(r.userId) === String(dbId)) ||
+          (dbId && r.studentId && String(r.studentId) === String(dbId))
+        ) && 
+        cleanTestName(r.testType) === cleanTestName(testType)
+      );
+
+      // Verify that every expected subject has a result entry with obtainedMarks
+      let isTestComplete = expectedSubjects.length > 0;
+      let totalObtained = 0;
+      let totalMax = 0;
+      const subjectsBreakdown: string[] = [];
+
+      expectedSubjects.forEach(subjectName => {
+        const match = studentResults.find(r => r.subject === subjectName);
+        if (!match || match.obtainedMarks === null || match.obtainedMarks === undefined) {
+          isTestComplete = false;
+          subjectsBreakdown.push(`${subjectName}: Missing`);
+        } else {
+          totalObtained += Number(match.obtainedMarks);
+          totalMax += Number(match.maxMarks || match.totalMarks || testConfig?.maxMarks || 100);
+          subjectsBreakdown.push(`${subjectName}: ${match.obtainedMarks}/${match.maxMarks || match.totalMarks || testConfig?.maxMarks || 100}`);
+        }
+      });
+
+      if (expectedSubjects.length === 0) {
+        isTestComplete = false;
       }
+
+      let testPercentage = 0;
+      let weightedContribution = 0;
+
+      if (isTestComplete) {
+        testPercentage = totalMax > 0 ? (totalObtained / totalMax) * 100 : 0;
+        weightedContribution = testPercentage * (weightage / 100);
+        finalWeightedPercent += weightedContribution;
+        totalWeight += weightage;
+      } else {
+        overallComplete = false;
+      }
+
+      return {
+        testName: testType,
+        isComplete: isTestComplete,
+        subjectsBreakdown,
+        totalObtained,
+        totalMax,
+        testPercentage,
+        weightage,
+        weightedContribution
+      };
     });
 
-    if (hasAnyWeighted && totalWeight > 0) {
-      return `${totalWeightedPercent.toFixed(1)}%`;
-    }
+    return {
+      testRows,
+      overallComplete: overallComplete && totalWeight > 0,
+      finalWeightedPercent: overallComplete && totalWeight > 0 ? finalWeightedPercent : null
+    };
+  }, [classTests, classResults, classSubjectsMap]);
 
-    return studentAvgMarks > 0 ? `${Number(studentAvgMarks).toFixed(1)}%` : 'N/A';
-  }, [classTests, getTestMarksForStudent]);
+  const calculateStudentFinalPercent = useCallback((studentId: string, studentAvgMarks: number, className: string, section: string, dbId?: string) => {
+    const calcs = getDetailedTestCalculations(studentId, className, section, dbId);
+    if (!calcs.overallComplete || calcs.finalWeightedPercent === null) {
+      return 'Pending / Incomplete';
+    }
+    return `${calcs.finalWeightedPercent.toFixed(1)}%`;
+  }, [getDetailedTestCalculations]);
 
   // Toggle row expansion
   const toggleRowExpansion = useCallback((className: string, section: string) => {
@@ -1067,10 +1119,10 @@ const ReportsPage: React.FC = () => {
                                                        <div className="text-xs text-gray-500 mt-1">Attendance: {student.avgAttendance > 0 ? `${student.avgAttendance.toFixed(1)}%` : 'N/A'}</div>
                                                      </div>
                                                      <div className="flex items-center space-x-4">
-                                                       <div className="text-right">
+                                                        <div className="text-right">
                                                           <span className="text-[10px] text-gray-400 block uppercase font-bold tracking-wider">Final Percent</span>
-                                                          <span className="text-sm font-extrabold text-blue-600">
-                                                            {calculateStudentFinalPercent(student.studentId, student.avgMarks, student.dbId)}
+                                                          <span className={`text-sm font-extrabold ${student.avgMarks === null ? 'text-red-500 font-semibold' : 'text-blue-600'}`}>
+                                                            {calculateStudentFinalPercent(student.studentId, student.avgMarks, classItem.className, section.name, student.dbId)}
                                                           </span>
                                                         </div>
                                                         {isStudentExpanded ? (
@@ -1082,47 +1134,75 @@ const ReportsPage: React.FC = () => {
                                                     </div>
 
                                                     {/* Student Collapsible Dropdown Content */}
-                                                    {isStudentExpanded && (
-                                                      <div className="p-4 bg-gray-50 border-t border-gray-150 overflow-x-auto">
-                                                        <table className="min-w-full divide-y divide-gray-200 text-sm">
-                                                          <thead>
-                                                            <tr>
-                                                              {uniqueTestTypes.map(testType => (
-                                                                <th key={String(testType)} className="px-4 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-100 border border-gray-200">
-                                                                  {String(testType)}
+                                                    {isStudentExpanded && (() => {
+                                                      const calcs = getDetailedTestCalculations(student.studentId, classItem.className, section.name, student.dbId);
+                                                      return (
+                                                        <div className="p-4 bg-gray-50 border-t border-gray-150 overflow-x-auto">
+                                                          <table className="min-w-full divide-y divide-gray-200 text-sm">
+                                                            <thead>
+                                                              <tr>
+                                                                <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-100 border border-gray-200">
+                                                                  Test Name
                                                                 </th>
-                                                              ))}
-                                                              <th className="px-4 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-100 border border-gray-200">
-                                                                Percent Column
-                                                              </th>
-                                                            </tr>
-                                                          </thead>
-                                                          <tbody>
-                                                            <tr>
-                                                              {uniqueTestTypes.map(testType => {
-                                                                const marks = getTestMarksForStudent(student.studentId, String(testType), student.dbId);
-                                                                return (
-                                                                  <td key={String(testType)} className="px-4 py-3 text-center border border-gray-200 font-medium text-gray-700 bg-white">
-                                                                    {marks.max !== null ? (
-                                                                      <div>
-                                                                        <div className="text-base font-bold text-gray-900">{marks.obtained}</div>
-                                                                        <div className="text-xs text-gray-400 border-t border-gray-100 pt-1 mt-1">out of {marks.max}</div>
-                                                                        <div className="text-[10px] text-blue-500 font-semibold mt-1">({marks.percentage.toFixed(1)}%)</div>
-                                                                      </div>
-                                                                    ) : (
-                                                                      <span className="text-gray-400 italic">No Marks</span>
-                                                                    )}
+                                                                <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-100 border border-gray-200">
+                                                                  Subjects Marks
+                                                                </th>
+                                                                <th className="px-4 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-100 border border-gray-200">
+                                                                  Total Obtained
+                                                                </th>
+                                                                <th className="px-4 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-100 border border-gray-200">
+                                                                  Max Marks
+                                                                </th>
+                                                                <th className="px-4 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-100 border border-gray-200">
+                                                                  Test Percentage
+                                                                </th>
+                                                                <th className="px-4 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-100 border border-gray-200">
+                                                                  Weightage (%)
+                                                                </th>
+                                                                <th className="px-4 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-100 border border-gray-200">
+                                                                  Weighted Contribution
+                                                                </th>
+                                                              </tr>
+                                                            </thead>
+                                                            <tbody className="divide-y divide-gray-150 bg-white">
+                                                              {calcs.testRows.map(row => (
+                                                                <tr key={row.testName}>
+                                                                  <td className="px-4 py-3 border border-gray-200 font-semibold text-gray-900 bg-white">
+                                                                    {row.testName}
                                                                   </td>
-                                                                );
-                                                              })}
-                                                              <td className="px-4 py-3 text-center border border-gray-200 font-bold text-blue-600 bg-white text-base">
-                                                                {calculateStudentFinalPercent(student.studentId, student.avgMarks, student.dbId)}
-                                                              </td>
-                                                            </tr>
-                                                          </tbody>
-                                                        </table>
-                                                      </div>
-                                                    )}
+                                                                  <td className="px-4 py-3 border border-gray-200 text-gray-600 bg-white text-xs whitespace-pre-line leading-relaxed">
+                                                                    {row.subjectsBreakdown.join(', ')}
+                                                                  </td>
+                                                                  <td className="px-4 py-3 text-center border border-gray-200 font-semibold text-gray-900 bg-white">
+                                                                    {row.isComplete ? row.totalObtained : <span className="text-red-500 font-medium">Incomplete</span>}
+                                                                  </td>
+                                                                  <td className="px-4 py-3 text-center border border-gray-200 text-gray-500 bg-white">
+                                                                    {row.isComplete ? row.totalMax : <span className="text-red-500 font-medium">Incomplete</span>}
+                                                                  </td>
+                                                                  <td className="px-4 py-3 text-center border border-gray-200 font-bold text-gray-800 bg-white">
+                                                                    {row.isComplete ? `${row.testPercentage.toFixed(1)}%` : <span className="text-red-500 font-medium">Incomplete</span>}
+                                                                  </td>
+                                                                  <td className="px-4 py-3 text-center border border-gray-200 font-medium text-gray-600 bg-white">
+                                                                    {row.weightage}%
+                                                                  </td>
+                                                                  <td className="px-4 py-3 text-center border border-gray-200 font-bold text-blue-600 bg-white">
+                                                                    {row.isComplete ? row.weightedContribution.toFixed(1) : <span className="text-gray-400 italic">Pending</span>}
+                                                                  </td>
+                                                                </tr>
+                                                              ))}
+                                                              <tr className="bg-blue-50/50 font-bold">
+                                                                <td colSpan={6} className="px-4 py-3 border border-gray-200 text-right text-gray-700">
+                                                                  Final Overall Weighted Percentage:
+                                                                </td>
+                                                                <td className="px-4 py-3 text-center border border-gray-200 text-blue-700 text-lg">
+                                                                  {calcs.overallComplete ? `${calcs.finalWeightedPercent?.toFixed(1)}%` : 'Pending / Incomplete'}
+                                                                </td>
+                                                              </tr>
+                                                            </tbody>
+                                                          </table>
+                                                        </div>
+                                                      );
+                                                    })()}
                                                  </div>
                                                );
                                              })}

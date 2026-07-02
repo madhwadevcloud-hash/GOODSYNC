@@ -345,6 +345,33 @@ const SchoolSettings: React.FC = () => {
     });
   };
 
+  const isWeightageInvalid = React.useMemo(() => {
+    if (tests.length === 0) return false;
+    const testsByClass: Record<string, TestData[]> = {};
+    tests.forEach(test => {
+      if (!testsByClass[test.className]) {
+        testsByClass[test.className] = [];
+      }
+      testsByClass[test.className].push(test);
+    });
+
+    for (const className in testsByClass) {
+      const classTests = testsByClass[className];
+      let totalWeight = 0;
+      for (const test of classTests) {
+        const currentScoring = testScoring[test._id];
+        const testWeight = currentScoring && currentScoring.weightage !== undefined
+          ? currentScoring.weightage
+          : (test.weightage || 0);
+        totalWeight += Number(testWeight);
+      }
+      if (classTests.length > 0 && totalWeight !== 100) {
+        return true;
+      }
+    }
+    return false;
+  }, [tests, testScoring]);
+
   // Handle test scoring changes
   const handleScoringChange = (testId: string, field: 'maxMarks' | 'weightage', value: number) => {
     setTestScoring(prev => ({
@@ -604,7 +631,12 @@ const SchoolSettings: React.FC = () => {
         {activeTab === 'scoring' && (
           <button
             onClick={handleSaveScoring}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center transition-colors"
+            disabled={isWeightageInvalid}
+            className={`px-4 py-2 rounded-lg flex items-center transition-colors ${
+              isWeightageInvalid 
+                ? 'bg-gray-400 text-gray-200 cursor-not-allowed opacity-60'
+                : 'bg-blue-600 hover:bg-blue-700 text-white'
+            }`}
           >
             <Save className="h-4 w-4 mr-2" />
             Save Scoring
@@ -808,6 +840,11 @@ const SchoolSettings: React.FC = () => {
                                     <p className="text-xs text-gray-500 mt-0.5">
                                       {classTests.length} SuperAdmin-configured test{classTests.length > 1 ? 's' : ''} • Total weight: {totalClassWeight}%
                                     </p>
+                                    {totalClassWeight !== 100 && (
+                                      <p className="text-xs text-red-600 font-bold mt-1">
+                                        Invalid percentage. Set the total percentage to exactly 100% only.
+                                      </p>
+                                    )}
                                   </div>
                                 </div>
                                 <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
