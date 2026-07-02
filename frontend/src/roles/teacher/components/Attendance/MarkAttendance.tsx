@@ -19,9 +19,16 @@ const MarkAttendance: React.FC = () => {
   const getCurrentSession = (): 'morning' | 'afternoon' => {
   const hour = new Date().getHours();
 
-  // 12:00 AM - 12:59 PM = Morning
-  // 1:00 PM - 11:59 PM = Afternoon
-  return hour < 13 ? 'morning' : 'afternoon';
+  if (hour >= 8 && hour < 13) {
+    return "morning";
+  }
+
+  return "afternoon";
+};
+
+const isAttendanceClosed = () => {
+  const hour = new Date().getHours();
+  return hour >= 19; // 7 PM onwards
 };
 
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -279,6 +286,10 @@ useEffect(() => {
       toast.error('Attendance is frozen and cannot be modified');
       return;
     }
+    if (isAttendanceClosed()) {
+  toast.error("Attendance is closed. You cannot mark attendance after 7:00 PM.");
+  return;
+}
 
     setLoading(true);
     try {
@@ -338,8 +349,12 @@ const response = await attendanceAPI.markSessionAttendance({
           )}
           <button
             onClick={markAllPresent}
-            disabled={students.length === 0 || loading || sessionStatus.isFrozen}
-            className={`flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed ${sessionStatus.isFrozen ? 'opacity-50' : ''}`}
+disabled={
+  students.length === 0 ||
+  loading ||
+  sessionStatus.isFrozen ||
+  isAttendanceClosed()
+}            className={`flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed ${sessionStatus.isFrozen ? 'opacity-50' : ''}`}
             title={sessionStatus.isFrozen ? 'Attendance is frozen and cannot be modified' : ''}
           >
             <CheckCircle className="h-4 w-4 mr-2" />
@@ -347,8 +362,12 @@ const response = await attendanceAPI.markSessionAttendance({
           </button>
           <button
             onClick={markAllAbsent}
-            disabled={students.length === 0 || loading || sessionStatus.isFrozen}
-            className={`flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed ${sessionStatus.isFrozen ? 'opacity-50' : ''}`}
+disabled={
+  students.length === 0 ||
+  loading ||
+  sessionStatus.isFrozen ||
+  isAttendanceClosed()
+}            className={`flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed ${sessionStatus.isFrozen ? 'opacity-50' : ''}`}
             title={sessionStatus.isFrozen ? 'Attendance is frozen and cannot be modified' : ''}
           >
             <XCircle className="h-4 w-4 mr-2" />
@@ -356,8 +375,12 @@ const response = await attendanceAPI.markSessionAttendance({
           </button>
           <button
             onClick={handleSaveAttendance}
-            disabled={students.length === 0 || loading || sessionStatus.isFrozen}
-            className={`flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed ${sessionStatus.isFrozen ? 'opacity-50' : ''}`}
+disabled={
+  students.length === 0 ||
+  loading ||
+  sessionStatus.isFrozen ||
+  isAttendanceClosed()
+}            className={`flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed ${sessionStatus.isFrozen ? 'opacity-50' : ''}`}
             title={sessionStatus.isFrozen ? 'Attendance is frozen and cannot be modified' : ''}
           >
             <Save className="h-4 w-4 mr-2" />
@@ -365,6 +388,11 @@ const response = await attendanceAPI.markSessionAttendance({
           </button>
         </div>
       </div>
+      {isAttendanceClosed() && (
+  <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+    Attendance is closed. Attendance can only be marked until 7:00 PM.
+  </div>
+)}
 
       {/* Selection Controls */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -479,7 +507,7 @@ const response = await attendanceAPI.markSessionAttendance({
 
   <span className="text-gray-300">|</span>
 
-  <span><strong>Afternoon:</strong> 1:00 PM – 5:00 PM</span>
+  <span><strong>Afternoon:</strong> 1:00 PM – 7:00 PM</span>
 
   <span className={selectedSession === "afternoon" ? "text-green-600 font-medium" : "text-orange-600"}>
     {selectedSession === "afternoon"
@@ -548,8 +576,7 @@ const response = await attendanceAPI.markSessionAttendance({
                   <div className="flex space-x-2">
                     <button
                       onClick={() => handleStatusChange(student._id, 'present')}
-                      disabled={sessionStatus.isFrozen}
-                      className={`flex items-center px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+disabled={sessionStatus.isFrozen || isAttendanceClosed()}                      className={`flex items-center px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
                         attendance[student._id] === 'present'
                           ? 'bg-green-100 text-green-800 border-green-200' 
                           : attendance[student._id] === 'absent'
@@ -564,8 +591,7 @@ const response = await attendanceAPI.markSessionAttendance({
                     
                     <button
                       onClick={() => handleStatusChange(student._id, 'absent')}
-                      disabled={sessionStatus.isFrozen}
-                      className={`flex items-center px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+disabled={sessionStatus.isFrozen || isAttendanceClosed()}                      className={`flex items-center px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
                         attendance[student._id] === 'absent'
                           ? 'bg-red-100 text-red-800 border-red-200' 
                           : attendance[student._id] === 'present'

@@ -39,11 +39,16 @@ const MarkAttendance: React.FC = () => {
  const getCurrentSession = (): 'morning' | 'afternoon' => {
   const hour = new Date().getHours();
 
-  // 12:00 AM - 12:59 PM
-  if (hour < 13) return 'morning';
+  if (hour >= 8 && hour < 13) {
+    return "morning";
+  }
 
-  // 1:00 PM onwards
-  return 'afternoon';
+  return "afternoon";
+};
+
+const isAttendanceClosed = () => {
+  const hour = new Date().getHours();
+  return hour >= 19; // 7 PM onwards
 };
 
 const [session, setSession] = useState<'morning' | 'afternoon'>(getCurrentSession());
@@ -390,6 +395,11 @@ const [allSections, setAllSections] = useState(false);
       setLoading(true);
       setError('');
       setSuccessMessage('');
+      if (isAttendanceClosed()) {
+  setError("Attendance is closed. You cannot mark attendance after 7:00 PM.");
+  setLoading(false);
+  return;
+}
 
       // Check if current session is frozen
       const currentSessionStatus = sessionStatus[session];
@@ -481,8 +491,13 @@ const [allSections, setAllSections] = useState(false);
           </button>
           <button
             onClick={handleSaveAttendance}
-            disabled={loading || !selectedClass || !selectedSection || sessionStatus[session].isFrozen}
-            className={`bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg flex items-center transition-colors ${sessionStatus[session].isFrozen ? 'opacity-50 cursor-not-allowed' : ''
+disabled={
+  loading ||
+  !selectedClass ||
+  !selectedSection ||
+  sessionStatus[session].isFrozen ||
+  isAttendanceClosed()
+}            className={`bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg flex items-center transition-colors ${sessionStatus[session].isFrozen ? 'opacity-50 cursor-not-allowed' : ''
               }`}
             title={sessionStatus[session].isFrozen ? 'Attendance is frozen and cannot be modified' : ''}
           >
@@ -505,6 +520,11 @@ const [allSections, setAllSections] = useState(false);
           {error}
         </div>
       )}
+      {isAttendanceClosed() && (
+  <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+    Attendance is closed. Attendance can only be marked until 7:00 PM.
+  </div>
+)}
 
       {/* Academic Year Selector */}
       {isViewingHistoricalYear && (
@@ -664,7 +684,7 @@ ${
 
   <span>|</span>
 
-  <span><strong> Afternoon:</strong> 1:00 PM–5:00 PM</span>
+  <span><strong> Afternoon:</strong> 1:00 PM–7:00 PM</span>
 
   <span className={session === "afternoon" ? "text-green-600 font-medium" : "text-orange-600"}>
     {session === "afternoon" ? "● Active" : "● Starts at 1:00 PM"}
