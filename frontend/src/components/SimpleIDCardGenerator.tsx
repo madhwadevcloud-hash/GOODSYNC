@@ -66,6 +66,13 @@ const SimpleIDCardGenerator: React.FC<SimpleIDCardGeneratorProps> = ({
     if (color.startsWith('##')) {
       color = color.substring(1);
     }
+    let color = e.target.value;
+    if (!color.startsWith('#') && color.length > 0) {
+      color = '#' + color;
+    }
+    if (color.startsWith('##')) {
+      color = color.substring(1);
+    }
     setCustomColor(color);
     const schoolId = templateSettings?.schoolCode || templateSettings?.schoolName || 'default';
     localStorage.setItem(`idCardColor_${schoolId}`, color);

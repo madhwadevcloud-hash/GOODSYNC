@@ -57,6 +57,11 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
   const classOrder = ['LKG', 'UKG', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
   const selectedClassData = classes.find(c => c.className === selectedClass);
 
+  // When "All Classes" is selected, section dropdown shows the union of every section across all classes
+  const sectionOptions: string[] = selectedClass === 'ALL'
+    ? Array.from(new Set(classes.flatMap((c: any) => c.sections || []))).sort()
+    : (selectedClassData?.sections ? [...selectedClassData.sections].sort() : []);
+
   // Get auth data
   const getAuthData = () => {
     const authData = localStorage.getItem('erp.auth');
@@ -77,7 +82,15 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
     try {
       const resp = await api.get(`/admin/promotion/${schoolCode}/request/active`);
       if (resp.data.success) {
-        setActiveRequest(resp.data.data);
+        const fresh = resp.data.data;
+        // Only update state when something actually changed - the API returns a
+        // brand-new object reference on every poll even when nothing changed,
+        // which would otherwise force a re-render (and visible flicker) every
+        // 10 seconds for no reason.
+        setActiveRequest(prev => {
+          if (JSON.stringify(prev) === JSON.stringify(fresh)) return prev;
+          return fresh;
+        });
       }
     } catch (err) {
       console.error('Failed to load active promotion request:', err);
@@ -91,7 +104,11 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
     try {
       const resp = await api.get('/admin/promotion/notifications');
       if (resp.data.success) {
-        setNotifications(resp.data.data);
+        const fresh = resp.data.data;
+        setNotifications(prev => {
+          if (JSON.stringify(prev) === JSON.stringify(fresh)) return prev;
+          return fresh;
+        });
       }
     } catch (err) {
       console.error('Failed to load notifications:', err);
@@ -130,8 +147,32 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
     }
   }, [fromYear]);
 
+  // Resolve a student's actual current class/section, since different records
+  // store this under different field paths (academicInfo.class, studentDetails.academic.currentClass,
+  // studentDetails.currentClass, or class). Mirrors the fallback chain used in fetchStudents.
+  const getStudentClass = (student: any): string => {
+    return (
+      student?.academicInfo?.class ||
+      student?.studentDetails?.academic?.currentClass ||
+      student?.studentDetails?.currentClass ||
+      student?.class ||
+      ''
+    );
+  };
+
+  const getStudentSection = (student: any): string => {
+    return (
+      student?.academicInfo?.section ||
+      student?.studentDetails?.academic?.currentSection ||
+      student?.studentDetails?.currentSection ||
+      student?.section ||
+      ''
+    );
+  };
+
   // Calculate promoted class
   const getPromotedClass = (currentClass: string): string => {
+    if (!currentClass) return 'Unknown';
     const index = classOrder.indexOf(currentClass);
     if (index !== -1 && index < classOrder.length - 1) {
       return classOrder[index + 1];
@@ -139,32 +180,39 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
     return 'Graduated';
   };
 
-  // Validate if next class exists in school
-  const validateNextClassExists = React.useCallback(async (currentClass: string): Promise<boolean> => {
+  // Whether a given student's current class has no valid "next class" configured (i.e. must graduate)
+  const isStudentGraduating = React.useCallback((currentClass: string): boolean => {
+    if (!currentClass) return false; // unknown class - don't wrongly mark as graduating
     const nextClass = getPromotedClass(currentClass);
-    if (nextClass === 'Graduated') {
-      setValidationError(null);
-      setNextClassExists(false);
-      setShowGraduationOption(true);
-      return false;
-    }
-    const classExists = classes.some(c => c.className === nextClass);
-    if (!classExists) {
-      setValidationError(null);
-      setNextClassExists(false);
-      setShowGraduationOption(true);
-      return false;
-    }
-    setValidationError(null);
-    setNextClassExists(true);
-    setShowGraduationOption(false);
-    return true;
+    if (nextClass === 'Graduated') return true;
+    return !classes.some(c => c.className === nextClass);
   }, [classes]);
 
-  // Validate when class changes
+  // Validate if next class exists in school (works across every distinct class present in `students`,
+  // so it still works correctly when "All Classes" is selected)
+  const validateNextClassExists = React.useCallback(() => {
+    if (!selectedClass || students.length === 0) {
+      setValidationError(null);
+      setNextClassExists(true);
+      setShowGraduationOption(false);
+      return;
+    }
+
+    const distinctClasses = Array.from(
+      new Set(students.map(s => getStudentClass(s)).filter(Boolean))
+    );
+
+    const hasBoundaryClass = distinctClasses.some(cls => isStudentGraduating(cls));
+
+    setValidationError(null);
+    setNextClassExists(!hasBoundaryClass);
+    setShowGraduationOption(hasBoundaryClass);
+  }, [selectedClass, students, isStudentGraduating]);
+
+  // Validate when class/students change
   useEffect(() => {
     if (selectedClass && students.length > 0) {
-      validateNextClassExists(selectedClass);
+      validateNextClassExists();
     } else {
       setValidationError(null);
       setNextClassExists(true);
@@ -195,9 +243,13 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
           const studentClass = s.academicInfo?.class || s.studentDetails?.academic?.currentClass || s.studentDetails?.currentClass || s.class;
           const studentSection = s.academicInfo?.section || s.studentDetails?.academic?.currentSection || s.studentDetails?.currentSection || s.section;
           const studentYear = s.studentDetails?.academicYear || s.studentDetails?.academic?.academicYear || s.academicYear || s.academicInfo?.academicYear;
-          
-          const classMatch = String(studentClass).trim() === String(selectedClass).trim();
-          const sectionMatch = String(studentSection).trim().toUpperCase() === String(selectedSection).trim().toUpperCase();
+
+          const classMatch = selectedClass === 'ALL'
+            ? true
+            : String(studentClass).trim() === String(selectedClass).trim();
+          const sectionMatch = selectedSection === 'ALL'
+            ? true
+            : String(studentSection).trim().toUpperCase() === String(selectedSection).trim().toUpperCase();
           const yearMatch = !studentYear || String(studentYear).trim() === String(fromYear).trim();
           return classMatch && sectionMatch && yearMatch;
         });
@@ -231,7 +283,7 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
     setSelectedStudents(newSelected);
   };
 
-  const allSelected = filteredStudents.length > 0 && 
+  const allSelected = filteredStudents.length > 0 &&
     filteredStudents.every(s => selectedStudents.has(s.userId || s.sequenceId));
 
   useEffect(() => {
@@ -291,6 +343,9 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
   };
 
   // Handle promotion execution
+  // Groups selected students by their real (currentClass-currentSection) pair so that
+  // "All Classes" / "All Sections" selections still submit correctly to the
+  // single-class-section backend endpoint, one request per group.
   const handleConfirmPromotion = async () => {
     const { schoolCode } = getAuthData();
     if (!schoolCode) return;
@@ -302,51 +357,67 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
 
     const selectedCount = selectedStudents.size;
     const notSelectedCount = filteredStudents.length - selectedCount;
-    
+
+    const groups = new Map<string, Student[]>();
+    filteredStudents.forEach((s) => {
+      const key = `${getStudentClass(s)}-${getStudentSection(s)}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(s);
+    });
+
+    const isMultiGroupMode = groups.size > 1;
+
     let confirmMessage = '';
-    if (graduateMode) {
+    if (isMultiGroupMode) {
+      confirmMessage = `Are you sure you want to promote ${selectedCount} student(s) across ${groups.size} class-section group(s)?`;
+    } else if (graduateMode) {
       confirmMessage = `Are you sure you want to mark ${selectedCount} student(s) from Class ${selectedClass}-${selectedSection} as PASSED OUT?\n\nThey will be moved to Alumni and marked as inactive.`;
-      if (notSelectedCount > 0) {
-        confirmMessage += `\n\n${notSelectedCount} student(s) will remain in the same class.`;
-      }
     } else {
       const nextClass = getPromotedClass(selectedClass);
       confirmMessage = `Are you sure you want to promote ${selectedCount} student(s) from Class ${selectedClass}-${selectedSection} to Class ${nextClass}-${selectedSection}?`;
-      if (notSelectedCount > 0) {
-        confirmMessage += `\n\n${notSelectedCount} student(s) will remain in the same class.`;
-      }
+    }
+    if (notSelectedCount > 0) {
+      confirmMessage += `\n\n${notSelectedCount} student(s) will remain in the same class.`;
     }
 
     if (!confirm(confirmMessage)) return;
 
     try {
       setPromoting(true);
-      const holdBackIds = filteredStudents
-        .filter(s => !selectedStudents.has(s.userId || s.sequenceId))
-        .map(s => s.userId || s.sequenceId);
-      
-      const response = await api.post(`/admin/promotion/${schoolCode}/section`, {
-        fromYear,
-        toYear,
-        className: selectedClass,
-        section: selectedSection,
-        holdBackSequenceIds: holdBackIds,
-        graduateStudents: graduateMode
-      });
 
-      if (response.data.success) {
-        alert(`Promotion executed successfully!\nReport URL: ${response.data.message}`);
-        setSelectedClass('');
-        setSelectedSection('');
-        setStudents([]);
-        setFilteredStudents([]);
-        setSelectedStudents(new Set());
-        setShowPreview(false);
-        setSearchQuery('');
-        fetchActiveRequest();
-      } else {
-        alert(response.data.message || 'Failed to execute promotion');
+      for (const [key, groupStudents] of groups.entries()) {
+        const [groupClass, groupSection] = key.split('-');
+
+        const holdBackIds = groupStudents
+          .filter(s => !selectedStudents.has(s.userId || s.sequenceId))
+          .map(s => s.userId || s.sequenceId);
+
+        // Skip groups where nobody was selected for promotion
+        if (holdBackIds.length === groupStudents.length) continue;
+
+        const response = await api.post(`/admin/promotion/${schoolCode}/section`, {
+          fromYear,
+          toYear,
+          className: groupClass,
+          section: groupSection,
+          holdBackSequenceIds: holdBackIds,
+          graduateStudents: isStudentGraduating(groupClass)
+        });
+
+        if (!response.data.success) {
+          alert(response.data.message || `Failed to execute promotion for Class ${groupClass}-${groupSection}`);
+        }
       }
+
+      alert('Promotion executed successfully!');
+      setSelectedClass('');
+      setSelectedSection('');
+      setStudents([]);
+      setFilteredStudents([]);
+      setSelectedStudents(new Set());
+      setShowPreview(false);
+      setSearchQuery('');
+      fetchActiveRequest();
     } catch (error: any) {
       alert(error.response?.data?.message || 'Failed to promote students');
     } finally {
@@ -377,7 +448,7 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
                   <p className="text-xs text-blue-700">{notif.message}</p>
                 </div>
               </div>
-              <button 
+              <button
                 onClick={() => handleMarkAsRead(notif._id)}
                 className="bg-blue-100 hover:bg-blue-200 text-blue-800 p-1.5 rounded-full"
                 title="Mark as Read"
@@ -533,7 +604,7 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
           {/* Class and Section Selection */}
           <div className="bg-white border border-gray-200 rounded-lg p-6">
             <h4 className="text-md font-semibold text-gray-900 mb-4">Select Class & Section</h4>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Class</label>
@@ -546,6 +617,7 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Select a class...</option>
+                  <option value="ALL">All Classes (LKG - 12)</option>
                   {classes.sort((a, b) => {
                     const aIndex = classOrder.indexOf(a.className);
                     const bIndex = classOrder.indexOf(b.className);
@@ -570,7 +642,8 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
                 >
                   <option value="">Select a section...</option>
-                  {selectedClassData?.sections.sort().map((section: string) => (
+                  <option value="ALL">All Sections</option>
+                  {sectionOptions.map((section: string) => (
                     <option key={section} value={section}>
                       Section {section}
                     </option>
@@ -587,7 +660,9 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
                   <div className="flex-1">
                     <h4 className="text-sm font-semibold text-blue-800 mb-2">Final Year Class Detected</h4>
                     <p className="text-sm text-blue-700 mb-3">
-                      Class {selectedClass} is the final year in your school. The next class (Class {getPromotedClass(selectedClass)}) is not configured.
+                      {selectedClass === 'ALL'
+                        ? 'One or more classes in this selection have no next class configured.'
+                        : `Class ${selectedClass} is the final year in your school. The next class (Class ${getPromotedClass(selectedClass)}) is not configured.`}
                     </p>
                     <div className="flex items-center gap-4">
                       <label className="flex items-center cursor-pointer">
@@ -613,7 +688,7 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
                       </label>
                     </div>
                     <p className="text-xs text-blue-600 mt-2">
-                      💡 Students marked as "Passed Out" will be moved to Alumni and marked as inactive.
+                      💡 Students marked as "Passed Out" will be moved to Alumni and marked as inactive. In a multi-class selection, only students in a final-year class are affected — others promote normally.
                     </p>
                   </div>
                 </div>
@@ -687,6 +762,9 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
                         {filteredStudents.map((student) => {
                           const studentId = student.userId || student.sequenceId;
                           const isSelected = selectedStudents.has(studentId);
+                          const studentClass = getStudentClass(student);
+                          const studentSection = getStudentSection(student);
+                          const studentGraduating = isStudentGraduating(studentClass);
                           return (
                             <tr key={studentId} className={`hover:bg-gray-50 ${isSelected ? 'bg-blue-50' : ''}`}>
                               <td className="px-4 py-3 text-center">
@@ -702,7 +780,7 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
                                 {student.name?.firstName} {student.name?.lastName}
                               </td>
                               <td className="px-4 py-3 text-sm text-gray-900">
-                                {student.studentDetails?.currentClass}-{student.studentDetails?.currentSection}
+                                {studentClass || '?'}-{studentSection || '?'}
                               </td>
                               <td className="px-4 py-3 text-sm text-gray-900">
                                 {student.studentDetails?.academicYear || fromYear}
@@ -711,18 +789,18 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
                                 <>
                                   <td className="px-4 py-3 text-sm font-medium">
                                     {isSelected ? (
-                                      graduateMode ? (
+                                      studentGraduating ? (
                                         <span className="text-purple-600 font-semibold">🎓 Passed Out</span>
                                       ) : (
-                                        <span className="text-green-600">{getPromotedClass(student.studentDetails?.currentClass)}</span>
+                                        <span className="text-green-600">{getPromotedClass(studentClass)}-{studentSection || '?'}</span>
                                       )
                                     ) : (
-                                      <span className="text-orange-600">{student.studentDetails?.currentClass} (Held Back)</span>
+                                      <span className="text-orange-600">{studentClass || '?'} (Held Back)</span>
                                     )}
                                   </td>
                                   <td className="px-4 py-3 text-sm font-medium">
                                     {isSelected ? (
-                                      graduateMode ? (
+                                      studentGraduating ? (
                                         <span className="text-purple-600">Alumni</span>
                                       ) : (
                                         <span className="text-green-600">{toYear}</span>

@@ -1,68 +1,119 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Check, X, Download, Clock, CheckCircle, AlertTriangle, AlertCircle, Loader, Bell } from 'lucide-react';
+import { Users, Search, Eye, CheckCircle, ArrowRight, Loader, AlertTriangle, Bell, Check } from 'lucide-react';
 import api from '../../../services/api';
 
-interface Request {
-  _id: string;
-  schoolCode: string;
-  schoolName: string;
-  requestedBy: string;
-  requestedByName: string;
-  fromYear: string;
-  toYear: string;
-  promotionDate: string;
-  effectiveDate: string;
-  totalStudents: number;
-  status: 'Pending Approval' | 'Approved' | 'Rejected' | 'Completed';
-  rejectionReason?: string;
-  excelReportUrl?: string;
-  createdAt: string;
-  auditLog: Array<{
-    action: string;
-    doneBy: string;
-    timestamp: string;
-    details: string;
-  }>;
+interface Student {
+  sequenceId: string;
+  userId: string;
+  name: { firstName: string; lastName: string };
+  studentDetails: {
+    currentClass: string;
+    currentSection: string;
+    academicYear: string;
+    rollNo?: string;
+  };
+  email: string;
 }
 
 interface PromotionTabProps {
-  schoolCode?: string; // Optional: if viewing a specific school
+  fromYear: string;
+  setFromYear: (year: string) => void;
+  toYear: string;
+  classes: any[];
+  loading: boolean;
 }
 
-export function SuperAdminPromotionTab({ schoolCode }: PromotionTabProps) {
-  const [requests, setRequests] = useState<Request[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [activeSubTab, setActiveSubTab] = useState<'Pending' | 'Approved' | 'Rejected' | 'Completed' | 'History'>('Pending');
-  const [rejectingId, setRejectingId] = useState<string | null>(null);
-  const [rejectionReason, setRejectionReason] = useState('');
-  const [processingId, setProcessingId] = useState<string | null>(null);
+const PromotionTab: React.FC<PromotionTabProps> = ({
+  fromYear,
+  setFromYear,
+  toYear,
+  classes,
+  loading
+}) => {
+  const [activeRequest, setActiveRequest] = useState<any>(null);
+  const [loadingRequest, setLoadingRequest] = useState(true);
+  const [submittingRequest, setSubmittingRequest] = useState(false);
+  const [reqFromYear, setReqFromYear] = useState('');
+  const [reqToYear, setReqToYear] = useState('');
+  const [promotionDate, setPromotionDate] = useState('');
+  const [effectiveDate, setEffectiveDate] = useState('');
+
+  const [selectedClass, setSelectedClass] = useState('');
+  const [selectedSection, setSelectedSection] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [students, setStudents] = useState<Student[]>([]);
+  const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
+  const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set());
+  const [fetchingStudents, setFetchingStudents] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [promoting, setPromoting] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [nextClassExists, setNextClassExists] = useState<boolean>(true);
+  const [showGraduationOption, setShowGraduationOption] = useState<boolean>(false);
+  const [graduateMode, setGraduateMode] = useState<boolean>(false);
+
   const [notifications, setNotifications] = useState<any[]>([]);
 
-  // Fetch requests
-  const fetchRequests = useCallback(async () => {
+  // Tracks whether we've completed the very first load. Background polls
+  // should never flip `loading` back to true - that's what was tearing down
+  // the whole card list and flashing the spinner every 10 seconds.
+  const hasLoadedOnce = useRef(false);
+
+  const classOrder = ['LKG', 'UKG', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
+  const selectedClassData = classes.find(c => c.className === selectedClass);
+
+  // When "All Classes" is selected, section dropdown shows the union of every section across all classes
+  const sectionOptions: string[] = selectedClass === 'ALL'
+    ? Array.from(new Set(classes.flatMap((c: any) => c.sections || []))).sort()
+    : (selectedClassData?.sections ? [...selectedClassData.sections].sort() : []);
+
+  // Get auth data
+  const getAuthData = () => {
+    const authData = localStorage.getItem('erp.auth');
+    if (authData) {
+      const parsed = JSON.parse(authData);
+      return {
+        schoolCode: parsed.user?.schoolCode || parsed.schoolCode,
+        token: parsed.token
+      };
+    }
+    return { schoolCode: null, token: null };
+  };
+
+  // Fetch active request
+  const fetchActiveRequest = useCallback(async () => {
+    const { schoolCode } = getAuthData();
+    if (!schoolCode) return;
     try {
-      setLoading(true);
-      const resp = await api.get('/admin/promotion/requests');
+      const resp = await api.get(`/admin/promotion/${schoolCode}/request/active`);
       if (resp.data.success) {
-        let list = resp.data.data || [];
-        if (schoolCode) {
-          list = list.filter((r: Request) => r.schoolCode?.toLowerCase() === schoolCode.toLowerCase());
-        }
-        setRequests(list);
+        const fresh = resp.data.data;
+        // Only update state when something actually changed - the API returns a
+        // brand-new object reference on every poll even when nothing changed,
+        // which would otherwise force a re-render (and visible flicker) every
+        // 10 seconds for no reason.
+        setActiveRequest(prev => {
+          if (JSON.stringify(prev) === JSON.stringify(fresh)) return prev;
+          return fresh;
+        });
       }
     } catch (err) {
-      console.error('Failed to load requests:', err);
+      console.error('Failed to load active promotion request:', err);
     } finally {
-      setLoading(false);
+      setLoadingRequest(false);
     }
-  }, [schoolCode]);
+  }, []);
 
   // Fetch notifications
   const fetchNotifications = useCallback(async () => {
     try {
       const resp = await api.get('/admin/promotion/notifications');
       if (resp.data.success) {
-        setNotifications(resp.data.data);
+        const fresh = resp.data.data;
+        setNotifications(prev => {
+          if (JSON.stringify(prev) === JSON.stringify(fresh)) return prev;
+          return fresh;
+        });
       }
     } catch (err) {
       console.error('Failed to load notifications:', err);
@@ -79,64 +130,318 @@ export function SuperAdminPromotionTab({ schoolCode }: PromotionTabProps) {
   };
 
   useEffect(() => {
-    fetchRequests();
+    fetchActiveRequest();
     fetchNotifications();
     const interval = setInterval(() => {
-      fetchRequests();
+      fetchActiveRequest();
       fetchNotifications();
     }, 10000);
     return () => clearInterval(interval);
-  }, [fetchRequests, fetchNotifications]);
+  }, [fetchActiveRequest, fetchNotifications]);
 
-  // Approve request
-  const handleApprove = async (id: string) => {
-    try {
-      setProcessingId(id);
-      const resp = await api.post(`/admin/promotion/request/${id}/approve`);
-      if (resp.data.success) {
-        alert('Promotion request approved successfully!');
-        fetchRequests();
+  // Set Request Years from default fromYear
+  useEffect(() => {
+    if (fromYear) {
+      setReqFromYear(fromYear);
+      const [start, end] = fromYear.split('-').map(Number);
+      if (end) {
+        setReqToYear(`${start + 1}-${(end + 1).toString().slice(-2)}`);
+      } else {
+        setReqToYear(`${start + 1}`);
       }
-    } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to approve request.');
+    }
+  }, [fromYear]);
+
+  // Resolve a student's actual current class/section, since different records
+  // store this under different field paths (academicInfo.class, studentDetails.academic.currentClass,
+  // studentDetails.currentClass, or class). Mirrors the fallback chain used in fetchStudents.
+  const getStudentClass = (student: any): string => {
+    return (
+      student?.academicInfo?.class ||
+      student?.studentDetails?.academic?.currentClass ||
+      student?.studentDetails?.currentClass ||
+      student?.class ||
+      ''
+    );
+  };
+
+  const getStudentSection = (student: any): string => {
+    return (
+      student?.academicInfo?.section ||
+      student?.studentDetails?.academic?.currentSection ||
+      student?.studentDetails?.currentSection ||
+      student?.section ||
+      ''
+    );
+  };
+
+  // Calculate promoted class
+  const getPromotedClass = (currentClass: string): string => {
+    if (!currentClass) return 'Unknown';
+    const index = classOrder.indexOf(currentClass);
+    if (index !== -1 && index < classOrder.length - 1) {
+      return classOrder[index + 1];
+    }
+    return 'Graduated';
+  };
+
+  // Whether a given student's current class has no valid "next class" configured (i.e. must graduate)
+  const isStudentGraduating = React.useCallback((currentClass: string): boolean => {
+    if (!currentClass) return false; // unknown class - don't wrongly mark as graduating
+    const nextClass = getPromotedClass(currentClass);
+    if (nextClass === 'Graduated') return true;
+    return !classes.some(c => c.className === nextClass);
+  }, [classes]);
+
+  // Validate if next class exists in school (works across every distinct class present in `students`,
+  // so it still works correctly when "All Classes" is selected)
+  const validateNextClassExists = React.useCallback(() => {
+    if (!selectedClass || students.length === 0) {
+      setValidationError(null);
+      setNextClassExists(true);
+      setShowGraduationOption(false);
+      return;
+    }
+
+    const distinctClasses = Array.from(
+      new Set(students.map(s => getStudentClass(s)).filter(Boolean))
+    );
+
+    const hasBoundaryClass = distinctClasses.some(cls => isStudentGraduating(cls));
+
+    setValidationError(null);
+    setNextClassExists(!hasBoundaryClass);
+    setShowGraduationOption(hasBoundaryClass);
+  }, [selectedClass, students, isStudentGraduating]);
+
+  // Validate when class/students change
+  useEffect(() => {
+    if (selectedClass && students.length > 0) {
+      validateNextClassExists();
+    } else {
+      setValidationError(null);
+      setNextClassExists(true);
+      setShowGraduationOption(false);
+      setGraduateMode(false);
+    }
+  }, [selectedClass, students, validateNextClassExists]);
+
+  useEffect(() => {
+    if (showGraduationOption) {
+      setGraduateMode(true);
+    }
+  }, [showGraduationOption]);
+
+  // Fetch students
+  const fetchStudents = React.useCallback(async () => {
+    if (!selectedClass || !selectedSection) return;
+    const { schoolCode } = getAuthData();
+    if (!schoolCode) return;
+
+    try {
+      setFetchingStudents(true);
+      const endpoint = `/school-users/${schoolCode}/users/role/student`;
+      const response = await api.get(endpoint);
+      if (response.data.success) {
+        const allStudents = response.data.data || response.data.users || [];
+        const classStudents = allStudents.filter((s: any) => {
+          const studentClass = s.academicInfo?.class || s.studentDetails?.academic?.currentClass || s.studentDetails?.currentClass || s.class;
+          const studentSection = s.academicInfo?.section || s.studentDetails?.academic?.currentSection || s.studentDetails?.currentSection || s.section;
+          const studentYear = s.studentDetails?.academicYear || s.studentDetails?.academic?.academicYear || s.academicYear || s.academicInfo?.academicYear;
+
+          const classMatch = selectedClass === 'ALL'
+            ? true
+            : String(studentClass).trim() === String(selectedClass).trim();
+          const sectionMatch = selectedSection === 'ALL'
+            ? true
+            : String(studentSection).trim().toUpperCase() === String(selectedSection).trim().toUpperCase();
+          const yearMatch = !studentYear || String(studentYear).trim() === String(fromYear).trim();
+          return classMatch && sectionMatch && yearMatch;
+        });
+        setStudents(classStudents);
+        setFilteredStudents(classStudents);
+      }
+    } catch (error) {
+      console.error('Error fetching students:', error);
     } finally {
-      setProcessingId(null);
+      setFetchingStudents(false);
+    }
+  }, [selectedClass, selectedSection, fromYear]);
+
+  // Handle select all / deselect all
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      const allStudentIds = new Set(filteredStudents.map(s => s.userId || s.sequenceId));
+      setSelectedStudents(allStudentIds);
+    } else {
+      setSelectedStudents(new Set());
     }
   };
 
-  // Reject request
-  const handleRejectSubmit = async (e: React.FormEvent) => {
+  const handleStudentSelect = (studentId: string, checked: boolean) => {
+    const newSelected = new Set(selectedStudents);
+    if (checked) {
+      newSelected.add(studentId);
+    } else {
+      newSelected.delete(studentId);
+    }
+    setSelectedStudents(newSelected);
+  };
+
+  const allSelected = filteredStudents.length > 0 &&
+    filteredStudents.every(s => selectedStudents.has(s.userId || s.sequenceId));
+
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setFilteredStudents(students);
+      return;
+    }
+    const query = searchQuery.toLowerCase();
+    const filtered = students.filter(student => {
+      const fullName = `${student.name?.firstName || ''} ${student.name?.lastName || ''}`.toLowerCase();
+      return fullName.includes(query) || student.sequenceId?.toLowerCase().includes(query) || student.email?.toLowerCase().includes(query);
+    });
+    setFilteredStudents(filtered);
+  }, [searchQuery, students]);
+
+  useEffect(() => {
+    if (selectedClass && selectedSection) {
+      fetchStudents();
+      setShowPreview(false);
+      setSelectedStudents(new Set());
+    } else {
+      setStudents([]);
+      setFilteredStudents([]);
+      setShowPreview(false);
+      setSelectedStudents(new Set());
+    }
+  }, [selectedClass, selectedSection, fromYear, fetchStudents]);
+
+  // Handle Request Submission
+  const handleSubmitRequest = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!rejectingId || !rejectionReason.trim()) return;
+    const { schoolCode } = getAuthData();
+    if (!schoolCode) return;
+
+    if (!reqFromYear || !reqToYear || !promotionDate || !effectiveDate) {
+      alert('Please fill in all request fields.');
+      return;
+    }
 
     try {
-      setProcessingId(rejectingId);
-      const resp = await api.post(`/admin/promotion/request/${rejectingId}/reject`, {
-        rejectionReason
+      setSubmittingRequest(true);
+      const resp = await api.post(`/admin/promotion/${schoolCode}/request`, {
+        fromYear: reqFromYear,
+        toYear: reqToYear,
+        promotionDate,
+        effectiveDate
       });
       if (resp.data.success) {
-        alert('Promotion request rejected.');
-        setRejectingId(null);
-        setRejectionReason('');
-        fetchRequests();
+        alert('Promotion request submitted successfully!');
+        fetchActiveRequest();
       }
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to reject request.');
+      alert(err.response?.data?.message || 'Failed to submit request.');
     } finally {
-      setProcessingId(null);
+      setSubmittingRequest(false);
     }
   };
 
-  // Filter requests by current active subtab
-  const filteredRequests = requests.filter((r) => {
-    if (activeSubTab === 'History') return true;
-    if (activeSubTab === 'Pending') return r.status === 'Pending Approval';
-    return r.status === activeSubTab;
-  });
+  // Handle promotion execution
+  // Groups selected students by their real (currentClass-currentSection) pair so that
+  // "All Classes" / "All Sections" selections still submit correctly to the
+  // single-class-section backend endpoint, one request per group.
+  const handleConfirmPromotion = async () => {
+    const { schoolCode } = getAuthData();
+    if (!schoolCode) return;
+
+    if (selectedStudents.size === 0) {
+      alert('Please select at least one student to promote.');
+      return;
+    }
+
+    const selectedCount = selectedStudents.size;
+    const notSelectedCount = filteredStudents.length - selectedCount;
+
+    const groups = new Map<string, Student[]>();
+    filteredStudents.forEach((s) => {
+      const key = `${getStudentClass(s)}-${getStudentSection(s)}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(s);
+    });
+
+    const isMultiGroupMode = groups.size > 1;
+
+    let confirmMessage = '';
+    if (isMultiGroupMode) {
+      confirmMessage = `Are you sure you want to promote ${selectedCount} student(s) across ${groups.size} class-section group(s)?`;
+    } else if (graduateMode) {
+      confirmMessage = `Are you sure you want to mark ${selectedCount} student(s) from Class ${selectedClass}-${selectedSection} as PASSED OUT?\n\nThey will be moved to Alumni and marked as inactive.`;
+    } else {
+      const nextClass = getPromotedClass(selectedClass);
+      confirmMessage = `Are you sure you want to promote ${selectedCount} student(s) from Class ${selectedClass}-${selectedSection} to Class ${nextClass}-${selectedSection}?`;
+    }
+    if (notSelectedCount > 0) {
+      confirmMessage += `\n\n${notSelectedCount} student(s) will remain in the same class.`;
+    }
+
+    if (!confirm(confirmMessage)) return;
+
+    try {
+      setPromoting(true);
+
+      for (const [key, groupStudents] of groups.entries()) {
+        const [groupClass, groupSection] = key.split('-');
+
+        const holdBackIds = groupStudents
+          .filter(s => !selectedStudents.has(s.userId || s.sequenceId))
+          .map(s => s.userId || s.sequenceId);
+
+        // Skip groups where nobody was selected for promotion
+        if (holdBackIds.length === groupStudents.length) continue;
+
+        const response = await api.post(`/admin/promotion/${schoolCode}/section`, {
+          fromYear,
+          toYear,
+          className: groupClass,
+          section: groupSection,
+          holdBackSequenceIds: holdBackIds,
+          graduateStudents: isStudentGraduating(groupClass)
+        });
+
+        if (!response.data.success) {
+          alert(response.data.message || `Failed to execute promotion for Class ${groupClass}-${groupSection}`);
+        }
+      }
+
+      alert('Promotion executed successfully!');
+      setSelectedClass('');
+      setSelectedSection('');
+      setStudents([]);
+      setFilteredStudents([]);
+      setSelectedStudents(new Set());
+      setShowPreview(false);
+      setSearchQuery('');
+      fetchActiveRequest();
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Failed to promote students');
+    } finally {
+      setPromoting(false);
+    }
+  };
+
+  if (loadingRequest) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader className="h-8 w-8 animate-spin text-blue-600" />
+        <span className="ml-3 text-gray-600 font-medium">Checking Promotion Status...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      {/* Alert Center */}
+      {/* Alert Center / Notifications */}
       {notifications.length > 0 && (
         <div className="space-y-2">
           {notifications.map((notif) => (
@@ -148,7 +453,7 @@ export function SuperAdminPromotionTab({ schoolCode }: PromotionTabProps) {
                   <p className="text-xs text-blue-700">{notif.message}</p>
                 </div>
               </div>
-              <button 
+              <button
                 onClick={() => handleMarkAsRead(notif._id)}
                 className="bg-blue-100 hover:bg-blue-200 text-blue-800 p-1.5 rounded-full"
                 title="Mark as Read"
@@ -160,162 +465,409 @@ export function SuperAdminPromotionTab({ schoolCode }: PromotionTabProps) {
         </div>
       )}
 
-      {/* Navigation sub-tabs */}
-      <div className="border-b border-gray-200 bg-white p-2 rounded-lg flex flex-wrap gap-2">
-        {(['Pending', 'Approved', 'Rejected', 'Completed', 'History'] as const).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveSubTab(tab)}
-            className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors ${
-              activeSubTab === tab
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-            }`}
-          >
-            {tab === 'Pending' ? 'Pending Approval' : tab}
-          </button>
-        ))}
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-medium text-gray-900">Student Promotion System</h3>
+        <p className="text-sm text-gray-600">Request and execute student academic year promotions</p>
       </div>
 
-      {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader className="h-8 w-8 animate-spin text-blue-600" />
-          <span className="ml-3 text-gray-600 font-medium font-semibold">Loading promotion requests...</span>
-        </div>
-      ) : filteredRequests.length === 0 ? (
-        <div className="bg-white border border-gray-200 rounded-lg p-12 text-center text-gray-500">
-          {activeSubTab === 'Pending' ? (
-            <Clock className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-          ) : activeSubTab === 'Completed' ? (
-            <CheckCircle className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-          ) : (
-            <AlertCircle className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-          )}
-          <p className="text-lg font-semibold text-gray-600">No requests found</p>
-          <p className="text-sm mt-1 text-gray-400">There are no promotion requests in the "{activeSubTab}" category.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-6">
-          {filteredRequests.map((req) => (
-            <div key={req._id} className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-gray-100 pb-4 mb-4">
-                <div>
-                  <h4 className="text-lg font-bold text-gray-900">{req.schoolName}</h4>
-                  <p className="text-xs text-gray-500 mt-0.5">School Code: {req.schoolCode} • Requested By: {req.requestedByName}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                    req.status === 'Pending Approval' ? 'bg-yellow-100 text-yellow-800' :
-                    req.status === 'Approved' ? 'bg-green-100 text-green-800' :
-                    req.status === 'Rejected' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
-                  }`}>
-                    {req.status}
-                  </span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-4">
-                <div>
-                  <p className="text-xs text-gray-500 font-semibold uppercase">Promotion Cycle</p>
-                  <p className="font-semibold text-gray-800 mt-1">{req.fromYear} → {req.toYear}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 font-semibold uppercase">Promotion Date</p>
-                  <p className="font-semibold text-gray-800 mt-1">{new Date(req.promotionDate).toLocaleDateString()}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 font-semibold uppercase">Effective Date</p>
-                  <p className="font-semibold text-gray-800 mt-1">{new Date(req.effectiveDate).toLocaleDateString()}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 font-semibold uppercase">Eligible Students</p>
-                  <p className="font-semibold text-gray-800 mt-1">{req.totalStudents}</p>
-                </div>
-              </div>
-
-              {req.status === 'Rejected' && req.rejectionReason && (
-                <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg text-sm mb-4">
-                  <strong>Rejection Reason:</strong> {req.rejectionReason}
-                </div>
-              )}
-
-              {/* Action Buttons for Super Admin */}
-              {req.status === 'Pending Approval' && (
-                <div className="flex items-center gap-3 mt-4 pt-4 border-t border-gray-50">
-                  <button
-                    onClick={() => handleApprove(req._id)}
-                    disabled={processingId !== null}
-                    className="bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-lg font-semibold text-sm transition-colors flex items-center gap-2 disabled:bg-gray-400"
-                  >
-                    <Check className="h-4 w-4" />
-                    Approve Request
-                  </button>
-                  <button
-                    onClick={() => setRejectingId(req._id)}
-                    disabled={processingId !== null}
-                    className="bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded-lg font-semibold text-sm transition-colors flex items-center gap-2 disabled:bg-gray-400"
-                  >
-                    <X className="h-4 w-4" />
-                    Reject Request
-                  </button>
-                </div>
-              )}
-
-              {/* Rejection input box */}
-              {rejectingId === req._id && (
-                <form onSubmit={handleRejectSubmit} className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200 space-y-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Mandatory Rejection Reason</label>
-                    <textarea
-                      value={rejectionReason}
-                      onChange={(e) => setRejectionReason(e.target.value)}
-                      required
-                      placeholder="Specify why you are rejecting this request..."
-                      className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div className="flex justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setRejectingId(null);
-                        setRejectionReason('');
-                      }}
-                      className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-xs font-semibold transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-xs font-semibold transition-colors"
-                    >
-                      Confirm Rejection
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              {/* Download Report link for Completed */}
-              {req.status === 'Completed' && req.excelReportUrl && (
-                <div className="mt-4 pt-4 border-t border-gray-50 flex justify-between items-center">
-                  <span className="text-xs text-green-700 bg-green-50 border border-green-200 px-3 py-1 rounded-full font-semibold">
-                    Promotion Cycle Completed
-                  </span>
-                  <a
-                    href={req.excelReportUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold text-xs transition-colors flex items-center gap-2"
-                  >
-                    <Download className="h-4 w-4" />
-                    Download Promotion Report (CSV)
-                  </a>
-                </div>
-              )}
+      {/* Promotion Request Submission Form */}
+      {(!activeRequest || activeRequest.status === 'Rejected' || activeRequest.status === 'Completed') && (
+        <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+          <h4 className="text-md font-semibold text-gray-900 mb-4">Request Student Promotion Approval</h4>
+          {activeRequest?.status === 'Rejected' && (
+            <div className="mb-4 bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg text-sm">
+              <strong>⚠️ Previous Request Rejected:</strong> {activeRequest.rejectionReason}
             </div>
-          ))}
+          )}
+          <form onSubmit={handleSubmitRequest} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Current Academic Year</label>
+                <select
+                  value={reqFromYear}
+                  onChange={(e) => {
+                    setReqFromYear(e.target.value);
+                    const [start, end] = e.target.value.split('-').map(Number);
+                    if (end) {
+                      setReqToYear(`${start + 1}-${(end + 1).toString().slice(-2)}`);
+                    }
+                  }}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500"
+                >
+                  {[...Array(3)].map((_, i) => {
+                    const now = new Date();
+                    const baseStart = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+                    const start = baseStart - 1 + i;
+                    const yearStr = `${start}-${(start + 1).toString().slice(-2)}`;
+                    return <option key={yearStr} value={yearStr}>{yearStr}</option>;
+                  })}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Next Academic Year</label>
+                <input
+                  type="text"
+                  value={reqToYear}
+                  readOnly
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-50 text-gray-700"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Promotion Date</label>
+                <input
+                  type="date"
+                  value={promotionDate}
+                  onChange={(e) => setPromotionDate(e.target.value)}
+                  required
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Effective Date</label>
+                <input
+                  type="date"
+                  value={effectiveDate}
+                  onChange={(e) => setEffectiveDate(e.target.value)}
+                  required
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+            <button
+              type="submit"
+              disabled={submittingRequest}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-medium transition-colors disabled:bg-gray-400"
+            >
+              {submittingRequest ? 'Submitting...' : 'Submit Promotion Request'}
+            </button>
+          </form>
         </div>
+      )}
+
+      {/* Pending State */}
+      {activeRequest?.status === 'Pending Approval' && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+          <div className="flex items-start">
+            <AlertTriangle className="h-6 w-6 text-yellow-600 mt-0.5 mr-3 flex-shrink-0" />
+            <div>
+              <h4 className="text-md font-semibold text-yellow-800 mb-2">Promotion Request Pending Approval</h4>
+              <p className="text-sm text-yellow-700 mb-4 font-medium">
+                Your request to promote students from <strong>{activeRequest.fromYear}</strong> to <strong>{activeRequest.toYear}</strong> is currently pending Super Admin approval. Promotions are locked until approved.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-yellow-800 bg-yellow-100/50 p-4 rounded-lg">
+                <p><strong>Promotion Date:</strong> {new Date(activeRequest.promotionDate).toLocaleDateString()}</p>
+                <p><strong>Effective Date:</strong> {new Date(activeRequest.effectiveDate).toLocaleDateString()}</p>
+                <p><strong>Students:</strong> {activeRequest.totalStudents}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Approved State */}
+      {activeRequest?.status === 'Approved' && (
+        <>
+          <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+            <div className="flex items-start">
+              <CheckCircle className="h-6 w-6 text-green-600 mt-0.5 mr-3 flex-shrink-0" />
+              <div>
+                <h4 className="text-md font-semibold text-green-800 mb-2">Promotion Request Approved!</h4>
+                <p className="text-sm text-green-700">
+                  Super Admin approved promotions for Academic Year <strong>{activeRequest.fromYear} → {activeRequest.toYear}</strong>. You may execute promotions below.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Academic Year Selector (Visual only) */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+              <div>
+                <label className="block text-sm font-medium text-blue-900 mb-2">Promote From:</label>
+                <input
+                  type="text"
+                  value={fromYear}
+                  disabled
+                  className="w-full border border-blue-300 rounded-lg px-3 py-2 bg-gray-100 text-gray-700"
+                />
+              </div>
+              <div className="flex justify-center">
+                <ArrowRight className="h-6 w-6 text-blue-600" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-blue-900 mb-2">Promote To:</label>
+                <input
+                  type="text"
+                  value={toYear}
+                  disabled
+                  className="w-full border border-blue-300 rounded-lg px-3 py-2 bg-gray-100 text-gray-700"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Class and Section Selection */}
+          <div className="bg-white border border-gray-200 rounded-lg p-6">
+            <h4 className="text-md font-semibold text-gray-900 mb-4">Select Class & Section</h4>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Class</label>
+                <select
+                  value={selectedClass}
+                  onChange={(e) => {
+                    setSelectedClass(e.target.value);
+                    setSelectedSection('');
+                  }}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Select a class...</option>
+                  <option value="ALL">All Classes (LKG - 12)</option>
+                  {classes.sort((a, b) => {
+                    const aIndex = classOrder.indexOf(a.className);
+                    const bIndex = classOrder.indexOf(b.className);
+                    if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+                    if (aIndex !== -1) return -1;
+                    if (bIndex !== -1) return 1;
+                    return a.className.localeCompare(b.className);
+                  }).map(cls => (
+                    <option key={cls._id} value={cls.className}>
+                      Class {cls.className}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Section</label>
+                <select
+                  value={selectedSection}
+                  onChange={(e) => setSelectedSection(e.target.value)}
+                  disabled={!selectedClass}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                >
+                  <option value="">Select a section...</option>
+                  <option value="ALL">All Sections</option>
+                  {sectionOptions.map((section: string) => (
+                    <option key={section} value={section}>
+                      Section {section}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Graduation Option Banner */}
+            {showGraduationOption && (
+              <div className="mb-4 bg-blue-50 border border-blue-300 rounded-lg p-4">
+                <div className="flex items-start">
+                  <AlertTriangle className="h-5 w-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
+                  <div className="flex-1">
+                    <h4 className="text-sm font-semibold text-blue-800 mb-2">Final Year Class Detected</h4>
+                    <p className="text-sm text-blue-700 mb-3">
+                      {selectedClass === 'ALL'
+                        ? 'One or more classes in this selection have no next class configured.'
+                        : `Class ${selectedClass} is the final year in your school. The next class (Class ${getPromotedClass(selectedClass)}) is not configured.`}
+                    </p>
+                    <div className="flex items-center gap-4">
+                      <label className="flex items-center cursor-pointer">
+                        <input
+                          type="radio"
+                          name="promotionMode"
+                          checked={!graduateMode}
+                          onChange={() => setGraduateMode(false)}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                          disabled
+                        />
+                        <span className="ml-2 text-sm text-gray-500">Promote to Next Class (Not Available)</span>
+                      </label>
+                      <label className="flex items-center cursor-pointer">
+                        <input
+                          type="radio"
+                          name="promotionMode"
+                          checked={graduateMode}
+                          onChange={() => setGraduateMode(true)}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                        />
+                        <span className="ml-2 text-sm font-medium text-blue-900">Mark as Passed Out / Alumni</span>
+                      </label>
+                    </div>
+                    <p className="text-xs text-blue-600 mt-2">
+                      💡 Students marked as "Passed Out" will be moved to Alumni and marked as inactive. In a multi-class selection, only students in a final-year class are affected — others promote normally.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Search Bar */}
+            {selectedClass && selectedSection && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Search Students</label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search by name, sequence ID, or email..."
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Students List */}
+            {fetchingStudents ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader className="h-6 w-6 animate-spin text-blue-600" />
+                <span className="ml-2 text-gray-600">Loading students...</span>
+              </div>
+            ) : filteredStudents.length > 0 ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium text-gray-700">
+                    {filteredStudents.length} student(s) found
+                    {selectedStudents.size > 0 && (
+                      <span className="ml-2 text-blue-600 font-semibold">
+                        ({selectedStudents.size} selected for promotion)
+                      </span>
+                    )}
+                  </p>
+                </div>
+
+                {/* Students Table */}
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="max-h-96 overflow-y-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50 sticky top-0">
+                        <tr>
+                          <th className="px-4 py-3 text-center">
+                            <input
+                              type="checkbox"
+                              checked={allSelected}
+                              onChange={(e) => handleSelectAll(e.target.checked)}
+                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
+                              title="Select/Deselect All"
+                            />
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Seq ID</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Current Class</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Academic Year</th>
+                          {showPreview && (
+                            <>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Promoted To</th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">New Year</th>
+                            </>
+                          )}
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {filteredStudents.map((student) => {
+                          const studentId = student.userId || student.sequenceId;
+                          const isSelected = selectedStudents.has(studentId);
+                          const studentClass = getStudentClass(student);
+                          const studentSection = getStudentSection(student);
+                          const studentGraduating = isStudentGraduating(studentClass);
+                          return (
+                            <tr key={studentId} className={`hover:bg-gray-50 ${isSelected ? 'bg-blue-50' : ''}`}>
+                              <td className="px-4 py-3 text-center">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={(e) => handleStudentSelect(studentId, e.target.checked)}
+                                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
+                                />
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-900">{studentId}</td>
+                              <td className="px-4 py-3 text-sm text-gray-900">
+                                {student.name?.firstName} {student.name?.lastName}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-900">
+                                {studentClass || '?'}-{studentSection || '?'}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-900">
+                                {student.studentDetails?.academicYear || fromYear}
+                              </td>
+                              {showPreview && (
+                                <>
+                                  <td className="px-4 py-3 text-sm font-medium">
+                                    {isSelected ? (
+                                      studentGraduating ? (
+                                        <span className="text-purple-600 font-semibold">🎓 Passed Out</span>
+                                      ) : (
+                                        <span className="text-green-600">{getPromotedClass(studentClass)}-{studentSection || '?'}</span>
+                                      )
+                                    ) : (
+                                      <span className="text-orange-600">{studentClass || '?'} (Held Back)</span>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-3 text-sm font-medium">
+                                    {isSelected ? (
+                                      studentGraduating ? (
+                                        <span className="text-purple-600">Alumni</span>
+                                      ) : (
+                                        <span className="text-green-600">{toYear}</span>
+                                      )
+                                    ) : (
+                                      <span className="text-orange-600">{toYear}</span>
+                                    )}
+                                  </td>
+                                </>
+                              )}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-3">
+                  {!showPreview ? (
+                    <button
+                      onClick={() => setShowPreview(true)}
+                      disabled={selectedStudents.size === 0 || (!nextClassExists && !graduateMode)}
+                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                      title={!nextClassExists && !graduateMode ? 'Please select graduation mode' : ''}
+                    >
+                      <Eye className="h-5 w-5" />
+                      {graduateMode ? 'Preview Pass Out' : 'Preview Promotion'} {selectedStudents.size > 0 && `(${selectedStudents.size})`}
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => setShowPreview(false)}
+                        className="flex-1 bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+                      >
+                        Cancel Preview
+                      </button>
+                      <button
+                        onClick={handleConfirmPromotion}
+                        disabled={promoting || selectedStudents.size === 0}
+                        className={`flex-1 ${graduateMode ? 'bg-purple-600 hover:bg-purple-700' : 'bg-green-600 hover:bg-green-700'} text-white px-6 py-3 rounded-lg font-medium disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2`}
+                      >
+                        <CheckCircle className="h-5 w-5" />
+                        {promoting ? (graduateMode ? 'Processing...' : 'Promoting...') : (graduateMode ? `Mark as Passed Out (${selectedStudents.size})` : `Confirm Promotion (${selectedStudents.size})`)}
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            ) : selectedClass && selectedSection ? (
+              <div className="text-center py-8 text-gray-500">
+                <Users className="h-12 w-12 mx-auto mb-2 text-gray-400" />
+                <p>No students found for Class {selectedClass}-{selectedSection}</p>
+                <p className="text-sm">in academic year {fromYear}</p>
+              </div>
+            ) : null}
+          </div>
+        </>
       )}
     </div>
   );
-}
+};
+
+export default PromotionTab;

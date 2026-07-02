@@ -5,8 +5,41 @@ const { v4: uuidv4 } = require('uuid');
 const PromotionRequest = require('../models/PromotionRequest');
 const SystemNotification = require('../models/Notification');
 const { uploadPDFBufferToCloudinary } = require('../config/cloudinary');
+const NodeCache = require('node-cache');
 
-// Class progression map
+// ---------------------------------------------------------------------------
+// Cache setup
+// ---------------------------------------------------------------------------
+const cache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
+
+const CACHE_KEYS = {
+  students: (schoolCode) => `students:${schoolCode}`,
+  activeRequest: (schoolCode) => `activeRequest:${schoolCode}`,
+  notifications: (userId) => `notifications:${userId}`
+};
+
+const getCachedStudents = async (schoolCode) => {
+  const key = CACHE_KEYS.students(schoolCode);
+  const cached = cache.get(key);
+  if (cached) return cached;
+
+  const students = await UserGenerator.getUsersByRole(schoolCode, 'student');
+  cache.set(key, students, 120);
+  return students;
+};
+
+const invalidateStudentsCache = (schoolCode) => {
+  cache.del(CACHE_KEYS.students(schoolCode));
+};
+
+const invalidateActiveRequestCache = (schoolCode) => {
+  cache.del(CACHE_KEYS.activeRequest(schoolCode));
+};
+
+const invalidateNotificationsCache = (userId) => {
+  cache.del(CACHE_KEYS.notifications(userId));
+};
+
 const classProgression = {
   'LKG': 'UKG',
   'UKG': '1',
@@ -21,15 +54,87 @@ const classProgression = {
   '9': '10',
   '10': '11',
   '11': '12',
-  '12': null // Final year
+  '12': null
 };
 
-// Helper to format academic year
 const cleanTestName = (name) => {
   return String(name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 };
 
-// Helper function to create persistent and real-time notifications
+// ---------------------------------------------------------------------------
+// THIS IS THE FIX for "only 20-30 students appear instead of all 200-300".
+//
+// Students' academicYear can be stored in either short ("2026-27") or long
+// ("2026-2027") format depending on which screen/import created them. The old
+// code compared academicYear === fromYear with strict string equality, so
+// only students whose stored format happened to exactly match the format the
+// frontend sent got included - everyone else was silently dropped from the
+// promotion batch and the CSV. getUsersByRole() already has this exact
+// normalization logic when academicYear is passed as a DB filter; we need
+// the same normalization here since we filter in JS after fetching.
+// ---------------------------------------------------------------------------
+const normalizeAcademicYear = (year) => {
+  if (!year) return null;
+  const str = String(year).trim();
+
+  // Already short format: 2026-27
+  if (/^\d{4}-\d{2}$/.test(str)) return str;
+
+  // Long format: 2026-2027 -> 2026-27
+  const longMatch = str.match(/^(\d{4})-(\d{4})$/);
+  if (longMatch) return `${longMatch[1]}-${longMatch[2].slice(-2)}`;
+
+  return str; // unrecognized format - leave as-is, will only match identical unrecognized values
+};
+
+const academicYearsMatch = (a, b) => {
+  const na = normalizeAcademicYear(a);
+  const nb = normalizeAcademicYear(b);
+  return na !== null && na === nb;
+};
+
+// ---------------------------------------------------------------------------
+// CSV helpers
+// ---------------------------------------------------------------------------
+const escapeCsvField = (value) => {
+  const str = value === undefined || value === null ? '' : String(value);
+  return `"${str.replace(/"/g, '""')}"`;
+};
+
+const buildPromotionCsv = (promotionRecords) => {
+  const headers = [
+    'Admission Number', 'Roll Number', 'Student Name', 'Current Class', 'Current Section',
+    'Promoted Class', 'Promoted Section', 'Promotion Status', 'Promotion Reason if retained',
+    'Academic Year', 'Promotion Date', 'Effective Date', 'Approved By', 'Promoted By', 'Timestamp'
+  ];
+
+  const rows = [headers.map(escapeCsvField).join(',')];
+
+  for (const record of promotionRecords) {
+    rows.push([
+      escapeCsvField(record.admissionNumber),
+      escapeCsvField(record.rollNumber),
+      escapeCsvField(record.studentName),
+      escapeCsvField(record.currentClass),
+      escapeCsvField(record.currentSection),
+      escapeCsvField(record.promotedClass),
+      escapeCsvField(record.promotedSection),
+      escapeCsvField(record.promotionStatus),
+      escapeCsvField(record.promotionReason),
+      escapeCsvField(record.academicYear),
+      escapeCsvField(record.promotionDate),
+      escapeCsvField(record.effectiveDate),
+      escapeCsvField(record.approvedBy),
+      escapeCsvField(record.promotedBy),
+      escapeCsvField(record.timestamp)
+    ].join(','));
+  }
+
+  const csvString = rows.join('\r\n');
+  const BOM = Buffer.from([0xEF, 0xBB, 0xBF]);
+  return Buffer.concat([BOM, Buffer.from(csvString, 'utf-8')]);
+};
+
 const createNotification = async (req, { userId, role, schoolCode, title, message, metadata }) => {
   try {
     const notification = await SystemNotification.create({
@@ -40,6 +145,9 @@ const createNotification = async (req, { userId, role, schoolCode, title, messag
       message,
       metadata
     });
+
+    invalidateNotificationsCache(userId);
+
     const io = req.app.get('io');
     if (io) {
       if (role === 'superadmin') {
@@ -62,7 +170,6 @@ exports.bulkPromotion = async (req, res) => {
   const schoolCode = req.params.schoolCode.toUpperCase();
   const { fromYear, toYear, finalYearAction } = req.body;
 
-  // 1. Validate active approved request exists
   const activeRequest = await PromotionRequest.findOne({
     schoolCode: { $regex: new RegExp(`^${schoolCode}$`, 'i') },
     fromYear,
@@ -92,15 +199,26 @@ exports.bulkPromotion = async (req, res) => {
     const classRequestsCollection = schoolConnection.collection('classrequests');
     const promotionHistoryCollection = schoolConnection.collection('promotion_history');
 
-    // Fetch students using UserGenerator
-    let allStudents = await UserGenerator.getUsersByRole(schoolCode, 'student');
+    // Fetch students (cached where possible to avoid re-hitting the DB on every load)
+    let allStudents = await getCachedStudents(schoolCode);
+
+    // DIAGNOSTIC: log the distinct raw academicYear formats present, so if the
+    // count is still off after this fix you can see exactly what formats
+    // exist in the DB and we can extend normalizeAcademicYear if needed.
+    const distinctYearFormats = [...new Set(allStudents.map(s =>
+      s.studentDetails?.academicYear || s.studentDetails?.academic?.academicYear || s.academicYear || s.currentAcademicYear
+    ).filter(Boolean))];
+    console.log(`📊 Total students fetched: ${allStudents.length}. Distinct academicYear formats found:`, distinctYearFormats);
+
     const students = allStudents.filter(student => {
-      const academicYear = student.studentDetails?.academicYear || 
-                         student.studentDetails?.academic?.academicYear || 
-                         student.academicYear || 
+      const academicYear = student.studentDetails?.academicYear ||
+                         student.studentDetails?.academic?.academicYear ||
+                         student.academicYear ||
                          student.currentAcademicYear;
-      return academicYear === fromYear && (student.isActive !== false);
+      return academicYearsMatch(academicYear, fromYear) && (student.isActive !== false);
     });
+
+    console.log(`📊 Students matching fromYear "${fromYear}" after normalization: ${students.length}`);
 
     if (students.length === 0) {
       await session.abortTransaction();
@@ -111,9 +229,8 @@ exports.bulkPromotion = async (req, res) => {
       });
     }
 
-    // Determine final year class
     const classOrder = ['LKG', 'UKG', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
-    const uniqueClasses = [...new Set(students.map(s => 
+    const uniqueClasses = [...new Set(students.map(s =>
       s.studentDetails?.currentClass || s.studentDetails?.academic?.currentClass
     ).filter(Boolean))];
     const finalYearClass = uniqueClasses.reduce((max, cls) => {
@@ -122,7 +239,6 @@ exports.bulkPromotion = async (req, res) => {
       return clsIndex > maxIndex ? cls : max;
     }, 'LKG');
 
-    // Get all available classes in school to validate promotions
     const classesCollection = schoolConnection.collection('classes');
     const availableClasses = await classesCollection.find({ schoolCode, isActive: true }).toArray();
     const availableClassNames = new Set(availableClasses.map(c => c.className));
@@ -143,16 +259,14 @@ exports.bulkPromotion = async (req, res) => {
         continue;
       }
 
-      // Check if student has already been promoted to toYear to prevent double promotion
-      const currentStudentYear = student.studentDetails?.academicYear || 
-                                 student.studentDetails?.academic?.academicYear || 
-                                 student.academicYear || 
+      const currentStudentYear = student.studentDetails?.academicYear ||
+                                 student.studentDetails?.academic?.academicYear ||
+                                 student.academicYear ||
                                  student.currentAcademicYear;
-      if (currentStudentYear === toYear) {
+      if (academicYearsMatch(currentStudentYear, toYear)) {
         throw new Error(`Student ${student.userId} has already been promoted/updated for academic year ${toYear}.`);
       }
 
-      // Handle final year students
       if (currentClass === finalYearClass) {
         if (finalYearAction === 'graduate') {
           await promotionHistoryCollection.insertOne({
@@ -242,14 +356,14 @@ exports.bulkPromotion = async (req, res) => {
         }
 
         if (!availableClassNames.has(nextClass)) {
-          errors.push({ 
-            userId: student.userId, 
+          errors.push({
+            userId: student.userId,
             currentClass,
             nextClass,
             error: `Cannot promote to Class ${nextClass} - class not configured in school`
           });
           skippedCount++;
-          
+
           promotionRecords.push({
             admissionNumber: student.userId,
             rollNumber: student.studentDetails?.rollNo || '',
@@ -330,31 +444,8 @@ exports.bulkPromotion = async (req, res) => {
       }
     }
 
-    // Compile and upload Excel CSV Report
-    const csvContent = [
-      'Admission Number,Roll Number,Student Name,Current Class,Current Section,Promoted Class,Promoted Section,Promotion Status,Promotion Reason if retained,Academic Year,Promotion Date,Effective Date,Approved By,Promoted By,Timestamp'
-    ];
-    for (const record of promotionRecords) {
-      csvContent.push([
-        `"${record.admissionNumber}"`,
-        `"${record.rollNumber}"`,
-        `"${record.studentName}"`,
-        `"${record.currentClass}"`,
-        `"${record.currentSection}"`,
-        `"${record.promotedClass}"`,
-        `"${record.promotedSection}"`,
-        `"${record.promotionStatus}"`,
-        `"${record.promotionReason}"`,
-        `"${record.academicYear}"`,
-        `"${record.promotionDate}"`,
-        `"${record.effectiveDate}"`,
-        `"${record.approvedBy}"`,
-        `"${record.promotedBy}"`,
-        `"${record.timestamp}"`
-      ].join(','));
-    }
-
-    const csvBuffer = Buffer.from(csvContent.join('\n'), 'utf-8');
+    // Compile and upload CSV report (properly escaped, BOM-prefixed, CRLF line endings)
+    const csvBuffer = buildPromotionCsv(promotionRecords);
     const uploadResult = await uploadPDFBufferToCloudinary(
       csvBuffer,
       `promotions/${schoolCode}`,
@@ -362,9 +453,8 @@ exports.bulkPromotion = async (req, res) => {
       'text/csv'
     );
 
-    // Update activeRequest to Completed
     activeRequest.status = 'Completed';
-    activeRequest.excelReportUrl = uploadResult.secure_url;
+    activeRequest.excelReportUrl = uploadResult.downloadUrl;
     activeRequest.excelReportFilename = `bulk_promotion_report_${fromYear}.csv`;
     activeRequest.completedAt = new Date();
     activeRequest.auditLog.push({
@@ -378,9 +468,12 @@ exports.bulkPromotion = async (req, res) => {
     await session.commitTransaction();
     session.endSession();
 
+    invalidateStudentsCache(schoolCode);
+    invalidateActiveRequestCache(schoolCode);
+
     res.status(200).json({
       success: true,
-      message: `Successfully executed bulk promotion. Report generated: ${uploadResult.secure_url}`,
+      message: `Successfully executed bulk promotion. Report generated: ${uploadResult.downloadUrl}`,
       data: {
         promoted: promotedCount,
         graduated: graduatedCount,
@@ -408,7 +501,6 @@ exports.sectionPromotion = async (req, res) => {
   const schoolCode = req.params.schoolCode.toUpperCase();
   const { fromYear, toYear, className, section, holdBackSequenceIds = [], graduateStudents = false } = req.body;
 
-  // 1. Validate active approved request exists
   const activeRequest = await PromotionRequest.findOne({
     schoolCode: { $regex: new RegExp(`^${schoolCode}$`, 'i') },
     fromYear,
@@ -437,21 +529,28 @@ exports.sectionPromotion = async (req, res) => {
     const alumniCollection = schoolConnection.collection('alumni');
     const promotionHistoryCollection = schoolConnection.collection('promotion_history');
 
-    // Fetch students using UserGenerator
-    let allStudents = await UserGenerator.getUsersByRole(schoolCode, 'student');
+    let allStudents = await getCachedStudents(schoolCode);
+
+    const distinctYearFormats = [...new Set(allStudents.map(s =>
+      s.studentDetails?.academicYear || s.studentDetails?.academic?.academicYear || s.academicYear || s.currentAcademicYear
+    ).filter(Boolean))];
+    console.log(`📊 Total students fetched: ${allStudents.length}. Distinct academicYear formats found:`, distinctYearFormats);
+
     const students = allStudents.filter(student => {
-      const academicYear = student.studentDetails?.academicYear || 
-                         student.studentDetails?.academic?.academicYear || 
-                         student.academicYear || 
+      const academicYear = student.studentDetails?.academicYear ||
+                         student.studentDetails?.academic?.academicYear ||
+                         student.academicYear ||
                          student.currentAcademicYear;
       const currentClass = student.studentDetails?.currentClass || student.studentDetails?.academic?.currentClass || student.currentClass;
       const currentSection = student.studentDetails?.currentSection || student.studentDetails?.academic?.currentSection || student.currentSection;
-      
-      return academicYear === fromYear && 
-             currentClass === className && 
-             currentSection === section && 
+
+      return academicYearsMatch(academicYear, fromYear) &&
+             currentClass === className &&
+             currentSection === section &&
              (student.isActive !== false);
     });
+
+    console.log(`📊 Students matching Class ${className}-${section} for "${fromYear}" after normalization: ${students.length}`);
 
     if (students.length === 0) {
       await session.abortTransaction();
@@ -472,7 +571,6 @@ exports.sectionPromotion = async (req, res) => {
       });
     }
 
-    // Check if next class exists
     if (!graduateStudents) {
       const classesCollection = schoolConnection.collection('classes');
       const nextClassExists = await classesCollection.findOne({
@@ -500,12 +598,11 @@ exports.sectionPromotion = async (req, res) => {
     const promotionRecords = [];
 
     for (const student of students) {
-      // Prevent double promotion check
-      const currentStudentYear = student.studentDetails?.academicYear || 
-                                 student.studentDetails?.academic?.academicYear || 
-                                 student.academicYear || 
+      const currentStudentYear = student.studentDetails?.academicYear ||
+                                 student.studentDetails?.academic?.academicYear ||
+                                 student.academicYear ||
                                  student.currentAcademicYear;
-      if (currentStudentYear === toYear) {
+      if (academicYearsMatch(currentStudentYear, toYear)) {
         throw new Error(`Student ${student.userId} has already been promoted/updated for academic year ${toYear}.`);
       }
 
@@ -696,31 +793,7 @@ exports.sectionPromotion = async (req, res) => {
       }
     }
 
-    // Compile and upload Excel CSV Report
-    const csvContent = [
-      'Admission Number,Roll Number,Student Name,Current Class,Current Section,Promoted Class,Promoted Section,Promotion Status,Promotion Reason if retained,Academic Year,Promotion Date,Effective Date,Approved By,Promoted By,Timestamp'
-    ];
-    for (const record of promotionRecords) {
-      csvContent.push([
-        `"${record.admissionNumber}"`,
-        `"${record.rollNumber}"`,
-        `"${record.studentName}"`,
-        `"${record.currentClass}"`,
-        `"${record.currentSection}"`,
-        `"${record.promotedClass}"`,
-        `"${record.promotedSection}"`,
-        `"${record.promotionStatus}"`,
-        `"${record.promotionReason}"`,
-        `"${record.academicYear}"`,
-        `"${record.promotionDate}"`,
-        `"${record.effectiveDate}"`,
-        `"${record.approvedBy}"`,
-        `"${record.promotedBy}"`,
-        `"${record.timestamp}"`
-      ].join(','));
-    }
-
-    const csvBuffer = Buffer.from(csvContent.join('\n'), 'utf-8');
+    const csvBuffer = buildPromotionCsv(promotionRecords);
     const uploadResult = await uploadPDFBufferToCloudinary(
       csvBuffer,
       `promotions/${schoolCode}`,
@@ -728,9 +801,8 @@ exports.sectionPromotion = async (req, res) => {
       'text/csv'
     );
 
-    // Update request state
     activeRequest.status = 'Completed';
-    activeRequest.excelReportUrl = uploadResult.secure_url;
+    activeRequest.excelReportUrl = uploadResult.downloadUrl;
     activeRequest.excelReportFilename = `promotion_report_${className}_${section}_${fromYear}.csv`;
     activeRequest.completedAt = new Date();
     activeRequest.auditLog.push({
@@ -744,9 +816,12 @@ exports.sectionPromotion = async (req, res) => {
     await session.commitTransaction();
     session.endSession();
 
+    invalidateStudentsCache(schoolCode);
+    invalidateActiveRequestCache(schoolCode);
+
     res.status(200).json({
       success: true,
-      message: `Successfully executed manual promotion. Report generated: ${uploadResult.secure_url}`,
+      message: `Successfully executed manual promotion. Report generated: ${uploadResult.downloadUrl}`,
       data: {
         promoted: promotedCount,
         graduated: graduatedCount,
@@ -778,7 +853,6 @@ exports.submitPromotionRequest = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Missing required configuration fields.' });
     }
 
-    // Prevent duplicate active requests (Pending or Approved)
     const existingActive = await PromotionRequest.findOne({
       schoolCode: { $regex: new RegExp(`^${schoolCode}$`, 'i') },
       fromYear,
@@ -797,14 +871,13 @@ exports.submitPromotionRequest = async (req, res) => {
       return res.status(404).json({ success: false, message: 'School not found' });
     }
 
-    // Count eligible students
-    const allStudents = await UserGenerator.getUsersByRole(schoolCode, 'student');
+    const allStudents = await getCachedStudents(schoolCode);
     const eligibleStudents = allStudents.filter(student => {
-      const academicYear = student.studentDetails?.academicYear || 
-                         student.studentDetails?.academic?.academicYear || 
-                         student.academicYear || 
+      const academicYear = student.studentDetails?.academicYear ||
+                         student.studentDetails?.academic?.academicYear ||
+                         student.academicYear ||
                          student.currentAcademicYear;
-      return academicYear === fromYear && (student.isActive !== false);
+      return academicYearsMatch(academicYear, fromYear) && (student.isActive !== false);
     });
 
     let displayName = 'Admin';
@@ -837,7 +910,8 @@ exports.submitPromotionRequest = async (req, res) => {
       }]
     });
 
-    // Notify Super Admin
+    invalidateActiveRequestCache(schoolCode);
+
     await createNotification(req, {
       userId: 'superadmin',
       role: 'superadmin',
@@ -890,7 +964,8 @@ exports.approvePromotionRequest = async (req, res) => {
     });
     await request.save();
 
-    // Notify school Admin
+    invalidateActiveRequestCache(request.schoolCode);
+
     await createNotification(req, {
       userId: request.requestedBy,
       role: 'admin',
@@ -933,7 +1008,8 @@ exports.rejectPromotionRequest = async (req, res) => {
     });
     await request.save();
 
-    // Notify school Admin
+    invalidateActiveRequestCache(request.schoolCode);
+
     await createNotification(req, {
       userId: request.requestedBy,
       role: 'admin',
@@ -954,10 +1030,19 @@ exports.rejectPromotionRequest = async (req, res) => {
 exports.getActivePromotionRequest = async (req, res) => {
   try {
     const schoolCode = req.params.schoolCode.toUpperCase();
-    // Get latest request
-    const request = await PromotionRequest.findOne({ 
-      schoolCode: { $regex: new RegExp(`^${schoolCode}$`, 'i') } 
+    const cacheKey = CACHE_KEYS.activeRequest(schoolCode);
+
+    const cached = cache.get(cacheKey);
+    if (cached !== undefined) {
+      return res.status(200).json({ success: true, data: cached });
+    }
+
+    const request = await PromotionRequest.findOne({
+      schoolCode: { $regex: new RegExp(`^${schoolCode}$`, 'i') }
     }).sort({ createdAt: -1 });
+
+    cache.set(cacheKey, request, 15);
+
     res.status(200).json({ success: true, data: request });
   } catch (error) {
     console.error('❌ Error fetching active promotion request:', error);
@@ -969,8 +1054,18 @@ exports.getActivePromotionRequest = async (req, res) => {
 exports.getNotifications = async (req, res) => {
   try {
     const userId = req.user.role === 'superadmin' ? 'superadmin' : req.user.userId;
+    const cacheKey = CACHE_KEYS.notifications(userId);
+
+    const cached = cache.get(cacheKey);
+    if (cached !== undefined) {
+      return res.status(200).json({ success: true, data: cached });
+    }
+
     const filter = { userId, isRead: false };
     const list = await SystemNotification.find(filter).sort({ createdAt: -1 });
+
+    cache.set(cacheKey, list, 15);
+
     res.status(200).json({ success: true, data: list });
   } catch (error) {
     console.error('❌ Error fetching notifications:', error);
@@ -982,7 +1077,12 @@ exports.getNotifications = async (req, res) => {
 exports.markNotificationAsRead = async (req, res) => {
   try {
     const { id } = req.params;
-    await SystemNotification.findByIdAndUpdate(id, { isRead: true });
+    const notification = await SystemNotification.findByIdAndUpdate(id, { isRead: true });
+
+    if (notification) {
+      invalidateNotificationsCache(notification.userId);
+    }
+
     res.status(200).json({ success: true });
   } catch (error) {
     console.error('❌ Error updating notification:', error);
