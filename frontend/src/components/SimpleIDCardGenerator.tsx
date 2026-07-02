@@ -59,7 +59,13 @@ const SimpleIDCardGenerator: React.FC<SimpleIDCardGeneratorProps> = ({
   }, [templateSettings?.schoolCode, templateSettings?.schoolName]);
 
   const handleColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const color = e.target.value;
+    let color = e.target.value;
+    if (!color.startsWith('#') && color.length > 0) {
+      color = '#' + color;
+    }
+    if (color.startsWith('##')) {
+      color = color.substring(1);
+    }
     setCustomColor(color);
     const schoolId = templateSettings?.schoolCode || templateSettings?.schoolName || 'default';
     localStorage.setItem(`idCardColor_${schoolId}`, color);
@@ -389,8 +395,18 @@ const SimpleIDCardGenerator: React.FC<SimpleIDCardGeneratorProps> = ({
                           className="absolute inset-[-10px] w-20 h-20 cursor-pointer"
                         />
                       </div>
-                      <div className="text-sm text-gray-600 flex-1">
-                        Select a custom primary color for this school's ID cards. This will be saved for future use.
+                      <div className="flex items-center">
+                        <span className="text-gray-500 bg-gray-100 border border-r-0 border-gray-300 px-3 py-1.5 rounded-l text-sm font-medium">HEX</span>
+                        <input 
+                          type="text" 
+                          value={customColor || getDefaultSchoolColor().header}
+                          onChange={handleColorChange}
+                          className="border border-gray-300 px-3 py-1.5 w-24 text-sm rounded-r focus:outline-none focus:border-blue-500 uppercase"
+                          maxLength={7}
+                        />
+                      </div>
+                      <div className="text-sm text-gray-600 flex-1 ml-2">
+                        Select or enter a primary color code. This will be saved for future use.
                       </div>
                       {customColor && (
                         <button
@@ -596,23 +612,37 @@ const SimpleIDCardGenerator: React.FC<SimpleIDCardGeneratorProps> = ({
                   <div className="text-xs text-gray-500 mb-3">
                     Change this color to instantly update the ID card. The chosen color will be saved permanently for this school.
                   </div>
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded overflow-hidden border border-gray-300 relative cursor-pointer shadow-sm">
-                      <input
-                        type="color"
-                        value={customColor || getDefaultSchoolColor().header}
-                        onChange={handleColorChange}
-                        className="absolute inset-[-10px] w-20 h-20 cursor-pointer"
-                      />
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded overflow-hidden border border-gray-300 relative cursor-pointer shadow-sm shrink-0">
+                        <input
+                          type="color"
+                          value={customColor || getDefaultSchoolColor().header}
+                          onChange={handleColorChange}
+                          className="absolute inset-[-10px] w-20 h-20 cursor-pointer"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center">
+                          <span className="text-gray-500 bg-gray-100 border border-r-0 border-gray-300 px-2 py-1.5 rounded-l text-xs font-medium">HEX</span>
+                          <input 
+                            type="text" 
+                            value={customColor || getDefaultSchoolColor().header}
+                            onChange={handleColorChange}
+                            className="border border-gray-300 px-2 py-1.5 w-20 text-sm rounded-r focus:outline-none focus:border-blue-500 uppercase"
+                            maxLength={7}
+                          />
+                        </div>
+                        {customColor && (
+                          <button
+                            onClick={handleResetColor}
+                            className="text-xs text-red-600 hover:text-red-800 font-medium text-left"
+                          >
+                            Reset to Default
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    {customColor && (
-                      <button
-                        onClick={handleResetColor}
-                        className="text-xs text-red-600 hover:bg-red-50 font-medium px-3 py-1.5 border border-red-200 rounded transition-colors"
-                      >
-                        Reset Default
-                      </button>
-                    )}
                   </div>
                 </div>
               </div>
