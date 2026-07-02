@@ -13,12 +13,16 @@ if (!process.env.NODE_ENV) {
 
 console.log(`🔒 Security mode: ${process.env.NODE_ENV}`);
 
+require('dotenv').config();
+const dns = require('dns');
+dns.setServers(['8.8.8.8', '1.1.1.1']);
+
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const DatabaseManager = require('./utils/databaseManager');
-require('dotenv').config();
 const path = require('path'); // Import path module
 const multer = require('multer'); // <-- Import multer
 const fs = require('fs'); // Import fs module for file operations
@@ -27,6 +31,7 @@ const { Server } = require('socket.io'); // Socket.IO server
 
 // Import your controller
 const exportImportController = require('./controllers/exportImportController'); // <-- Import exportImportController
+const schoolController = require('./controllers/schoolController'); // <-- Import schoolController
 
 // Import middleware
 const { auth } = require('./middleware/auth'); // <-- Import auth middleware (adjust path if needed)
@@ -77,6 +82,18 @@ const io = new Server(server, {
 // Socket.IO connection handling
 io.on('connection', (socket) => {
   console.log('🔌 Client connected:', socket.id);
+
+  // Join user-specific room
+  socket.on('join-user', (userId) => {
+    socket.join(`user-${userId}`);
+    console.log(`👤 Socket ${socket.id} joined user room: user-${userId}`);
+  });
+
+  // Join superadmin global room
+  socket.on('join-superadmin', () => {
+    socket.join('superadmin');
+    console.log(`👑 Socket ${socket.id} joined superadmin room`);
+  });
 
   // Join school-specific room
   socket.on('join-school', (schoolCode) => {

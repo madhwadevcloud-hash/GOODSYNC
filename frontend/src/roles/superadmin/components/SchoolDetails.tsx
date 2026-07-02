@@ -6,9 +6,10 @@ import { schoolUserAPI } from '../../../api/schoolUsers';
 import AcademicTestConfiguration from './AcademicTestConfiguration';
 import { ImportUsersDialog } from './ImportUsersDialog'; // Import the dialog
 import { getDynamicFallbackYear, normalizeAcademicYear } from '../../../utils/academicYearUtils';
+import { SuperAdminPromotionTab } from './PromotionTab';
 
 // Define proper types for the component
-type TabType = 'overview' | 'users' | 'academics' | 'academic-year' | 'settings';
+type TabType = 'overview' | 'users' | 'academics' | 'academic-year' | 'promotion' | 'settings';
 type UserRole = 'admin' | 'teacher' | 'student' | 'parent';
 
 interface User {
@@ -775,9 +776,25 @@ function SchoolDetailsContent() {
   }
 
   // Case 5: Success - basic view
+  const academicYears = Array.from({ length: 12 }, (_, i) => {
+    const startYear = 2024 + i;
+    return `${startYear}-${String(startYear + 1).slice(-2)}`;
+  });
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 sm:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
+        <button 
+          onClick={() => {
+          if (window.history.length > 1) {
+            window.history.back();
+          } else {
+            setCurrentView('dashboard'); // Falls back to dashboard if no history exists
+          }   
+        }} 
+        className="mb-4 px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-50 transition flex items-center gap-1"
+        >
+          ← Back
+        </button>
         <div className="mb-6 sm:mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{school.name}</h1>
           <p className="text-xs sm:text-sm text-gray-600 mt-1">School Code: {schoolCode || 'N/A'}</p>
@@ -847,6 +864,16 @@ function SchoolDetailsContent() {
           >
             <Calendar className="h-4 w-4" />
             <span>Academic Year</span>
+          </button>
+          <button
+            className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${activeTab === 'promotion'
+                ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md'
+                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+            }`}
+            onClick={() => setActiveTab('promotion')}
+          >
+            <TrendingUp className="h-4 w-4" />
+            <span>Promotion</span>
           </button>
         </nav>
       </div>
@@ -1033,9 +1060,9 @@ function SchoolDetailsContent() {
                                 {/* *** THIS IS THE FIX for Problem 1 *** */}
                                 {user.role === 'student' && (
                                   <div className="text-sm text-gray-500">
-                                    Class: <strong>{user.studentDetails?.currentClass || 'N/A'}</strong>
-                                    {' - '}
-                                    <strong>{user.studentDetails?.currentSection || 'N/A'}</strong>
+                                    Class: {user.studentDetails?.academic?.currentClass || 'N/A'}
+                                    {'-'}
+                                    {user.studentDetails?.academic?.currentSection || 'N/A'}
                                   </div>
                                 )}
                                 {/* *** END OF FIX *** */}
@@ -1158,15 +1185,21 @@ function SchoolDetailsContent() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Current Academic Year
                 </label>
-                <input
-                  type="text"
+                <select
                   value={currentAcademicYear}
                   onChange={(e) => setCurrentAcademicYear(e.target.value)}
-                  placeholder="e.g., 2024-25 or 2024-2025"
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
-                />
-                <p className="mt-1 text-xs text-gray-500">This will be the default academic year for all new student registrations.</p>
-              </div>
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none bg-white"
+                >
+                  <option value="">Select Academic Year</option>
+
+                  {academicYears.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                ))}
+                </select>
+                </div>
+              
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1175,6 +1208,7 @@ function SchoolDetailsContent() {
                 <input
                   type="date"
                   value={academicYearStart}
+                  min={new Date().toISOString().split("T")[0]}
                   onChange={(e) => setAcademicYearStart(e.target.value)}
                   className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
                 />
@@ -1187,6 +1221,7 @@ function SchoolDetailsContent() {
                 <input
                   type="date"
                   value={academicYearEnd}
+                  min={academicYearStart || new Date().toISOString().split("T")[0]}
                   onChange={(e) => setAcademicYearEnd(e.target.value)}
                   className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
                 />
@@ -1226,6 +1261,21 @@ function SchoolDetailsContent() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {activeTab === 'promotion' && (
+        <div className="bg-white p-6 rounded-lg shadow-md w-full">
+          <div className="flex items-center space-x-3 mb-6">
+            <div className="bg-blue-100 p-3 rounded-xl">
+              <TrendingUp className="h-6 w-6 text-blue-600" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold font-semibold">School Student Promotion Requests</h2>
+              <p className="text-sm text-gray-500">Approve or reject student promotion requests for this school.</p>
+            </div>
+          </div>
+          <SuperAdminPromotionTab schoolCode={schoolCode || undefined} />
         </div>
       )}
 

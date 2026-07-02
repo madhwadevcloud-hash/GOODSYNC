@@ -5,10 +5,10 @@ import { useAcademicYear } from '../../../contexts/AcademicYearContext';
 import ClassSectionSelect from '../components/ClassSectionSelect';
 import api from '../../../api/axios';
 import { normalizeAcademicYear } from '../../../utils/academicYearUtils';
-import { 
+import {
   getSchoolSummary,
-  getStudentFeeRecords, 
-  StudentFeeRecord, 
+  getStudentFeeRecords,
+  StudentFeeRecord,
   exportFeeRecordsToCSV,
   getStudentsByClassSection,
   StudentDetail
@@ -35,9 +35,9 @@ const StatusBadge = ({ status }: { status: string }) => {
   };
 
   const statusConfig = statusMap[status.toLowerCase()] || { bg: 'bg-gray-100', text: 'text-gray-800' };
-  
+
   return (
-    <span 
+    <span
       className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusConfig.bg} ${statusConfig.text}`}
     >
       {status.charAt(0).toUpperCase() + status.slice(1)}
@@ -56,8 +56,8 @@ const extractString = (val: any): string => {
 
 const ReportsPage: React.FC = () => {
   const { user } = useAuth();
-  const { currentAcademicYear, viewingAcademicYear, isViewingHistoricalYear, setViewingYear, availableYears, loading: academicYearLoading } = useAcademicYear();
-  
+  const { currentAcademicYear, viewingAcademicYear, isViewingHistoricalYear, loading: academicYearLoading } = useAcademicYear();
+
   // Filter state
   const [selectedClass, setSelectedClass] = useState('ALL');
   const [selectedSection, setSelectedSection] = useState('ALL');
@@ -78,10 +78,10 @@ const ReportsPage: React.FC = () => {
     classWiseDues: []
   });
   const [summaryLoading, setSummaryLoading] = useState(false);
-  
+
   const [classWiseCounts, setClassWiseCounts] = useState<Array<{
     className: string;
-    sections: Array<{name: string, count: number, avgMarks?: number, avgAttendance?: number}>;
+    sections: Array<{ name: string, count: number, avgMarks?: number, avgAttendance?: number }>;
     total: number;
   }>>([]);
 
@@ -89,6 +89,10 @@ const ReportsPage: React.FC = () => {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [studentDetails, setStudentDetails] = useState<Map<string, StudentDetail[]>>(new Map());
   const [loadingStudents, setLoadingStudents] = useState<Set<string>>(new Set());
+  const [expandedStudents, setExpandedStudents] = useState<Set<string>>(new Set());
+  const [classTests, setClassTests] = useState<any[]>([]);
+  const [classResults, setClassResults] = useState<any[]>([]);
+  const [classSubjectsMap, setClassSubjectsMap] = useState<Record<string, string[]>>({});
 
   // State for dues list
   const [duesList, setDuesList] = useState<StudentFeeRecord[]>([]);
@@ -100,7 +104,7 @@ const ReportsPage: React.FC = () => {
     pages: 1,
   });
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   // Handle export to CSV
   const handleExportToCSV = async () => {
@@ -110,11 +114,11 @@ const ReportsPage: React.FC = () => {
         class: selectedClass !== 'ALL' ? selectedClass : undefined,
         section: selectedSection !== 'ALL' ? selectedSection : undefined,
         search: searchTerm || undefined,
-        status: statusFilter !== 'ALL' ? statusFilter : undefined,
+        status: statusFilter !== 'all' ? statusFilter : undefined,
       };
 
       const csvBlob = await exportFeeRecordsToCSV(params);
-      
+
       // Create a download link
       const url = window.URL.createObjectURL(csvBlob);
       const link = document.createElement('a');
@@ -123,13 +127,13 @@ const ReportsPage: React.FC = () => {
       link.setAttribute('download', `fee-due-report-${timestamp}.csv`);
       document.body.appendChild(link);
       link.click();
-      
+
       // Cleanup
       if (link.parentNode) {
         link.parentNode.removeChild(link);
       }
       window.URL.revokeObjectURL(url);
-      
+
     } catch (err) {
       console.error('Error exporting to CSV:', err);
       setError('Failed to export data. Please try again.');
@@ -141,7 +145,7 @@ const ReportsPage: React.FC = () => {
     try {
       setLoadingDues(true);
       setError(null);
-      
+
       const params = {
         academicYear: viewingAcademicYear,
         class: selectedClass !== 'ALL' ? selectedClass : undefined,
@@ -149,17 +153,22 @@ const ReportsPage: React.FC = () => {
         page: pagination.page,
         limit: pagination.limit,
         search: searchTerm || undefined,
-        status: statusFilter !== 'ALL' ? statusFilter : undefined,
+        status: statusFilter !== 'all' ? statusFilter : undefined,
       };
-      
+
       const response = await getStudentFeeRecords(params);
-      
+
       if (response.success) {
-        setDuesList(response.data.records);
+        const records = response.data.records;
+        const paginationTotal = response.data.pagination.total;
+        const paginationPages = response.data.pagination.pages;
+
+        setDuesList(records);
         setPagination(prev => ({
           ...prev,
-          total: response.data.pagination.total,
-          pages: response.data.pagination.pages
+          total: paginationTotal,
+          pages: paginationPages,
+          page: pagination.page
         }));
       } else {
         throw new Error('Failed to fetch dues list');
@@ -178,7 +187,7 @@ const ReportsPage: React.FC = () => {
       class: selectedClass,
       section: selectedSection
     });
-    
+
     try {
       // Get authentication token and school code
       const authData = localStorage.getItem('erp.auth');
@@ -192,7 +201,7 @@ const ReportsPage: React.FC = () => {
 
       console.log('Fetching students from school-users endpoint...');
       const response = await schoolUserAPI.getAllUsers(schoolCode, token);
-      
+
       // Extract students from response
       let students: any[] = [];
       if (response.data && Array.isArray(response.data)) {
@@ -202,31 +211,31 @@ const ReportsPage: React.FC = () => {
       }
 
       console.log(`Found ${students.length} students`);
-      
+
       // Apply filters
       let filteredStudents = students;
-      
+
       // Filter by academic year - check multiple possible locations
       filteredStudents = filteredStudents.filter((s: any) => {
-        const studentAcademicYear = s.studentDetails?.academicYear || 
-                                   s.studentDetails?.academic?.academicYear ||
-                                   s.academicYear ||
-                                   s.academicInfo?.academicYear;
+        const studentAcademicYear = s.studentDetails?.academicYear ||
+          s.studentDetails?.academic?.academicYear ||
+          s.academicYear ||
+          s.academicInfo?.academicYear;
         // If academic year is not set, don't filter it out (allow it through)
         if (!studentAcademicYear) return true;
         const normalizedStudentYear = normalizeAcademicYear(String(studentAcademicYear).trim());
         const normalizedTargetYear = normalizeAcademicYear(String(viewingAcademicYear).trim());
         return normalizedStudentYear === normalizedTargetYear;
       });
-      
+
       if (selectedClass !== 'ALL') {
         filteredStudents = filteredStudents.filter((s: any) => {
           // Check all possible locations for class, prioritizing academicInfo
           const studentClass = s.academicInfo?.class ||
-                              s.studentDetails?.academic?.currentClass ||
-                              s.studentDetails?.currentClass || 
-                              s.studentDetails?.class ||
-                              s.class;
+            s.studentDetails?.academic?.currentClass ||
+            s.studentDetails?.currentClass ||
+            s.studentDetails?.class ||
+            s.class;
           return String(studentClass).trim() === String(selectedClass).trim();
         });
       }
@@ -234,17 +243,17 @@ const ReportsPage: React.FC = () => {
         filteredStudents = filteredStudents.filter((s: any) => {
           // Check all possible locations for section, prioritizing academicInfo
           const studentSection = s.academicInfo?.section ||
-                              s.studentDetails?.academic?.currentSection ||
-                              s.studentDetails?.currentSection || 
-                              s.studentDetails?.section ||
-                              s.section;
+            s.studentDetails?.academic?.currentSection ||
+            s.studentDetails?.currentSection ||
+            s.studentDetails?.section ||
+            s.section;
           return String(studentSection).trim().toUpperCase() === String(selectedSection).trim().toUpperCase();
         });
       }
 
       // Group students by class and section
       const classMap = new Map();
-      
+
       filteredStudents.forEach((student: any) => {
         // Check all possible locations for class and section, prioritizing academicInfo
         // Helper to extract string from potentially object-based class/section
@@ -257,20 +266,20 @@ const ReportsPage: React.FC = () => {
         };
 
         const rawClassName = student.academicInfo?.class ||
-                          student.studentDetails?.academic?.currentClass ||
-                          student.studentDetails?.currentClass || 
-                          student.studentDetails?.class ||
-                          student.class;
-                          
+          student.studentDetails?.academic?.currentClass ||
+          student.studentDetails?.currentClass ||
+          student.studentDetails?.class ||
+          student.class;
+
         const rawSection = student.academicInfo?.section ||
-                        student.studentDetails?.academic?.currentSection ||
-                        student.studentDetails?.currentSection || 
-                        student.studentDetails?.section ||
-                        student.section;
+          student.studentDetails?.academic?.currentSection ||
+          student.studentDetails?.currentSection ||
+          student.studentDetails?.section ||
+          student.section;
 
         const className = extractString(rawClassName, 'Unknown');
         const section = extractString(rawSection, 'Not Assigned');
-        
+
         if (!classMap.has(className)) {
           classMap.set(className, {
             className,
@@ -278,10 +287,10 @@ const ReportsPage: React.FC = () => {
             total: 0
           });
         }
-        
+
         const classData = classMap.get(className);
         classData.total++;
-        
+
         if (!classData.sections.has(section)) {
           classData.sections.set(section, { count: 0, students: [] });
         }
@@ -289,7 +298,7 @@ const ReportsPage: React.FC = () => {
         sectionData.count++;
         sectionData.students.push(student);
       });
-      
+
       // Fetch attendance and results stats for each class-section combination
       console.log('📊 Fetching attendance and results stats for each class-section...');
       const formattedDataPromises = Array.from(classMap.values()).map(async (classData) => {
@@ -297,7 +306,7 @@ const ReportsPage: React.FC = () => {
           Array.from(classData.sections.entries()).map(async ([name, data]) => {
             let avgAttendance = 0;
             let avgMarks = 0;
-            
+
             try {
               // Fetch attendance stats
               const attendanceParams = {
@@ -305,7 +314,7 @@ const ReportsPage: React.FC = () => {
                 section: name,
                 academicYear: viewingAcademicYear
               };
-              
+
               console.log(`📈 Fetching attendance for Class ${classData.className} Section ${name}:`, attendanceParams);
               const attendanceResponse = await api.get('/attendance/stats', { params: attendanceParams });
               avgAttendance = attendanceResponse.data?.averageAttendance || 0;
@@ -313,7 +322,7 @@ const ReportsPage: React.FC = () => {
             } catch (error) {
               console.error(`❌ Error fetching attendance for ${classData.className}-${name}:`, error);
             }
-            
+
             try {
               // Fetch results stats
               const resultsParams = {
@@ -321,14 +330,14 @@ const ReportsPage: React.FC = () => {
                 section: name,
                 academicYear: viewingAcademicYear
               };
-              
+
               const resultsResponse = await api.get('/results/stats', { params: resultsParams });
               avgMarks = resultsResponse.data?.averagePercentage || 0;
               console.log(`✅ Class ${classData.className} Section ${name}: ${avgMarks}% marks`);
             } catch (error) {
               console.error(`❌ Error fetching results for ${classData.className}-${name}:`, error);
             }
-            
+
             return {
               name,
               count: data.count,
@@ -337,27 +346,27 @@ const ReportsPage: React.FC = () => {
             };
           })
         );
-        
+
         return {
           className: classData.className,
           sections: sectionsWithStats,
           total: classData.total
         };
       });
-      
+
       const formattedData = await Promise.all(formattedDataPromises);
-      
+
       console.log('Formatted class-wise data with stats:', formattedData);
       setClassWiseCounts(formattedData);
       setError(null);
-      
+
     } catch (error: any) {
       console.error('❌ Error fetching class data:', {
         message: error.message,
         response: error.response?.data,
         stack: error.stack
       });
-      
+
       setError('Failed to load class distribution data');
       setClassWiseCounts([]);
     }
@@ -369,12 +378,12 @@ const ReportsPage: React.FC = () => {
       setLoading(true);
       setSummaryLoading(true);
       setError(null);
-      
+
       console.log('Fetching school summary with params:', {
         class: selectedClass,
         section: selectedSection
       });
-      
+
       // Get authentication token and school code
       const authData = localStorage.getItem('erp.auth');
       const token = authData ? JSON.parse(authData).token : null;
@@ -388,7 +397,7 @@ const ReportsPage: React.FC = () => {
       }
 
       const response = await schoolUserAPI.getAllUsers(schoolCode, token);
-      
+
       // Extract students from response
       let students: any[] = [];
       if (response.data && Array.isArray(response.data)) {
@@ -399,28 +408,28 @@ const ReportsPage: React.FC = () => {
 
       // Apply filters
       let filteredStudents = students;
-      
+
       // Filter by academic year - check multiple possible locations
       filteredStudents = filteredStudents.filter((s: any) => {
-        const studentAcademicYear = s.studentDetails?.academicYear || 
-                                   s.studentDetails?.academic?.academicYear ||
-                                   s.academicYear ||
-                                   s.academicInfo?.academicYear;
+        const studentAcademicYear = s.studentDetails?.academicYear ||
+          s.studentDetails?.academic?.academicYear ||
+          s.academicYear ||
+          s.academicInfo?.academicYear;
         // If academic year is not set, don't filter it out (allow it through)
         if (!studentAcademicYear) return true;
         const normalizedStudentYear = normalizeAcademicYear(String(studentAcademicYear).trim());
         const normalizedTargetYear = normalizeAcademicYear(String(viewingAcademicYear).trim());
         return normalizedStudentYear === normalizedTargetYear;
       });
-      
+
       if (selectedClass !== 'ALL') {
         filteredStudents = filteredStudents.filter((s: any) => {
           // Check all possible locations for class, prioritizing academicInfo
           const studentClass = s.academicInfo?.class ||
-                              s.studentDetails?.academic?.currentClass ||
-                              s.studentDetails?.currentClass || 
-                              s.studentDetails?.class ||
-                              s.class;
+            s.studentDetails?.academic?.currentClass ||
+            s.studentDetails?.currentClass ||
+            s.studentDetails?.class ||
+            s.class;
           return String(studentClass).trim() === String(selectedClass).trim();
         });
       }
@@ -428,31 +437,31 @@ const ReportsPage: React.FC = () => {
         filteredStudents = filteredStudents.filter((s: any) => {
           // Check all possible locations for section, prioritizing academicInfo
           const studentSection = s.academicInfo?.section ||
-                              s.studentDetails?.academic?.currentSection ||
-                              s.studentDetails?.currentSection || 
-                              s.studentDetails?.section ||
-                              s.section;
+            s.studentDetails?.academic?.currentSection ||
+            s.studentDetails?.currentSection ||
+            s.studentDetails?.section ||
+            s.section;
           return String(studentSection).trim().toUpperCase() === String(selectedSection).trim().toUpperCase();
         });
       }
 
       // Calculate summary statistics
       const totalStudents = filteredStudents.length;
-      
+
       // Fetch overall attendance stats
       let avgAttendance = 0;
       try {
         const attendanceParams: any = {
           academicYear: viewingAcademicYear
         };
-        
+
         if (selectedClass !== 'ALL') {
           attendanceParams.class = selectedClass;
         }
         if (selectedSection !== 'ALL') {
           attendanceParams.section = selectedSection;
         }
-        
+
         console.log('📊 Fetching overall attendance stats:', attendanceParams);
         const attendanceResponse = await api.get('/attendance/stats', { params: attendanceParams });
         avgAttendance = attendanceResponse.data?.averageAttendance || 0;
@@ -460,21 +469,21 @@ const ReportsPage: React.FC = () => {
       } catch (error) {
         console.error('❌ Error fetching overall attendance:', error);
       }
-      
+
       // Fetch overall results/marks stats
       let avgMarks = 0;
       try {
         const resultsParams: any = {
           academicYear: viewingAcademicYear
         };
-        
+
         if (selectedClass !== 'ALL') {
           resultsParams.class = selectedClass;
         }
         if (selectedSection !== 'ALL') {
           resultsParams.section = selectedSection;
         }
-        
+
         console.log('📊 Fetching overall results stats:', resultsParams);
         const resultsResponse = await api.get('/results/stats', { params: resultsParams });
         avgMarks = resultsResponse.data?.averagePercentage || 0;
@@ -482,20 +491,20 @@ const ReportsPage: React.FC = () => {
       } catch (error) {
         console.error('❌ Error fetching overall results:', error);
       }
-      
+
       setSummary({
         totalStudents,
         avgAttendance,
         avgMarks,
         classWiseDues: []
       });
-      
+
       console.log('Updated summary state:', {
         totalStudents,
         avgAttendance,
         avgMarks
       });
-      
+
     } catch (err) {
       console.error('Error in fetchSchoolSummary:', err);
       setError('Failed to load school summary data. Please check the console for details.');
@@ -509,24 +518,24 @@ const ReportsPage: React.FC = () => {
   const fetchStudentsForClassSection = useCallback(async (className: string, section: string) => {
     // Include academic year in cache key to ensure fresh data when year changes
     const key = `${viewingAcademicYear}-${className}-${section}`;
-    
+
     // If already loaded, don't fetch again
     if (studentDetails.has(key)) {
       return;
     }
-    
+
     try {
       setLoadingStudents(prev => new Set(prev).add(key));
-      
+
       console.log(`🔍 Fetching students with stats for class ${extractString(className)}, section: ${extractString(section)}, academicYear: ${viewingAcademicYear}`);
-      
+
       // Use the backend API that returns students with their avgMarks and avgAttendance
       const response = await getStudentsByClassSection({
         className: extractString(className),
         section: extractString(section),
         academicYear: viewingAcademicYear
       });
-      
+
       if (response.success && response.students) {
         console.log(`✅ Fetched ${response.students.length} students with stats for ${className}-${section}`);
         setStudentDetails(prev => new Map(prev).set(key, response.students));
@@ -534,7 +543,7 @@ const ReportsPage: React.FC = () => {
         console.warn(`⚠️ No students found for ${className}-${section}`);
         setStudentDetails(prev => new Map(prev).set(key, []));
       }
-      
+
     } catch (error) {
       console.error(`❌ Error fetching students for ${className}-${section}:`, error);
       setStudentDetails(prev => new Map(prev).set(key, []));
@@ -547,11 +556,145 @@ const ReportsPage: React.FC = () => {
     }
   }, [studentDetails, viewingAcademicYear]);
 
+  const fetchClassTestsAndResults = useCallback(async (className: string, section: string) => {
+    try {
+      const schoolCode = localStorage.getItem('erp.schoolCode') || user?.schoolCode || '';
+      if (!schoolCode) return;
+
+      const [testsResp, resultsResp, subjectsResp] = await Promise.all([
+        api.get(`/admin/classes/${schoolCode}/tests`, {
+          params: { academicYear: viewingAcademicYear }
+        }),
+        api.get(`/results`, {
+          params: {
+            schoolCode,
+            class: className,
+            section,
+            academicYear: viewingAcademicYear
+          }
+        }),
+        api.get(`/class-subjects/class/${encodeURIComponent(className)}`, {
+          params: { academicYear: viewingAcademicYear, section }
+        })
+      ]);
+
+      if (testsResp.data.success) {
+        const testsForClass = (testsResp.data.data?.tests || []).filter(
+          (t: any) => String(t.className) === String(className)
+        );
+        setClassTests(testsForClass);
+      }
+
+      if (resultsResp.data.success) {
+        setClassResults(resultsResp.data.data || resultsResp.data.results || []);
+      }
+
+      if (subjectsResp.data.success && subjectsResp.data.data) {
+        const activeList = subjectsResp.data.data.subjects?.filter((s: any) => s.isActive !== false) || [];
+        const activeSubjects = activeList.map((s: any) => s.name || s.subjectName).filter(Boolean);
+        setClassSubjectsMap(prev => ({
+          ...prev,
+          [`${className}-${section}`]: activeSubjects
+        }));
+      }
+    } catch (err) {
+      console.error("Failed to load class tests or results:", err);
+    }
+  }, [viewingAcademicYear, user?.schoolCode]);
+
+  const cleanTestName = (name: string) => String(name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  const getDetailedTestCalculations = useCallback((studentId: string, className: string, section: string, dbId?: string) => {
+    const expectedSubjects = classSubjectsMap[`${className}-${section}`] || [];
+    const uniqueTestTypes = [...new Set(classTests.map(t => t.testName || t.displayName || t.name || t.testType).filter(Boolean))];
+
+    let overallComplete = true;
+    let finalWeightedPercent = 0;
+    let totalWeight = 0;
+
+    const testRows = uniqueTestTypes.map(testType => {
+      const testConfig = classTests.find(t => 
+        cleanTestName(t.testName || t.displayName || t.name || t.testType) === cleanTestName(testType)
+      );
+      const weightage = testConfig ? Number(testConfig.weightage || 0) : 0;
+
+      // Filter results for this student and test
+      const studentResults = classResults.filter((r: any) => 
+        (
+          (r.userId && String(r.userId) === String(studentId)) ||
+          (r.studentId && String(r.studentId) === String(studentId)) ||
+          (dbId && r.userId && String(r.userId) === String(dbId)) ||
+          (dbId && r.studentId && String(r.studentId) === String(dbId))
+        ) && 
+        cleanTestName(r.testType) === cleanTestName(testType)
+      );
+
+      // Verify that every expected subject has a result entry with obtainedMarks
+      let isTestComplete = expectedSubjects.length > 0;
+      let totalObtained = 0;
+      let totalMax = 0;
+      const subjectsBreakdown: string[] = [];
+
+      expectedSubjects.forEach(subjectName => {
+        const match = studentResults.find(r => r.subject === subjectName);
+        if (!match || match.obtainedMarks === null || match.obtainedMarks === undefined) {
+          isTestComplete = false;
+          subjectsBreakdown.push(`${subjectName}: Missing`);
+        } else {
+          totalObtained += Number(match.obtainedMarks);
+          totalMax += Number(match.maxMarks || match.totalMarks || testConfig?.maxMarks || 100);
+          subjectsBreakdown.push(`${subjectName}: ${match.obtainedMarks}/${match.maxMarks || match.totalMarks || testConfig?.maxMarks || 100}`);
+        }
+      });
+
+      if (expectedSubjects.length === 0) {
+        isTestComplete = false;
+      }
+
+      let testPercentage = 0;
+      let weightedContribution = 0;
+
+      if (isTestComplete) {
+        testPercentage = totalMax > 0 ? (totalObtained / totalMax) * 100 : 0;
+        weightedContribution = testPercentage * (weightage / 100);
+        finalWeightedPercent += weightedContribution;
+        totalWeight += weightage;
+      } else {
+        overallComplete = false;
+      }
+
+      return {
+        testName: testType,
+        isComplete: isTestComplete,
+        subjectsBreakdown,
+        totalObtained,
+        totalMax,
+        testPercentage,
+        weightage,
+        weightedContribution
+      };
+    });
+
+    return {
+      testRows,
+      overallComplete: overallComplete && totalWeight > 0,
+      finalWeightedPercent: overallComplete && totalWeight > 0 ? finalWeightedPercent : null
+    };
+  }, [classTests, classResults, classSubjectsMap]);
+
+  const calculateStudentFinalPercent = useCallback((studentId: string, studentAvgMarks: number, className: string, section: string, dbId?: string) => {
+    const calcs = getDetailedTestCalculations(studentId, className, section, dbId);
+    if (!calcs.overallComplete || calcs.finalWeightedPercent === null) {
+      return 'Pending / Incomplete';
+    }
+    return `${calcs.finalWeightedPercent.toFixed(1)}%`;
+  }, [getDetailedTestCalculations]);
+
   // Toggle row expansion
   const toggleRowExpansion = useCallback((className: string, section: string) => {
     // Use same key format as fetchStudentsForClassSection
     const key = `${viewingAcademicYear}-${className}-${section}`;
-    
+
     setExpandedRows(prev => {
       const newSet = new Set(prev);
       if (newSet.has(key)) {
@@ -560,19 +703,21 @@ const ReportsPage: React.FC = () => {
         newSet.add(key);
         // Fetch students when expanding
         fetchStudentsForClassSection(className, section);
+        // Fetch detailed tests and results
+        fetchClassTestsAndResults(className, section);
       }
       return newSet;
     });
-  }, [fetchStudentsForClassSection, viewingAcademicYear]);
+  }, [fetchStudentsForClassSection, fetchClassTestsAndResults, viewingAcademicYear]);
 
   // Export overview data to CSV with student details
   const handleExportOverview = useCallback(async () => {
     try {
       const csvRows: string[] = [];
-      
+
       // Add main headers
       csvRows.push('Class,Section,Students,Avg. Marks (%),Avg. Attendance (%)');
-      
+
       // Fetch student details for each class/section and add to CSV
       for (const classItem of classWiseCounts) {
         for (const section of classItem.sections) {
@@ -580,11 +725,11 @@ const ReportsPage: React.FC = () => {
           csvRows.push(
             `Class ${classItem.className},${section.name},${section.count},${section.avgMarks?.toFixed(1) || 'N/A'},${section.avgAttendance?.toFixed(1) || 'N/A'}`
           );
-          
+
           // Fetch student details if not already loaded
           const rowKey = `${viewingAcademicYear}-${classItem.className}-${section.name}`;
           let students = studentDetails.get(rowKey);
-          
+
           if (!students) {
             // Fetch student data with marks and attendance from backend API
             try {
@@ -593,7 +738,7 @@ const ReportsPage: React.FC = () => {
                 section: extractString(section.name),
                 academicYear: viewingAcademicYear
               });
-              
+
               if (response.success && response.students) {
                 students = response.students;
               } else {
@@ -604,12 +749,12 @@ const ReportsPage: React.FC = () => {
               students = [];
             }
           }
-          
+
           // Add student details header
           if (students && students.length > 0) {
             csvRows.push('Student Details');
             csvRows.push('Student Name,Avg. Marks (%),Avg. Attendance (%)');
-            
+
             // Add each student
             students.forEach(student => {
               csvRows.push(
@@ -617,14 +762,14 @@ const ReportsPage: React.FC = () => {
               );
             });
           }
-          
+
           // Add empty row for separation
           csvRows.push('');
         }
       }
-      
+
       const csvContent = csvRows.join('\n');
-      
+
       // Create and download file
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
@@ -651,7 +796,7 @@ const ReportsPage: React.FC = () => {
       fetchClassWiseCounts();
     }
   }, [activeTab, fetchDuesList, fetchSchoolSummary, fetchClassWiseCounts]);
-  
+
   // Clear cached student details when filters change
   useEffect(() => {
     console.log('🔄 Filters changed, clearing student details cache');
@@ -686,7 +831,7 @@ const ReportsPage: React.FC = () => {
         )}
         {activeTab === 'overview' && (
           <div className="flex gap-2">
-            <button 
+            <button
               onClick={handleExportOverview}
               className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 flex items-center whitespace-nowrap"
               disabled={classWiseCounts.length === 0}
@@ -694,7 +839,7 @@ const ReportsPage: React.FC = () => {
               <Download className="w-4 h-4 mr-2" />
               Export CSV
             </button>
-            <button 
+            <button
               onClick={fetchSchoolSummary}
               className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center whitespace-nowrap"
               disabled={summaryLoading}
@@ -726,21 +871,19 @@ const ReportsPage: React.FC = () => {
           <nav className="-mb-px flex space-x-8 px-6">
             <button
               onClick={() => setActiveTab('overview')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'overview'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'overview'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
             >
               Overview
             </button>
             <button
               onClick={() => setActiveTab('dues')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'dues'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'dues'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
             >
               Dues List
             </button>
@@ -763,18 +906,12 @@ const ReportsPage: React.FC = () => {
               {/* Academic Year Selection */}
               <div className="flex flex-col md:col-span-1">
                 <label htmlFor="year-select" className="text-sm font-medium text-gray-700 mb-2">Academic Year</label>
-                <select
-                  id="year-select"
-                  value={viewingAcademicYear}
-                  onChange={(e) => setViewingYear(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  {availableYears.map((year) => (
-                    <option key={year} value={year}>
-                      {year} {year === currentAcademicYear && '(Current)'}
-                    </option>
-                  ))}
-                </select>
+                <input
+                  type="text"
+                  value={`${currentAcademicYear} (Current)`}
+                  readOnly
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-100 text-gray-700 cursor-not-allowed"
+                />
               </div>
 
               <div className="md:col-span-2 lg:col-span-4">
@@ -836,7 +973,7 @@ const ReportsPage: React.FC = () => {
                 <div className="bg-white rounded-lg shadow p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">Avg. Marks</h3>
+                      <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">Avg. Percent</h3>
                       <p className="mt-2 text-3xl font-bold text-yellow-600">
                         {summaryLoading ? (
                           <span className="inline-block h-8 w-16 bg-gray-200 rounded animate-pulse"></span>
@@ -879,7 +1016,7 @@ const ReportsPage: React.FC = () => {
                             Students
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Avg. Marks
+                            Avg. Percent
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Avg. Attendance
@@ -895,10 +1032,10 @@ const ReportsPage: React.FC = () => {
                               const isExpanded = expandedRows.has(rowKey);
                               const students = studentDetails.get(rowKey) || [];
                               const isLoadingStudents = loadingStudents.has(rowKey);
-                              
+
                               return (
                                 <React.Fragment key={rowKey}>
-                                  <tr 
+                                  <tr
                                     className="hover:bg-gray-50 cursor-pointer transition-colors"
                                     onClick={() => toggleRowExpansion(classItem.className, section.name)}
                                   >
@@ -940,7 +1077,7 @@ const ReportsPage: React.FC = () => {
                                       </span>
                                     </td>
                                   </tr>
-                                  
+
                                   {/* Expanded row showing student details */}
                                   {isExpanded && (
                                     <tr>
@@ -951,43 +1088,123 @@ const ReportsPage: React.FC = () => {
                                             <span className="ml-3 text-gray-600">Loading students...</span>
                                           </div>
                                         ) : students.length > 0 ? (
-                                          <div className="space-y-2">
-                                            <h4 className="text-sm font-semibold text-gray-700 mb-3">Student Details</h4>
-                                            <table className="min-w-full divide-y divide-gray-200">
-                                              <thead className="bg-gray-100">
-                                                <tr>
-                                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                                                    Student Name
-                                                  </th>
-                                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                                                    Avg. Marks
-                                                  </th>
-                                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                                                    Avg. Attendance
-                                                  </th>
-                                                </tr>
-                                              </thead>
-                                              <tbody className="bg-white divide-y divide-gray-200">
-                                                {students.map((student) => (
-                                                  <tr key={student.studentId} className="hover:bg-gray-50">
-                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
-                                                      {student.studentName}
-                                                    </td>
-                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
-                                                      {student.avgMarks !== undefined && student.avgMarks !== null 
-                                                        ? `${Number(student.avgMarks).toFixed(1)}%` 
-                                                        : 'N/A'}
-                                                    </td>
-                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
-                                                      {student.avgAttendance !== undefined && student.avgAttendance !== null 
-                                                        ? `${Number(student.avgAttendance).toFixed(1)}%` 
-                                                        : 'N/A'}
-                                                    </td>
-                                                  </tr>
-                                                ))}
-                                              </tbody>
-                                            </table>
-                                          </div>
+                                           
+                                          <div className="space-y-4">
+                                             <h4 className="text-sm font-semibold text-gray-700 mb-3">Student Details</h4>
+                                             {students.map((student) => {
+                                               const isStudentExpanded = expandedStudents.has(student.studentId);
+                                               const uniqueTestTypes = [...new Set(classTests.map(t => t.testName || t.displayName || t.name || t.testType).filter(Boolean))];
+                                               
+                                               return (
+                                                 <div key={student.studentId} className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden mb-2">
+                                                   {/* Student Header / Trigger */}
+                                                   <div 
+                                                     className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
+                                                     onClick={() => {
+                                                       setExpandedStudents(prev => {
+                                                         const newSet = new Set(prev);
+                                                         if (newSet.has(student.studentId)) {
+                                                           newSet.delete(student.studentId);
+                                                          } else {
+                                                           newSet.add(student.studentId);
+                                                         }
+                                                         return newSet;
+                                                       });
+                                                     }}
+                                                   >
+                                                     <div>
+                                                       <div className="font-semibold text-gray-900 text-sm">{student.studentName}</div>
+                                                       <div className="text-xs text-gray-500 mt-1">Attendance: {student.avgAttendance > 0 ? `${student.avgAttendance.toFixed(1)}%` : 'N/A'}</div>
+                                                     </div>
+                                                     <div className="flex items-center space-x-4">
+                                                        <div className="text-right">
+                                                          <span className="text-[10px] text-gray-400 block uppercase font-bold tracking-wider">Final Percent</span>
+                                                          <span className={`text-sm font-extrabold ${student.avgMarks === null ? 'text-red-500 font-semibold' : 'text-blue-600'}`}>
+                                                            {calculateStudentFinalPercent(student.studentId, student.avgMarks, classItem.className, section.name, student.dbId)}
+                                                          </span>
+                                                        </div>
+                                                        {isStudentExpanded ? (
+                                                          <ChevronUp className="h-4 w-4 text-gray-500" />
+                                                        ) : (
+                                                          <ChevronDown className="h-4 w-4 text-gray-500" />
+                                                        )}
+                                                      </div>
+                                                    </div>
+
+                                                    {/* Student Collapsible Dropdown Content */}
+                                                    {isStudentExpanded && (() => {
+                                                      const calcs = getDetailedTestCalculations(student.studentId, classItem.className, section.name, student.dbId);
+                                                      return (
+                                                        <div className="p-4 bg-gray-50 border-t border-gray-150 overflow-x-auto">
+                                                          <table className="min-w-full divide-y divide-gray-200 text-sm">
+                                                            <thead>
+                                                              <tr>
+                                                                <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-100 border border-gray-200">
+                                                                  Test Name
+                                                                </th>
+                                                                <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-100 border border-gray-200">
+                                                                  Subjects Marks
+                                                                </th>
+                                                                <th className="px-4 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-100 border border-gray-200">
+                                                                  Total Obtained
+                                                                </th>
+                                                                <th className="px-4 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-100 border border-gray-200">
+                                                                  Max Marks
+                                                                </th>
+                                                                <th className="px-4 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-100 border border-gray-200">
+                                                                  Test Percentage
+                                                                </th>
+                                                                <th className="px-4 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-100 border border-gray-200">
+                                                                  Weightage (%)
+                                                                </th>
+                                                                <th className="px-4 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-100 border border-gray-200">
+                                                                  Weighted Contribution
+                                                                </th>
+                                                              </tr>
+                                                            </thead>
+                                                            <tbody className="divide-y divide-gray-150 bg-white">
+                                                              {calcs.testRows.map(row => (
+                                                                <tr key={row.testName}>
+                                                                  <td className="px-4 py-3 border border-gray-200 font-semibold text-gray-900 bg-white">
+                                                                    {row.testName}
+                                                                  </td>
+                                                                  <td className="px-4 py-3 border border-gray-200 text-gray-600 bg-white text-xs whitespace-pre-line leading-relaxed">
+                                                                    {row.subjectsBreakdown.join(', ')}
+                                                                  </td>
+                                                                  <td className="px-4 py-3 text-center border border-gray-200 font-semibold text-gray-900 bg-white">
+                                                                    {row.isComplete ? row.totalObtained : <span className="text-red-500 font-medium">Incomplete</span>}
+                                                                  </td>
+                                                                  <td className="px-4 py-3 text-center border border-gray-200 text-gray-500 bg-white">
+                                                                    {row.isComplete ? row.totalMax : <span className="text-red-500 font-medium">Incomplete</span>}
+                                                                  </td>
+                                                                  <td className="px-4 py-3 text-center border border-gray-200 font-bold text-gray-800 bg-white">
+                                                                    {row.isComplete ? `${row.testPercentage.toFixed(1)}%` : <span className="text-red-500 font-medium">Incomplete</span>}
+                                                                  </td>
+                                                                  <td className="px-4 py-3 text-center border border-gray-200 font-medium text-gray-600 bg-white">
+                                                                    {row.weightage}%
+                                                                  </td>
+                                                                  <td className="px-4 py-3 text-center border border-gray-200 font-bold text-blue-600 bg-white">
+                                                                    {row.isComplete ? row.weightedContribution.toFixed(1) : <span className="text-gray-400 italic">Pending</span>}
+                                                                  </td>
+                                                                </tr>
+                                                              ))}
+                                                              <tr className="bg-blue-50/50 font-bold">
+                                                                <td colSpan={6} className="px-4 py-3 border border-gray-200 text-right text-gray-700">
+                                                                  Final Overall Weighted Percentage:
+                                                                </td>
+                                                                <td className="px-4 py-3 text-center border border-gray-200 text-blue-700 text-lg">
+                                                                  {calcs.overallComplete ? `${calcs.finalWeightedPercent?.toFixed(1)}%` : 'Pending / Incomplete'}
+                                                                </td>
+                                                              </tr>
+                                                            </tbody>
+                                                          </table>
+                                                        </div>
+                                                      );
+                                                    })()}
+                                                 </div>
+                                               );
+                                             })}
+                                           </div>
                                         ) : (
                                           <div className="text-center py-4 text-gray-500">
                                             No student data available
@@ -1072,11 +1289,11 @@ const ReportsPage: React.FC = () => {
                       value={statusFilter}
                       onChange={(e) => setStatusFilter(e.target.value)}
                     >
-                      <option value="ALL">All Status</option>
-                      <option value="PENDING">Pending</option>
-                      <option value="PAID">Paid</option>
-                      <option value="OVERDUE">Overdue</option>
-                      <option value="PARTIAL">Partial</option>
+                      <option value="all">All Status</option>
+                      <option value="pending">Pending</option>
+                      <option value="paid">Paid</option>
+                      <option value="overdue">Overdue</option>
+                      <option value="partial">Partial</option>
                     </select>
                   </div>
                 </div>
@@ -1161,18 +1378,16 @@ const ReportsPage: React.FC = () => {
                       <button
                         onClick={() => setPagination({ ...pagination, page: Math.max(1, pagination.page - 1) })}
                         disabled={pagination.page === 1}
-                        className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
-                          pagination.page === 1 ? 'bg-gray-100 text-gray-400' : 'bg-white text-gray-700 hover:bg-gray-50'
-                        }`}
+                        className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${pagination.page === 1 ? 'bg-gray-100 text-gray-400' : 'bg-white text-gray-700 hover:bg-gray-50'
+                          }`}
                       >
                         Previous
                       </button>
                       <button
                         onClick={() => setPagination({ ...pagination, page: Math.min(pagination.pages, pagination.page + 1) })}
                         disabled={pagination.page >= pagination.pages}
-                        className={`ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
-                          pagination.page >= pagination.pages ? 'bg-gray-100 text-gray-400' : 'bg-white text-gray-700 hover:bg-gray-50'
-                        }`}
+                        className={`ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${pagination.page >= pagination.pages ? 'bg-gray-100 text-gray-400' : 'bg-white text-gray-700 hover:bg-gray-50'
+                          }`}
                       >
                         Next
                       </button>
@@ -1192,9 +1407,8 @@ const ReportsPage: React.FC = () => {
                           <button
                             onClick={() => setPagination({ ...pagination, page: Math.max(1, pagination.page - 1) })}
                             disabled={pagination.page === 1}
-                            className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium ${
-                              pagination.page === 1 ? 'text-gray-300' : 'text-gray-500 hover:bg-gray-50'
-                            }`}
+                            className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium ${pagination.page === 1 ? 'text-gray-300' : 'text-gray-500 hover:bg-gray-50'
+                              }`}
                           >
                             <span className="sr-only">Previous</span>
                             &larr;
@@ -1211,16 +1425,15 @@ const ReportsPage: React.FC = () => {
                             } else {
                               pageNum = pagination.page - 2 + i;
                             }
-                            
+
                             return (
                               <button
                                 key={pageNum}
                                 onClick={() => setPagination({ ...pagination, page: pageNum })}
-                                className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                                  pagination.page === pageNum
-                                    ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
-                                    : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                                }`}
+                                className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${pagination.page === pageNum
+                                  ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
+                                  : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                                  }`}
                               >
                                 {pageNum}
                               </button>
@@ -1229,9 +1442,8 @@ const ReportsPage: React.FC = () => {
                           <button
                             onClick={() => setPagination({ ...pagination, page: Math.min(pagination.pages, pagination.page + 1) })}
                             disabled={pagination.page >= pagination.pages}
-                            className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium ${
-                              pagination.page >= pagination.pages ? 'text-gray-300' : 'text-gray-500 hover:bg-gray-50'
-                            }`}
+                            className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium ${pagination.page >= pagination.pages ? 'text-gray-300' : 'text-gray-500 hover:bg-gray-50'
+                              }`}
                           >
                             <span className="sr-only">Next</span>
                             &rarr;

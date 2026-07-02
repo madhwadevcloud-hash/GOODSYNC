@@ -607,7 +607,6 @@ userSchema.index({
   'studentDetails.academic.currentClass': 1,
   'studentDetails.academic.currentSection': 1
 });
-userSchema.index({ 'studentDetails.studentId': 1 }, { sparse: true });
 userSchema.index({ 'studentDetails.admissionNumber': 1 }, { sparse: true });
 userSchema.index({ schoolId: 1, role: 1 });
 

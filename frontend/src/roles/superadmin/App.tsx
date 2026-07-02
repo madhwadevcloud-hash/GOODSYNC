@@ -11,6 +11,8 @@ import SchoolEditDetails from './components/SchoolEditDetails';
 import { SchoolLogin } from '../../pages/SchoolLogin';
 import { ChangePasswordDialog } from './components/ChangePasswordDialog';
 import { useAuth } from '../../auth/AuthContext';
+import { SuperAdminPromotionTab } from './components/PromotionTab';
+import { TrendingUp } from 'lucide-react';
 
 function AppContent() {
   console.log('[AppContent] Rendering AppContent');
@@ -41,6 +43,21 @@ function AppContent() {
         return <SchoolDetails />;
       case 'edit-school':
         return <SchoolEditDetails />;
+      case 'promotion':
+        return (
+          <div className="p-6">
+            <div className="flex items-center space-x-3 mb-6">
+              <div className="bg-blue-100 p-3 rounded-xl">
+                <TrendingUp className="h-6 w-6 text-blue-600" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold font-semibold text-gray-900">Student Promotion Management</h1>
+                <p className="text-sm text-gray-500">Global dashboard for managing student promotions across all registered schools.</p>
+              </div>
+            </div>
+            <SuperAdminPromotionTab />
+          </div>
+        );
       case 'school-login':
         return (
           <SchoolLogin 

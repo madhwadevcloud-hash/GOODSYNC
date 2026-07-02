@@ -287,10 +287,20 @@ const calculateGrade = (percentage, gradingSystem) => {
 };
 
 // Simpler CBSE/ICSE style grading used in some endpoints
-const calculateSimpleGrade = (obtainedMarks, totalMarks) => {
+const calculateSimpleGrade = (obtainedMarks, totalMarks, gradingSystem = null) => {
   if (obtainedMarks === null || obtainedMarks === undefined || !totalMarks || totalMarks === 0) return null;
 
   const percentage = (obtainedMarks / totalMarks) * 100;
+
+  if (gradingSystem && Array.isArray(gradingSystem) && gradingSystem.length > 0) {
+    for (const range of gradingSystem) {
+      const min = Number(range.minPercentage);
+      const max = Number(range.maxPercentage);
+      if (percentage >= min && percentage <= max) {
+        return range.grade;
+      }
+    }
+  }
 
   if (percentage >= 91) return 'A1';
   if (percentage >= 81) return 'A2';
@@ -546,18 +556,16 @@ exports.saveResults = async (req, res) => {
       class: className,
       section,
       testType,
-      subject,
-      maxMarks,
       academicYear,
       results
     } = req.body;
 
-    console.log('💾 Saving results:', { schoolCode, className, section, testType, subject, maxMarks, academicYear, resultsCount: results?.length });
+    console.log('💾 Saving results:', { schoolCode, className, section, testType, academicYear, resultsCount: results?.length });
 
-    if (!schoolCode || !className || !section || !testType || !subject || !results || !Array.isArray(results)) {
+    if (!schoolCode || !className || !section || !testType || !results || !Array.isArray(results)) {
       return res.status(400).json({
         success: false,
-        message: 'Missing required fields: schoolCode, class, section, testType, subject, and results array'
+        message: 'Missing required fields: schoolCode, class, section, testType, and results array'
       });
     }
 
@@ -571,6 +579,36 @@ exports.saveResults = async (req, res) => {
     const DatabaseManager = require('../utils/databaseManager');
     const schoolConn = await DatabaseManager.getSchoolConnection(schoolCode);
     const resultsCollection = schoolConn.collection('results');
+    const testsCollection = schoolConn.collection('testdetails');
+
+    // Fetch the test details to retrieve configured maxMarks
+    const testDetail = await testsCollection.findOne({
+      className,
+      isActive: true,
+      $or: [
+        { name: testType },
+        { testName: testType }
+      ]
+    });
+    const configuredMaxMarks = testDetail ? Number(testDetail.maxMarks || 100) : 100;
+
+    // Fetch grading scale for active academic year
+    const gradingScalesCollection = schoolConn.collection('gradingscales');
+    const normalizeAcademicYear = (year) => {
+      if (!year) return null;
+      const yearStr = String(year).trim();
+      const match = yearStr.match(/^(\d{4})-(\d{2})$/);
+      if (match) return `${match[1]}-20${match[2]}`;
+      return yearStr;
+    };
+    const activeYearForGrading = academicYear || getDynamicAcademicYear();
+    const gradingScale = await gradingScalesCollection.findOne({
+      $or: [
+        { academicYear: activeYearForGrading },
+        { academicYear: activeYearForGrading ? normalizeAcademicYear(activeYearForGrading) : null }
+      ].filter(Boolean)
+    });
+    const gradingSystemRules = gradingScale ? gradingScale.scales : null;
 
     const savedResults = [];
     const errors = [];
@@ -578,9 +616,7 @@ exports.saveResults = async (req, res) => {
     for (const result of results) {
       try {
         const studentId = result.studentId;
-        const obtainedMarks = result.obtainedMarks !== null && result.obtainedMarks !== undefined
-          ? parseInt(result.obtainedMarks)
-          : null;
+        const subjectMarks = result.subjectMarks || {};
 
         const existingResult = await resultsCollection.findOne({
           schoolCode: schoolCode.toUpperCase(),
@@ -593,61 +629,67 @@ exports.saveResults = async (req, res) => {
         const now = new Date();
 
         if (existingResult) {
-          // Update existing document - add or update the subject entry
-          const subjectIndex = existingResult.subjects?.findIndex(
-            s => s.subjectName === subject && s.testType === testType
-          );
-
-          if (subjectIndex >= 0 && existingResult.subjects[subjectIndex].frozen) {
-            errors.push({
-              studentId: result.studentId,
-              studentName: result.studentName,
-              error: 'Results are frozen and cannot be modified'
-            });
-            continue; // Skip this student
-          }
-
           let updatedSubjects = existingResult.subjects || [];
 
-          const totalMarksValue = parseInt(result.totalMarks || maxMarks);
-          const calculatedGrade = calculateSimpleGrade(obtainedMarks, totalMarksValue);
-          const calculatedPercentage = obtainedMarks !== null && totalMarksValue > 0
-            ? Math.round((obtainedMarks / totalMarksValue) * 100 * 100) / 100
-            : null;
+          for (const [subjectName, obtainedMarksVal] of Object.entries(subjectMarks)) {
+            const obtainedMarks = obtainedMarksVal !== null && obtainedMarksVal !== undefined && obtainedMarksVal !== ''
+              ? parseInt(obtainedMarksVal)
+              : null;
 
-          if (subjectIndex >= 0) {
-            updatedSubjects[subjectIndex] = {
-              subjectName: subject,
-              testType,
-              maxMarks: parseInt(maxMarks),
-              obtainedMarks,
-              totalMarks: totalMarksValue,
-              grade: calculatedGrade,
-              percentage: calculatedPercentage,
-              updatedAt: now,
-              frozen: existingResult.subjects[subjectIndex].frozen || false,
-              frozenAt: existingResult.subjects[subjectIndex].frozenAt || null,
-              frozenBy: existingResult.subjects[subjectIndex].frozenBy || null
-            };
-          } else {
-            updatedSubjects.push({
-              subjectName: subject,
-              testType,
-              maxMarks: parseInt(maxMarks),
-              obtainedMarks,
-              totalMarks: totalMarksValue,
-              grade: calculatedGrade,
-              percentage: calculatedPercentage,
-              createdAt: now,
-              updatedAt: now
-            });
+            const subjectIndex = updatedSubjects.findIndex(
+              s => s.subjectName === subjectName && s.testType === testType
+            );
+
+            if (subjectIndex >= 0 && updatedSubjects[subjectIndex].frozen) {
+              continue;
+            }
+
+            const calculatedGrade = calculateSimpleGrade(obtainedMarks, configuredMaxMarks, gradingSystemRules);
+            const calculatedPercentage = obtainedMarks !== null && configuredMaxMarks > 0
+              ? Math.round((obtainedMarks / configuredMaxMarks) * 100 * 100) / 100
+              : null;
+
+            if (subjectIndex >= 0) {
+              updatedSubjects[subjectIndex] = {
+                ...updatedSubjects[subjectIndex],
+                maxMarks: configuredMaxMarks,
+                obtainedMarks,
+                totalMarks: configuredMaxMarks,
+                grade: calculatedGrade,
+                percentage: calculatedPercentage,
+                updatedAt: now
+              };
+            } else {
+              updatedSubjects.push({
+                subjectName,
+                testType,
+                maxMarks: configuredMaxMarks,
+                obtainedMarks,
+                totalMarks: configuredMaxMarks,
+                grade: calculatedGrade,
+                percentage: calculatedPercentage,
+                createdAt: now,
+                updatedAt: now
+              });
+            }
           }
+
+          // Compute overall doc totals
+          const validSubjects = updatedSubjects.filter(s => typeof s.obtainedMarks === 'number');
+          const overallObtained = validSubjects.reduce((sum, s) => sum + s.obtainedMarks, 0);
+          const overallMax = validSubjects.reduce((sum, s) => sum + s.maxMarks, 0);
+          const overallPercentage = overallMax > 0 ? (overallObtained / overallMax) * 100 : 0;
+          const overallGrade = calculateSimpleGrade(overallObtained, overallMax, gradingSystemRules);
 
           await resultsCollection.updateOne(
             { _id: existingResult._id },
             {
               $set: {
                 subjects: updatedSubjects,
+                totalMarks: overallObtained,
+                maxMarks: overallMax,
+                percentage: overallPercentage,
+                grade: overallGrade,
                 updatedAt: now,
                 updatedBy: req.user?._id || null
               }
@@ -662,16 +704,34 @@ exports.saveResults = async (req, res) => {
           });
         } else {
           // Create new result document
-          const totalMarksValue = parseInt(result.totalMarks || maxMarks);
-          const calculatedGrade = calculateSimpleGrade(obtainedMarks, totalMarksValue);
-          const calculatedPercentage = obtainedMarks !== null && totalMarksValue > 0
-            ? Math.round((obtainedMarks / totalMarksValue) * 100 * 100) / 100
-            : null;
+          const subjectsArray = [];
+          for (const [subjectName, obtainedMarksVal] of Object.entries(subjectMarks)) {
+            const obtainedMarks = obtainedMarksVal !== null && obtainedMarksVal !== undefined && obtainedMarksVal !== ''
+              ? parseInt(obtainedMarksVal)
+              : null;
 
-          // Ensure academic year is provided
-          if (!academicYear) {
-            throw new Error('Academic year is required but not provided');
+            const calculatedGrade = calculateSimpleGrade(obtainedMarks, configuredMaxMarks, gradingSystemRules);
+            const calculatedPercentage = obtainedMarks !== null && configuredMaxMarks > 0
+              ? Math.round((obtainedMarks / configuredMaxMarks) * 100 * 100) / 100
+              : null;
+
+            subjectsArray.push({
+              subjectName,
+              testType,
+              maxMarks: configuredMaxMarks,
+              obtainedMarks,
+              totalMarks: configuredMaxMarks,
+              grade: calculatedGrade,
+              percentage: calculatedPercentage,
+              createdAt: now,
+              updatedAt: now
+            });
           }
+
+          const overallObtained = subjectsArray.filter(s => typeof s.obtainedMarks === 'number').reduce((sum, s) => sum + s.obtainedMarks, 0);
+          const overallMax = subjectsArray.filter(s => typeof s.obtainedMarks === 'number').reduce((sum, s) => sum + s.maxMarks, 0);
+          const overallPercentage = overallMax > 0 ? (overallObtained / overallMax) * 100 : 0;
+          const overallGrade = calculateSimpleGrade(overallObtained, overallMax, gradingSystemRules);
 
           const newResult = {
             schoolCode: schoolCode.toUpperCase(),
@@ -681,17 +741,11 @@ exports.saveResults = async (req, res) => {
             studentId,
             studentName: result.studentName,
             userId: result.userId,
-            subjects: [{
-              subjectName: subject,
-              testType,
-              maxMarks: parseInt(maxMarks),
-              obtainedMarks,
-              totalMarks: totalMarksValue,
-              grade: calculatedGrade,
-              percentage: calculatedPercentage,
-              createdAt: now,
-              updatedAt: now
-            }],
+            subjects: subjectsArray,
+            totalMarks: overallObtained,
+            maxMarks: overallMax,
+            percentage: overallPercentage,
+            grade: overallGrade,
             createdAt: now,
             updatedAt: now,
             createdBy: req.user?._id || null
@@ -710,7 +764,6 @@ exports.saveResults = async (req, res) => {
         console.error(`Error saving result for student ${result.studentId}:`, err);
         errors.push({
           studentId: result.studentId,
-          studentName: result.studentName,
           error: err.message
         });
       }
@@ -729,7 +782,6 @@ exports.saveResults = async (req, res) => {
         className,
         section,
         testType,
-        subject,
         savedCount: savedResults.length,
         results: savedResults,
         errors: errors.length > 0 ? errors : undefined
@@ -1226,9 +1278,7 @@ exports.updateResult = async (req, res) => {
   }
 };
 
-// ---------------------------------------------------------
-// Freeze results for a class/section/subject/testType
-// ---------------------------------------------------------
+
 exports.freezeResults = async (req, res) => {
   try {
     const {
@@ -1242,10 +1292,10 @@ exports.freezeResults = async (req, res) => {
 
     console.log('🔒 Freezing results:', { schoolCode, className, section, subject, testType, academicYear });
 
-    if (!schoolCode || !className || !section || !subject || !testType) {
+    if (!schoolCode || !className || !section || !testType) {
       return res.status(400).json({
         success: false,
-        message: 'Missing required fields: schoolCode, class, section, subject, and testType'
+        message: 'Missing required fields: schoolCode, class, section, and testType'
       });
     }
 
@@ -1262,29 +1312,40 @@ exports.freezeResults = async (req, res) => {
 
     const now = new Date();
 
+    const filter = {
+      schoolCode: schoolCode.toUpperCase(),
+      className,
+      section,
+      academicYear: academicYear,
+      'subjects.testType': testType
+    };
+    if (subject) {
+      filter['subjects.subjectName'] = subject;
+    }
+
+    const updateQuery = {
+      $set: {
+        'subjects.$[elem].frozen': true,
+        'subjects.$[elem].frozenAt': now,
+        'subjects.$[elem].frozenBy': req.user?._id || null,
+        updatedAt: now
+      }
+    };
+
+    const arrayFilters = [{ 'elem.testType': testType }];
+    if (subject) {
+      arrayFilters[0]['elem.subjectName'] = subject;
+    }
+
     const updateResult = await resultsCollection.updateMany(
+      filter,
+      updateQuery,
       {
-        schoolCode: schoolCode.toUpperCase(),
-        className,
-        section,
-        academicYear: academicYear,
-        'subjects.subjectName': subject,
-        'subjects.testType': testType
-      },
-      {
-        $set: {
-          'subjects.$[elem].frozen': true,
-          'subjects.$[elem].frozenAt': now,
-          'subjects.$[elem].frozenBy': req.user?._id || null,
-          updatedAt: now
-        }
-      },
-      {
-        arrayFilters: [{ 'elem.subjectName': subject, 'elem.testType': testType }]
+        arrayFilters
       }
     );
 
-    console.log(`✅ Frozen ${updateResult.modifiedCount} results for ${className}-${section}, ${subject} (${testType})`);
+    console.log(`✅ Frozen ${updateResult.modifiedCount} results for ${className}-${section} (${testType})`);
 
     res.json({
       success: true,
@@ -1382,6 +1443,17 @@ exports.getResultsForTeacher = async (req, res) => {
         console.log(`🔍 [👨‍🏫 TEACHER] Using error fallback academic year: ${yearToFilter}`);
       }
     }
+
+    // Fetch grading scale for active academic year
+    const gradingScalesCollection = schoolConn.collection('gradingscales');
+    const activeYearForGrading = yearToFilter || (academicYear ? normalizeAcademicYear(academicYear) : null);
+    const gradingScale = activeYearForGrading ? await gradingScalesCollection.findOne({
+      $or: [
+        { academicYear: activeYearForGrading },
+        { academicYear: activeYearForGrading ? normalizeAcademicYear(activeYearForGrading) : null }
+      ].filter(Boolean)
+    }) : null;
+    const gradingSystemRules = gradingScale ? gradingScale.scales : null;
 
     const query = {
       schoolCode: schoolCode.toUpperCase(),
@@ -1484,7 +1556,8 @@ exports.getResultsForTeacher = async (req, res) => {
             percentage: matchingSubject.obtainedMarks !== null && matchingSubject.obtainedMarks !== undefined ? matchingSubject.percentage : null,
             grade: matchingSubject.grade || calculateSimpleGrade(
               matchingSubject.obtainedMarks,
-              matchingSubject.maxMarks || matchingSubject.totalMarks || 100
+              matchingSubject.maxMarks || matchingSubject.totalMarks || 100,
+              gradingSystemRules
             ),
             frozen: matchingSubject.frozen || false,
             createdAt: doc.createdAt || doc.updatedAt || new Date(),

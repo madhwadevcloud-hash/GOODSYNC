@@ -16,7 +16,7 @@ interface Installment {
 const FeeStructureTab: React.FC = () => {
   const { user } = useAuth();
   const { currentAcademicYear, availableYears, loading: academicYearLoading } = useAcademicYear();
-  
+
   // Form state
   const [selectedClass, setSelectedClass] = useState('ALL');
   const [selectedSection, setSelectedSection] = useState('ALL');
@@ -36,7 +36,7 @@ const FeeStructureTab: React.FC = () => {
   const [cleanHundredsMode, setCleanHundredsMode] = useState<boolean>(true);
   const [applyToStudents, setApplyToStudents] = useState(false);
   const [existingStructures, setExistingStructures] = useState<any[]>([]);
-  
+
   // UI state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -79,6 +79,11 @@ const FeeStructureTab: React.FC = () => {
     };
     fetchStructures();
   }, [selectedClass, selectedSection]);
+
+  // Automatically toggle applyToStudents only when All Classes is selected
+  React.useEffect(() => {
+    setApplyToStudents(selectedClass === 'ALL');
+  }, [selectedClass]);
 
   // Add installment
   const handleAddInstallment = () => {
@@ -147,7 +152,7 @@ const FeeStructureTab: React.FC = () => {
   const handleSaveStructure = async () => {
     setError(null);
     setSuccess(null);
-    
+
     if (!name || !totalAmount || installments.some(inst => !inst.name || !inst.amount || !inst.dueDate)) {
       setError('Please fill all required fields');
       return;
@@ -162,7 +167,7 @@ const FeeStructureTab: React.FC = () => {
     const duplicateStructure = existingStructures.find(
       s => s.class === selectedClass && s.academicYear === academicYear
     );
-    
+
     if (duplicateStructure) {
       setError(
         `A fee structure "${duplicateStructure.name}" already exists for class ${selectedClass} in academic year ${academicYear}. Please delete it first or choose a different class.`
@@ -199,8 +204,8 @@ const FeeStructureTab: React.FC = () => {
       try {
         const list = await feesAPI.getFeeStructures({});
         if (list.data?.success) setExistingStructures(list.data.data || []);
-      } catch {}
-      
+      } catch { }
+
       // Reset form
       setName('');
       setDescription('');
@@ -214,7 +219,7 @@ const FeeStructureTab: React.FC = () => {
         description: ''
       }]);
       setApplyToStudents(false);
-      
+
     } catch (error: any) {
       setError(error?.response?.data?.message || 'Failed to save fee structure');
     } finally {
@@ -235,22 +240,22 @@ const FeeStructureTab: React.FC = () => {
   // Delete fee structure
   const handleDeleteStructure = async () => {
     const { id, name } = deleteConfirmModal;
-    
+
     try {
       setDeletingId(id);
       setError(null);
       setSuccess(null);
       closeDeleteConfirmation();
-      
+
       const response = await feesAPI.deleteFeeStructure(id);
-      
+
       const deletedCount = response.data?.deletedStudentRecords || 0;
       setSuccess(
         deletedCount > 0
           ? `Fee structure deleted successfully. Removed from ${deletedCount} student(s).`
           : 'Fee structure deleted successfully.'
       );
-      
+
       // Refresh the list
       const res = await feesAPI.getFeeStructures({
         class: selectedClass,
@@ -330,18 +335,12 @@ const FeeStructureTab: React.FC = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Academic Year *
               </label>
-              <select
-                value={academicYear}
-                onChange={(e) => setAcademicYear(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                disabled={academicYearLoading}
-              >
-                {availableYears.map((year) => (
-                  <option key={year} value={year}>
-                    {year} {year === currentAcademicYear && '(Current)'}
-                  </option>
-                ))}
-              </select>
+              <input
+                type="text"
+                value={`${currentAcademicYear} (Current)`}
+                readOnly
+                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-700 cursor-not-allowed"
+              />
             </div>
           </div>
 
@@ -359,10 +358,10 @@ const FeeStructureTab: React.FC = () => {
                 pattern="[0-9]*"
                 onKeyDown={(e) => {
                   const allowedKeys = [
-                    'Backspace','Delete','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Tab','Home','End'
+                    'Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Tab', 'Home', 'End'
                   ];
                   if (allowedKeys.includes(e.key)) return;
-                  if ((e.ctrlKey || e.metaKey) && ['a','c','v','x'].includes(e.key.toLowerCase())) return;
+                  if ((e.ctrlKey || e.metaKey) && ['a', 'c', 'v', 'x'].includes(e.key.toLowerCase())) return;
                   if (!/^[0-9]$/.test(e.key)) {
                     e.preventDefault();
                   }
@@ -419,7 +418,7 @@ const FeeStructureTab: React.FC = () => {
                         </button>
                       )}
                     </div>
-                    
+
                     <div className="grid grid-cols-2 gap-2">
                       <input
                         type="text"
@@ -481,9 +480,8 @@ const FeeStructureTab: React.FC = () => {
             <button
               onClick={handleSaveStructure}
               disabled={loading}
-              className={`w-full flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${
-                loading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
-              } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
+              className={`w-full flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${loading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+                } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
             >
               {loading ? (
                 'Saving...'
@@ -510,7 +508,7 @@ const FeeStructureTab: React.FC = () => {
                 <tr>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Class</th>
-                  
+
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Installments</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Applied</th>
@@ -523,7 +521,7 @@ const FeeStructureTab: React.FC = () => {
                   <tr key={s.id}>
                     <td className="px-4 py-2 text-sm text-gray-900">{s.name}</td>
                     <td className="px-4 py-2 text-sm text-gray-900">{s.class}</td>
-                    
+
                     <td className="px-4 py-2 text-sm text-gray-900">₹{(s.totalAmount || 0).toLocaleString()}</td>
                     <td className="px-4 py-2 text-sm text-gray-900">{s.installmentsCount}</td>
                     <td className="px-4 py-2 text-sm text-gray-900">{s.appliedToStudents || 0}</td>
@@ -532,9 +530,8 @@ const FeeStructureTab: React.FC = () => {
                       <button
                         onClick={() => openDeleteConfirmation(s.id, s.name)}
                         disabled={deletingId === s.id}
-                        className={`text-red-600 hover:text-red-900 inline-flex items-center ${
-                          deletingId === s.id ? 'opacity-50 cursor-not-allowed' : ''
-                        }`}
+                        className={`text-red-600 hover:text-red-900 inline-flex items-center ${deletingId === s.id ? 'opacity-50 cursor-not-allowed' : ''
+                          }`}
                         title="Delete fee structure"
                       >
                         <Trash2 className="h-4 w-4 mr-1" />
@@ -561,14 +558,14 @@ const FeeStructureTab: React.FC = () => {
                 <h3 className="text-lg font-semibold text-gray-900">Delete Fee Structure</h3>
               </div>
             </div>
-            
+
             <div className="mb-6">
               <p className="text-sm text-gray-600">
                 Are you sure you want to delete the fee structure{' '}
                 <span className="font-semibold text-gray-900">"{deleteConfirmModal.name}"</span>?
               </p>
             </div>
-            
+
             <div className="flex justify-end space-x-3">
               <button
                 onClick={closeDeleteConfirmation}

@@ -508,6 +508,7 @@ const AcademicNavigation: React.FC = () => {
                     className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
                   >
                     <option value="">Select class...</option>
+                    <option value="ALL">All Classes</option>
                     <option value="LKG">LKG</option>
                     <option value="UKG">UKG</option>
                     {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(num => (

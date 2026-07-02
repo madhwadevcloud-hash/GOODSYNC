@@ -263,6 +263,16 @@ const ViewAssignments: React.FC = () => {
     return date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
+  const canEditAssignment = (dueDate: string) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const due = new Date(dueDate);
+  due.setHours(0, 0, 0, 0);
+
+  return today <= due;
+};
+
   return (
     <div className="space-y-6">
       {/* Filters */}
@@ -387,14 +397,16 @@ const ViewAssignments: React.FC = () => {
                         <Eye className="h-3.5 w-3.5" />
                         View
                       </button>
-                      <button
-                        onClick={() => handleEdit(assignment)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg font-semibold text-xs hover:bg-blue-600 hover:text-white transition-all shadow-sm"
-                        title="Edit"
-                      >
-                        <Edit className="h-3.5 w-3.5" />
-                        Edit
-                      </button>
+                      {canEditAssignment(assignment.dueDate) && (
+  <button
+    onClick={() => handleEdit(assignment)}
+    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg font-semibold text-xs hover:bg-blue-600 hover:text-white transition-all shadow-sm"
+    title="Edit"
+  >
+    <Edit className="h-3.5 w-3.5" />
+    Edit
+  </button>
+)}
                       <button
                         onClick={() => handleDelete(assignment._id)}
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-700 rounded-lg font-semibold text-xs hover:bg-red-600 hover:text-white transition-all shadow-sm"

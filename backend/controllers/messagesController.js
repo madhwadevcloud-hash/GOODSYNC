@@ -16,12 +16,21 @@ exports.sendMessage = async (req, res) => {
     }
     
     // Validate required fields according to new schema
-    let { title, subject, message, class: targetClass, section: targetSection, academicYear } = req.body;
-    
-    if (!title || !subject || !message || !targetClass || !targetSection) {
+    let { title, subject, message, class: targetClass, section: targetSection, sections: targetSections, academicYear } = req.body;
+
+    // Support both legacy single `section` and new multi-select `sections` array
+    // Normalise into an array
+    let sectionsArray = [];
+    if (Array.isArray(targetSections) && targetSections.length > 0) {
+      sectionsArray = targetSections;
+    } else if (targetSection) {
+      sectionsArray = [targetSection];
+    }
+
+    if (!title || !subject || !message || !targetClass || sectionsArray.length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'Title, subject, message, class, and section are required'
+        message: 'Title, subject, message, class, and at least one section are required'
       });
     }
 
@@ -69,154 +78,129 @@ exports.sendMessage = async (req, res) => {
       console.log(`📅 Academic year provided in request: ${academicYear}`);
     }
     
+    // Separate teacher flag from student sections
+    const includeTeachers = sectionsArray.includes('teacher');
+    const studentSections = sectionsArray.filter(s => s !== 'teacher');
+
     // Build student query to handle all possible data structures:
-    // 1. class/section at root level (populateSchoolP.js)
-    // 2. studentDetails.academic.currentClass/currentSection (quickPopulate.js)
-    // 3. studentDetails.currentClass/currentSection (Excel import)
-    const studentQuery = { 
-      role: 'student',
-      _placeholder: { $ne: true } // Exclude placeholder documents
-    };
-    
-    // Build $or query to check all possible locations (case-insensitive)
-    const classConditions = [];
-    if (targetClass && targetClass !== 'ALL') {
-      // Use regex for case-insensitive matching
+    // 1. class/section at root level
+    // 2. studentDetails.academic.currentClass/currentSection
+    // 3. studentDetails.currentClass/currentSection
+    const studentsCollection = db.collection('students');
+    let students = [];
+
+    if (studentSections.length > 0) {
       const classRegex = new RegExp(`^${targetClass}$`, 'i');
-      classConditions.push(
+      const classConditions = [
         { class: classRegex },
         { 'studentDetails.academic.currentClass': classRegex },
         { 'studentDetails.currentClass': classRegex }
-      );
-    }
-    
-    const sectionConditions = [];
-    if (targetSection && targetSection !== 'ALL') {
-      // Use regex for case-insensitive matching
-      const sectionRegex = new RegExp(`^${targetSection}$`, 'i');
-      sectionConditions.push(
-        { section: sectionRegex },
-        { 'studentDetails.academic.currentSection': sectionRegex },
-        { 'studentDetails.currentSection': sectionRegex }
-      );
-    }
-    
-    // Combine conditions
-    if (classConditions.length > 0 && sectionConditions.length > 0) {
-      studentQuery.$and = [
-        { $or: classConditions },
-        { $or: sectionConditions }
       ];
-    } else if (classConditions.length > 0) {
-      studentQuery.$or = classConditions;
-    } else if (sectionConditions.length > 0) {
-      studentQuery.$or = sectionConditions;
-    }
-    
-    console.log('🔍 Student query:', JSON.stringify(studentQuery, null, 2));
-    
-    // Find matching students
-    const studentsCollection = db.collection('students');
-    const students = await studentsCollection.find(studentQuery).toArray();
-    
-    console.log(`👥 Found ${students.length} students matching criteria`);
-    
-    // Log sample student structure for debugging
-    if (students.length > 0) {
-      console.log('🔍 Sample student structure:', {
-        class: students[0].class,
-        section: students[0].section,
-        academicClass: students[0].studentDetails?.academic?.currentClass,
-        academicSection: students[0].studentDetails?.academic?.currentSection,
-        currentClass: students[0].studentDetails?.currentClass,
-        currentSection: students[0].studentDetails?.currentSection
+
+      // Build section conditions for all selected sections
+      const sectionOrConditions = studentSections.flatMap(sec => {
+        const secRegex = new RegExp(`^${sec}$`, 'i');
+        return [
+          { section: secRegex },
+          { 'studentDetails.academic.currentSection': secRegex },
+          { 'studentDetails.currentSection': secRegex }
+        ];
       });
-    } else {
-      // Debug: Check total students in collection
-      const totalStudents = await studentsCollection.countDocuments({ role: 'student' });
-      console.log(`⚠️ No students found. Total students in collection: ${totalStudents}`);
-      
-      // Debug: Get sample student to see structure
-      const sampleStudent = await studentsCollection.findOne({ role: 'student' });
-      if (sampleStudent) {
-        console.log('🔍 Sample student structure from DB:', {
-          class: sampleStudent.class,
-          section: sampleStudent.section,
-          academicClass: sampleStudent.studentDetails?.academic?.currentClass,
-          academicSection: sampleStudent.studentDetails?.academic?.currentSection,
-          currentClass: sampleStudent.studentDetails?.currentClass,
-          currentSection: sampleStudent.studentDetails?.currentSection,
-          userId: sampleStudent.userId
-        });
-      }
+
+      const studentQuery = {
+        role: 'student',
+        _placeholder: { $ne: true },
+        $and: [
+          { $or: classConditions },
+          { $or: sectionOrConditions }
+        ]
+      };
+
+      console.log('🔍 Student query:', JSON.stringify(studentQuery, null, 2));
+      students = await studentsCollection.find(studentQuery).toArray();
+      console.log(`👥 Found ${students.length} students matching criteria`);
     }
-    
-    if (students.length === 0) {
+
+    // Find teachers if requested
+    let teachers = [];
+    if (includeTeachers) {
+      const teacherQuery = {
+        role: 'teacher',
+        _placeholder: { $ne: true }
+      };
+      const teachersCollection = db.collection('teachers');
+      try {
+        teachers = await teachersCollection.find(teacherQuery).toArray();
+      } catch (e) {
+        // Fallback: teachers may be in users/students collection
+        teachers = await studentsCollection.find({ role: 'teacher', _placeholder: { $ne: true } }).toArray();
+      }
+      console.log(`👩‍🏫 Found ${teachers.length} teachers`);
+    }
+
+    const totalRecipients = students.length + teachers.length;
+    if (totalRecipients === 0) {
       return res.status(400).json({
         success: false,
-        message: 'No students found matching the selected criteria'
+        message: 'No recipients found matching the selected criteria'
       });
     }
-    
-    // Create message document according to new simplified schema
+
+    // Create message document
+    const sectionLabel = sectionsArray.join(', ');
     const messageData = {
       class: targetClass,
-      section: targetSection,
+      section: sectionLabel,
+      sections: sectionsArray,          // store the full array
+      includeTeachers: includeTeachers,
       adminId: req.user._id,
       title: title,
       subject: subject,
       message: message,
       createdAt: new Date(),
-      schoolId: userSchoolId // Store schoolId for reference
+      schoolId: userSchoolId
     };
-    
-    // Only add academicYear if provided
+
     if (academicYear) {
       messageData.academicYear = academicYear;
     }
-    
+
     console.log('✅ Message Data to be Saved:', messageData);
     console.log('📅 Academic Year being saved:', academicYear || 'NONE');
-    
-    // Save message to school database instead of main database
+
     const messagesCollection = db.collection('messages');
     const result = await messagesCollection.insertOne(messageData);
-    
-    console.log(`✅ Message sent successfully to ${students.length} students, stored in school database`);
-    console.log(`💾 Inserted message ID: ${result.insertedId}`);
-    console.log(`📦 Database: ${db.databaseName}, Collection: messages`);
-    
-    // Verify the message was inserted
-    const verifyMessage = await messagesCollection.findOne({ _id: result.insertedId });
-    console.log('🔍 Verification - Message exists in DB:', verifyMessage ? 'YES' : 'NO');
-    if (verifyMessage) {
-      console.log('📝 Verified message data:', {
-        id: verifyMessage._id,
-        title: verifyMessage.title,
-        class: verifyMessage.class,
-        section: verifyMessage.section,
-        academicYear: verifyMessage.academicYear
-      });
-    }
-    
+
+    console.log(`✅ Message sent to ${totalRecipients} recipients (${students.length} students, ${teachers.length} teachers)`);
+
     // Dispatch background job for notifications (FCM, email, etc.)
     console.log('📱 Dispatching background notification job...');
-    
+
     res.json({
       success: true,
       message: 'Message sent successfully',
       data: {
         messageId: result.insertedId,
-        sentCount: students.length,
-        recipients: students.map(s => ({
-          id: s._id,
-          name: s.name?.displayName || `${s.name?.firstName} ${s.name?.lastName}` || s.name,
-          class: s.class || s.studentDetails?.academic?.currentClass || s.studentDetails?.currentClass,
-          section: s.section || s.studentDetails?.academic?.currentSection || s.studentDetails?.currentSection
-        }))
+        sentCount: totalRecipients,
+        studentCount: students.length,
+        teacherCount: teachers.length,
+        recipients: [
+          ...students.map(s => ({
+            id: s._id,
+            name: s.name?.displayName || `${s.name?.firstName} ${s.name?.lastName}` || s.name,
+            role: 'student',
+            class: s.class || s.studentDetails?.academic?.currentClass || s.studentDetails?.currentClass,
+            section: s.section || s.studentDetails?.academic?.currentSection || s.studentDetails?.currentSection
+          })),
+          ...teachers.map(t => ({
+            id: t._id,
+            name: t.name?.displayName || `${t.name?.firstName} ${t.name?.lastName}` || t.name,
+            role: 'teacher'
+          }))
+        ]
       }
     });
-    
+
   } catch (error) {
     console.error('❌ Error sending message:', error);
     res.status(500).json({
@@ -321,7 +305,15 @@ exports.previewMessage = async (req, res) => {
   try {
     console.log('🔍 Previewing message recipients:', req.body);
     
-    const { class: targetClass, section: targetSection } = req.body;
+    const { class: targetClass, section: targetSection, sections: targetSections } = req.body;
+
+    // Normalise sections into an array
+    let sectionsArray = [];
+    if (Array.isArray(targetSections) && targetSections.length > 0) {
+      sectionsArray = targetSections;
+    } else if (targetSection) {
+      sectionsArray = [targetSection];
+    }
     
     // Get user's school ID from the authentication context (source of truth)
     const userSchoolId = req.user.schoolId;
@@ -347,74 +339,75 @@ exports.previewMessage = async (req, res) => {
     const connection = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
     const db = connection.db;
     
-    // Build student query to handle all possible data structures (case-insensitive)
-    const studentQuery = { 
-      role: 'student',
-      _placeholder: { $ne: true } // Exclude placeholder documents
-    };
-    
-    // Build $or query to check all possible locations with case-insensitive matching
-    const classConditions = [];
-    if (targetClass && targetClass !== 'ALL') {
-      // Use regex for case-insensitive matching
+    const includeTeachers = sectionsArray.includes('teacher');
+    const studentSections = sectionsArray.filter(s => s !== 'teacher');
+
+    const studentsCollection = db.collection('students');
+    let studentCount = 0;
+    let sampleStudents = [];
+
+    if (studentSections.length > 0) {
       const classRegex = new RegExp(`^${targetClass}$`, 'i');
-      classConditions.push(
+      const classConditions = [
         { class: classRegex },
         { 'studentDetails.academic.currentClass': classRegex },
         { 'studentDetails.currentClass': classRegex }
-      );
-    }
-    
-    const sectionConditions = [];
-    if (targetSection && targetSection !== 'ALL') {
-      // Use regex for case-insensitive matching
-      const sectionRegex = new RegExp(`^${targetSection}$`, 'i');
-      sectionConditions.push(
-        { section: sectionRegex },
-        { 'studentDetails.academic.currentSection': sectionRegex },
-        { 'studentDetails.currentSection': sectionRegex }
-      );
-    }
-    
-    // Combine conditions
-    if (classConditions.length > 0 && sectionConditions.length > 0) {
-      studentQuery.$and = [
-        { $or: classConditions },
-        { $or: sectionConditions }
       ];
-    } else if (classConditions.length > 0) {
-      studentQuery.$or = classConditions;
-    } else if (sectionConditions.length > 0) {
-      studentQuery.$or = sectionConditions;
+
+      const sectionOrConditions = studentSections.flatMap(sec => {
+        const secRegex = new RegExp(`^${sec}$`, 'i');
+        return [
+          { section: secRegex },
+          { 'studentDetails.academic.currentSection': secRegex },
+          { 'studentDetails.currentSection': secRegex }
+        ];
+      });
+
+      const studentQuery = {
+        role: 'student',
+        _placeholder: { $ne: true },
+        $and: [
+          { $or: classConditions },
+          { $or: sectionOrConditions }
+        ]
+      };
+
+      console.log('🔍 Preview query:', JSON.stringify(studentQuery, null, 2));
+      studentCount = await studentsCollection.countDocuments(studentQuery);
+      sampleStudents = await studentsCollection.find(studentQuery)
+        .limit(10)
+        .project({
+          _id: 1,
+          'name.firstName': 1,
+          'name.lastName': 1,
+          'name.displayName': 1,
+          class: 1,
+          section: 1
+        })
+        .toArray();
     }
-    
-    console.log('🔍 Preview query:', JSON.stringify(studentQuery, null, 2));
-    
-    // Count matching students
-    const studentsCollection = db.collection('students');
-    const studentCount = await studentsCollection.countDocuments(studentQuery);
-    
-    // Get sample students for preview (limit to 10)
-    const sampleStudents = await studentsCollection.find(studentQuery)
-      .limit(10)
-      .project({ 
-        _id: 1, 
-        'name.firstName': 1, 
-        'name.lastName': 1, 
-        'name.displayName': 1,
-        class: 1, 
-        section: 1 
-      })
-      .toArray();
-    
-    console.log(`👥 Found ${studentCount} students matching criteria`);
-    
+
+    let teacherCount = 0;
+    if (includeTeachers) {
+      const teachersCollection = db.collection('teachers');
+      try {
+        teacherCount = await teachersCollection.countDocuments({ role: 'teacher', _placeholder: { $ne: true } });
+      } catch (e) {
+        teacherCount = await studentsCollection.countDocuments({ role: 'teacher', _placeholder: { $ne: true } });
+      }
+    }
+
+    const totalRecipients = studentCount + teacherCount;
+    console.log(`👥 Preview: ${studentCount} students + ${teacherCount} teachers = ${totalRecipients} total`);
+
     res.json({
       success: true,
       data: {
-        estimatedRecipients: studentCount,
+        estimatedRecipients: totalRecipients,
+        studentCount,
+        teacherCount,
         targetClass: targetClass || 'ALL',
-        targetSection: targetSection || 'ALL',
+        targetSections: sectionsArray,
         sampleRecipients: sampleStudents.map(s => ({
           id: s._id,
           name: s.name?.displayName || `${s.name?.firstName} ${s.name?.lastName}` || s.name,
@@ -423,7 +416,7 @@ exports.previewMessage = async (req, res) => {
         }))
       }
     });
-    
+
   } catch (error) {
     console.error('❌ Error previewing message:', error);
     res.status(500).json({

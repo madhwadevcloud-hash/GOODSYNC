@@ -553,7 +553,9 @@ export const reportsAPI = {
   getClassDetail: (className, params) => api.get(`/reports/class/${className}/detail`, { params }),
   getStudentProfile: (studentId) => api.get(`/reports/student/${studentId}/profile`),
   exportData: (params) => api.get('/reports/export', { params, responseType: 'blob' }),
-  getDuesList: (params) => api.get('/reports/dues', { params }),
+  // Keep the reports dues API alias for backward compatibility, but use the fees records endpoint
+  // so the reports table returns the same student fee records dataset as the fees tab.
+  getDuesList: (params) => api.get('/fees/records', { params }),
   getClassWiseAnalysis: (params) => api.get('/reports/class-wise', { params }),
   getPaymentTrends: (params) => api.get('/reports/payment-trends', { params }),
 };

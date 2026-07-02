@@ -2,6 +2,7 @@ const { model: StudentFeeRecord } = require('../models/StudentFeeRecord');
 const FeeStructure = require('../models/FeeStructure');
 const Message = require('../models/Message');
 const reportService = require('../services/reportService');
+const feesController = require('../controllers/feesController');
 const Result = require('../models/Result');
 const { ObjectId } = require('mongodb');
 
@@ -200,129 +201,7 @@ exports.exportData = async (req, res) => {
 };
 
 // Get dues list for export
-exports.getDuesList = async (req, res) => {
-  try {
-    console.log('📋 Generating dues list for export');
-    
-    const { 
-      class: targetClass, 
-      section: targetSection, 
-      status,
-      academicYear,
-      page = 1,
-      limit = 10,
-      search = ''
-    } = req.query;
-    
-    // Get school code from user or request
-    const schoolCode = req.user.schoolCode || req.schoolCode;
-    if (!schoolCode) {
-      return res.status(400).json({
-        success: false,
-        message: 'School code is required'
-      });
-    }
-
-    // Get school-specific database connection
-    const SchoolDatabaseManager = require('../utils/schoolDatabaseManager');
-    const conn = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
-    const db = conn.db || conn;
-    
-    // Get or create model for this connection
-    const StudentFeeRecord = conn.models.StudentFeeRecord || 
-      conn.model('StudentFeeRecord', require('../models/StudentFeeRecord').schema);
-    
-    // Build query
-    const query = {
-      schoolId: req.user.schoolId || req.user._id,
-      totalPending: { $gt: 0 } // Only records with outstanding amount
-    };
-    
-    // Filter by academic year if provided
-    if (academicYear) {
-      query.academicYear = academicYear;
-    }
-    
-    if (targetClass && targetClass !== 'ALL') {
-      query.studentClass = targetClass;
-    }
-    
-    if (targetSection && targetSection !== 'ALL') {
-      query.studentSection = targetSection;
-    }
-    
-    if (status && status !== 'ALL') {
-      // Status is already in lowercase from frontend, matching the database enum
-      query.status = status.toLowerCase();
-    }
-
-    // Add search functionality
-    if (search) {
-      query.$or = [
-        { studentName: { $regex: search, $options: 'i' } },
-        { rollNumber: { $regex: search, $options: 'i' } }
-      ];
-    }
-    
-    // Pagination
-    const pageNum = parseInt(page);
-    const limitNum = parseInt(limit);
-    const skip = (pageNum - 1) * limitNum;
-    
-    console.log('🔍 Query:', JSON.stringify(query, null, 2));
-    
-    // Get total count for pagination
-    const total = await StudentFeeRecord.countDocuments(query);
-    const pages = Math.ceil(total / limitNum);
-    
-    // Execute query with pagination
-    const records = await StudentFeeRecord.find(query)
-      .sort({ totalPending: -1, overdueDays: -1 })
-      .skip(skip)
-      .limit(limitNum)
-      .lean();
-    
-    console.log(`📊 Found ${records.length} records out of ${total} total`);
-    
-    res.json({
-      success: true,
-      data: {
-        records: records.map(record => ({
-          id: record._id ? record._id.toString() : null,
-          studentId: record.studentId ? record.studentId.toString() : null,
-          studentName: record.studentName || 'N/A',
-          studentClass: record.studentClass || 'N/A',
-          studentSection: record.studentSection || 'N/A',
-          rollNumber: record.rollNumber || '',
-          feeStructureName: record.feeStructureName || 'N/A',
-          totalAmount: record.totalAmount || 0,
-          totalPaid: record.totalPaid || 0,
-          totalPending: record.totalPending || 0,
-          status: record.status || 'PENDING',
-          paymentPercentage: record.paymentPercentage || 0,
-          nextDueDate: record.nextDueDate || null,
-          overdueDays: record.overdueDays || 0,
-          installments: record.installments || []
-        })),
-        pagination: {
-          page: pageNum,
-          limit: limitNum,
-          total,
-          pages
-        }
-      }
-    });
-    
-  } catch (error) {
-    console.error('❌ Error generating dues list:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to generate dues list',
-      error: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    });
-  }
-};
+exports.getDuesList = feesController.getStudentFeeRecords;
 
 // Get class-wise fee analysis
 exports.getClassWiseAnalysis = async (req, res) => {
