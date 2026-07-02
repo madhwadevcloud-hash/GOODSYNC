@@ -60,7 +60,8 @@ const MessagesPage: React.FC = () => {
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [selectedClass, setSelectedClass] = useState(''); // Changed from 'ALL'
-  const [selectedSection, setSelectedSection] = useState(''); // Changed from 'ALL'
+  const [selectedSections, setSelectedSections] = useState<string[]>([]); // multi-select
+  const [sectionDropdownOpen, setSectionDropdownOpen] = useState(false);
   const [availableSections, setAvailableSections] = useState<any[]>([]);
   const [recipientCount, setRecipientCount] = useState<number>(0);
 
@@ -125,7 +126,7 @@ const MessagesPage: React.FC = () => {
       let allMessages = result.data.messages || [];
       console.log('📋 [FRONTEND] All messages from API:', allMessages);
       console.log(`📊 [FRONTEND] Received ${allMessages.length} messages for academic year: ${viewingAcademicYear}`);
-      
+
       // Backend already handles filtering, so we can use messages directly
       // But let's log each message for debugging
       allMessages.forEach((msg: Message, index: number) => {
@@ -137,7 +138,7 @@ const MessagesPage: React.FC = () => {
           createdAt: msg.createdAt
         });
       });
-      
+
       setMessages(allMessages);
       setCurrentPage(result.data.pagination?.page || 1);
       setTotalPages(result.data.pagination?.pages || 1);
@@ -162,7 +163,7 @@ const MessagesPage: React.FC = () => {
     // If no class is selected (empty string)
     if (!selectedClass || selectedClass === 'ALL') {
       setAvailableSections([]); // No sections to choose from
-      setSelectedSection(''); // Clear section
+      setSelectedSections([]); // Clear section
       return;
     }
 
@@ -186,44 +187,36 @@ const MessagesPage: React.FC = () => {
 
         setAvailableSections(sections);
 
-        // If current section is invalid, reset it. Otherwise keep the old value.
-        const currentValidSections = sections.map(s => s.value);
-        if (selectedSection && !currentValidSections.includes(selectedSection)) {
-          setSelectedSection(''); // Reset to empty if no valid selection exists
-        }
+        // Reset selections that are no longer valid
+        const currentValidSections = sections.map((s: any) => s.value);
+        setSelectedSections(prev => prev.filter(s => s === 'teacher' || currentValidSections.includes(s)));
 
       } else {
         // Class exists but no sections defined
         setAvailableSections([]);
-        setSelectedSection('');
+        setSelectedSections([]);
       }
     }
   }, [selectedClass, classesData]);
 
-  // Preview recipients when class/section changes
+  // Preview recipients when class/sections changes
   useEffect(() => {
-    // Only preview when a specific class and section is selected (not empty or 'ALL')
-    if (selectedClass && selectedSection && selectedClass !== 'ALL' && selectedSection !== 'ALL') {
-      previewRecipients(selectedClass, selectedSection);
+    if (selectedClass && selectedSections.length > 0 && selectedClass !== 'ALL') {
+      previewRecipients(selectedClass, selectedSections);
     } else {
-      // Ensure recipient count is cleared if selection is incomplete
       setRecipientCount(0);
     }
-  }, [selectedClass, selectedSection]);
+  }, [selectedClass, selectedSections]);
 
-  const previewRecipients = async (targetClass: string, targetSection: string) => {
+  const previewRecipients = async (targetClass: string, targetSections: string[]) => {
     try {
-      // Backend gets schoolId from req.user.schoolId, no need to send it
       const result = await previewMessageRecipients({
         class: targetClass,
-        section: targetSection
+        sections: targetSections
       });
-
-      // The backend `previewMessage` returns `estimatedRecipients`
       setRecipientCount(result.data?.estimatedRecipients || 0);
     } catch (err: any) {
       console.error('Error previewing recipients:', err);
-      // Fallback for demo purposes
       setRecipientCount(0);
     }
   };
@@ -234,13 +227,12 @@ const MessagesPage: React.FC = () => {
       setError('Please fill in all fields');
       return;
     }
-    // Validation: Require specific class/section for sending (non-empty, non-'ALL')
     if (!selectedClass || selectedClass === 'ALL') {
       setError('Please select a specific Class to send a message');
       return;
     }
-    if (!selectedSection || selectedSection === 'ALL') {
-      setError('Please select a specific Section to send a message');
+    if (selectedSections.length === 0) {
+      setError('Please select at least one Section or Teacher to send a message');
       return;
     }
 
@@ -254,26 +246,22 @@ const MessagesPage: React.FC = () => {
       setLoading(true);
       setError(null);
       setSuccess(null);
-      setShowPreviewModal(false); // Close modal on send attempt
+      setShowPreviewModal(false);
 
-      // Re-validate just in case
-      if (!selectedClass || selectedClass === 'ALL' || !selectedSection || selectedSection === 'ALL') {
-        throw new Error('Please select a specific Class and Section to send a message.');
+      if (!selectedClass || selectedClass === 'ALL' || selectedSections.length === 0) {
+        throw new Error('Please select a specific Class and at least one Section/Teacher to send a message.');
       }
 
-      // Include academic year when sending message - use CURRENT academic year from school settings
       const payload = {
         class: selectedClass,
-        section: selectedSection,
+        sections: selectedSections,
         title,
         subject,
         message,
-        academicYear: currentAcademicYear // Save with CURRENT academic year from school settings
+        academicYear: currentAcademicYear
       };
 
       console.log('📤 Sending message with payload:', payload);
-      console.log('📤 Academic Year being sent (from school settings):', currentAcademicYear);
-
       const response = await sendMessageAPI(payload);
       console.log('✅ Backend response:', response);
 
@@ -283,14 +271,11 @@ const MessagesPage: React.FC = () => {
         setSubject('');
         setMessage('');
         setSelectedClass('');
-        setSelectedSection('');
+        setSelectedSections([]);
         setRecipientCount(0);
-        // Re-fetch the message list to show the new message
         fetchMessages(1, messagesFilterClass, messagesFilterSection);
         toast.success('Message sent successfully!');
-
       } else {
-        // Check for specific error message from the response body
         throw new Error(response.message || 'Failed to send message');
       }
 
@@ -370,6 +355,37 @@ const MessagesPage: React.FC = () => {
     return text.substring(0, maxLength) + '...';
   };
 
+  // Helper: toggle a section value in the multi-select
+  const toggleSection = (value: string) => {
+    setSelectedSections(prev => {
+      if (value === 'select_all') {
+        // 'Select All' toggles all student sections (but not teacher)
+        const allSectionValues = availableSections.map((s: any) => s.value);
+        const hasTeacher = prev.includes('teacher');
+        const allStudentSelected = allSectionValues.every((v: string) => prev.includes(v));
+        if (allStudentSelected) {
+          // Deselect all student sections, keep teacher if selected
+          return hasTeacher ? ['teacher'] : [];
+        } else {
+          // Select all student sections, keep teacher if selected
+          return hasTeacher ? [...allSectionValues, 'teacher'] : allSectionValues;
+        }
+      }
+      // Toggle individual option
+      return prev.includes(value)
+        ? prev.filter(s => s !== value)
+        : [...prev, value];
+    });
+  };
+
+  // Helper: label for the multi-select button
+  const getSectionButtonLabel = () => {
+    if (!selectedClass) return 'Select Class First';
+    if (selectedSections.length === 0) return 'Select Recipients';
+    const labels = selectedSections.map(s => s === 'teacher' ? 'Teachers' : `Section ${s}`);
+    return labels.join(', ');
+  };
+
   const renderClassSectionSelector = () => {
     if (classesLoading) {
       return (
@@ -408,12 +424,12 @@ const MessagesPage: React.FC = () => {
       );
     }
 
-    // Helper for section select text
-    const getSectionSelectText = () => {
-      if (!selectedClass) return 'Select Class First';
-      if (availableSections.length === 0) return 'No Sections Available';
-      return 'Select Section';
-    };
+    // Compute Select-All state
+    const allSectionValues = availableSections.map((s: any) => s.value);
+    const allStudentSectionsSelected =
+      allSectionValues.length > 0 && allSectionValues.every((v: string) => selectedSections.includes(v));
+    const someStudentSectionsSelected = allSectionValues.some((v: string) => selectedSections.includes(v));
+    const teacherSelected = selectedSections.includes('teacher');
 
     return (
       <div className="space-y-4">
@@ -426,7 +442,7 @@ const MessagesPage: React.FC = () => {
             <select
               id="class-select"
               value={selectedClass}
-              onChange={(e) => setSelectedClass(e.target.value)}
+              onChange={(e) => { setSelectedClass(e.target.value); setSectionDropdownOpen(false); }}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="">Select Class</option>
@@ -436,44 +452,109 @@ const MessagesPage: React.FC = () => {
             </select>
           </div>
 
-          {/* Section Selection */}
-          <div>
-            <label htmlFor="section-select" className="block text-sm font-medium text-gray-700 mb-2">
-              Section <span className="text-red-500">*</span>
+          {/* Multi-Select Section / Teacher Dropdown */}
+          <div className="relative">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Recipients <span className="text-red-500">*</span>
             </label>
-            <select
-              id="section-select"
-              value={selectedSection}
-              onChange={(e) => setSelectedSection(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            <button
+              type="button"
+              id="section-multiselect"
               disabled={!selectedClass}
+              onClick={() => setSectionDropdownOpen(prev => !prev)}
+              className={`w-full border rounded-lg px-3 py-2 text-left flex items-center justify-between focus:ring-2 focus:ring-blue-500 focus:border-transparent ${!selectedClass ? 'bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200' : 'bg-white border-gray-300 text-gray-700 hover:border-blue-400'
+                }`}
             >
-              <option value="">
-                {getSectionSelectText()}
-              </option>
-              {selectedClass && availableSections.map((section) => (
-                <option key={section.value} value={section.value}>
-                  Section {section.section}
-                </option>
-              ))}
-            </select>
+              <span className="truncate text-sm">{getSectionButtonLabel()}</span>
+              <svg className={`h-4 w-4 ml-2 flex-shrink-0 transition-transform ${sectionDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {/* Dropdown panel */}
+            {sectionDropdownOpen && selectedClass && (
+              <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg">
+                <ul className="py-1 max-h-60 overflow-auto">
+                  {/* Select All option */}
+                  {availableSections.length > 0 && (
+                    <li>
+                      <label className="flex items-center gap-2 px-4 py-2 hover:bg-blue-50 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={allStudentSectionsSelected}
+                          ref={el => {
+                            if (el) el.indeterminate = someStudentSectionsSelected && !allStudentSectionsSelected;
+                          }}
+                          onChange={() => toggleSection('select_all')}
+                          className="accent-blue-600"
+                        />
+                        <span className="text-sm font-semibold text-gray-800">Select All Sections</span>
+                      </label>
+                    </li>
+                  )}
+
+                  {/* Individual sections */}
+                  {availableSections.map((section: any) => (
+                    <li key={section.value}>
+                      <label className="flex items-center gap-2 px-4 py-2 hover:bg-blue-50 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={selectedSections.includes(section.value)}
+                          onChange={() => toggleSection(section.value)}
+                          className="accent-blue-600"
+                        />
+                        <span className="text-sm text-gray-700">Section {section.section}</span>
+                      </label>
+                    </li>
+                  ))}
+
+                  {/* Divider */}
+                  <li className="border-t border-gray-100 my-1" />
+
+                  {/* Teacher option */}
+                  <li>
+                    <label className="flex items-center gap-2 px-4 py-2 hover:bg-purple-50 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={teacherSelected}
+                        onChange={() => toggleSection('teacher')}
+                        className="accent-purple-600"
+                      />
+                      <span className="text-sm font-semibold text-purple-700">🧑‍🏫 Teachers</span>
+                    </label>
+                  </li>
+                </ul>
+
+                {/* Close button */}
+                <div className="border-t border-gray-100 px-4 py-2 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setSectionDropdownOpen(false)}
+                    className="text-xs text-blue-600 font-medium hover:underline"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Recipient Count Display */}
-        {recipientCount > 0 && selectedClass && selectedSection && (
+        {recipientCount > 0 && selectedClass && selectedSections.length > 0 && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center">
             <Users className="h-5 w-5 text-blue-600 mr-2" />
             <span className="text-sm text-blue-800">
-              This message will be sent to <strong>{recipientCount}</strong> student{recipientCount !== 1 ? 's' : ''} in Class {selectedClass} - Section {selectedSection}
+              This message will be sent to <strong>{recipientCount}</strong> recipient{recipientCount !== 1 ? 's' : ''} in
+              {' '}Class <strong>{selectedClass}</strong> — {getSectionButtonLabel()}
             </span>
           </div>
         )}
-        {recipientCount === 0 && selectedClass && selectedSection && (
+        {recipientCount === 0 && selectedClass && selectedSections.length > 0 && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-center">
             <AlertCircle className="h-5 w-5 text-yellow-600 mr-2" />
             <span className="text-sm text-yellow-800">
-              No students found matching Class <strong>{selectedClass}</strong> - Section <strong>{selectedSection}</strong>.
+              No recipients found for the selected options.
             </span>
           </div>
         )}
@@ -504,18 +585,12 @@ const MessagesPage: React.FC = () => {
           <label htmlFor="filter-academic-year" className="block text-xs font-medium text-gray-500 mb-1">
             Filter by Academic Year
           </label>
-          <select
-            id="filter-academic-year"
-            value={viewingAcademicYear}
-            onChange={(e) => setViewingYear(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            {availableYears.map((year) => (
-              <option key={`filter-year-${year}`} value={year}>
-                {year} {year === currentAcademicYear && '(Current)'}
-              </option>
-            ))}
-          </select>
+          <input
+            type="text"
+            value={`${currentAcademicYear} (Current)`}
+            readOnly
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-100 text-gray-700 cursor-not-allowed"
+          />
         </div>
 
         {/* Class Filter */}
@@ -526,10 +601,6 @@ const MessagesPage: React.FC = () => {
           <select
             id="filter-class"
             value={messagesFilterClass}
-            onChange={(e) => {
-              setMessagesFilterClass(e.target.value);
-              setMessagesFilterSection('ALL'); // Reset section filter when class changes
-            }}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             {filterClassOptions.map((option) => (
@@ -636,15 +707,15 @@ const MessagesPage: React.FC = () => {
         <div className="flex justify-end space-x-3">
           <button
             onClick={handlePreview}
-            disabled={!hasClasses() || classList.length === 0 || !title || !message || !selectedClass || !selectedSection}
+            disabled={!hasClasses() || classList.length === 0 || !title || !message || !selectedClass || selectedSections.length === 0}
             className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Eye className="h-5 w-5 mr-2" /> Preview
           </button>
           <button
             onClick={handleSendMessage}
-            disabled={loading || !hasClasses() || classList.length === 0 || !title || !message || !selectedClass || !selectedSection}
-            className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${loading || !hasClasses() || classList.length === 0 || !title || !message || !selectedClass || !selectedSection
+            disabled={loading || !hasClasses() || classList.length === 0 || !title || !message || !selectedClass || selectedSections.length === 0}
+            className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${loading || !hasClasses() || classList.length === 0 || !title || !message || !selectedClass || selectedSections.length === 0
               ? 'bg-blue-400 cursor-not-allowed'
               : 'bg-blue-600 hover:bg-blue-700'
               } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors`}
@@ -674,9 +745,9 @@ const MessagesPage: React.FC = () => {
             <div className="mb-4">
               <p className="text-sm font-medium text-gray-700">Target Audience:</p>
               <p className="text-gray-800">
-                Class {selectedClass} - Section {selectedSection}
+                Class {selectedClass} — {getSectionButtonLabel()}
                 {recipientCount > 0 && (
-                  <span className="text-blue-600 font-semibold"> ({recipientCount} students)</span>
+                  <span className="text-blue-600 font-semibold"> ({recipientCount} recipients)</span>
                 )}
               </p>
             </div>

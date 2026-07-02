@@ -1,12 +1,6 @@
 const School = require('../models/School');
 const User = require('../models/User');
 const Subject = require('../models/Subject');
-const NodeCache = require('node-cache');
-
-// Initialize configuration cache
-// stdTTL: 15 minutes (900 seconds) since school classes/subjects rarely change
-// checkperiod: clear out old data every 60 seconds
-const configCache = new NodeCache({ stdTTL: 900, checkperiod: 60 });
 
 const { getDynamicAcademicYear } = require('../utils/academicYearHelper');
 
@@ -14,15 +8,6 @@ const { getDynamicAcademicYear } = require('../utils/academicYearHelper');
 exports.getSchoolConfig = async (req, res) => {
   try {
     const schoolId = req.user.schoolId;
-    
-    // Check if configuration exists in memory cache first
-    const cacheKey = `config_${schoolId}`;
-    const cachedConfig = configCache.get(cacheKey);
-    if (cachedConfig) {
-      // Pulling directly from process memory takes less than 1 millisecond
-      return res.json(cachedConfig);
-    }
-
     const dynamicYear = getDynamicAcademicYear();
     const startYear = parseInt(dynamicYear.split('-')[0]);
     
@@ -68,7 +53,7 @@ exports.getSchoolConfig = async (req, res) => {
       role: 'student'
     });
 
-    const configResponse = {
+    res.json({
       school: {
         name: school.name,
         code: school.code,
@@ -82,12 +67,7 @@ exports.getSchoolConfig = async (req, res) => {
       sections: allSections.sort(),
       academicYears: academicYears,
       terms: ['Term 1', 'Term 2', 'Term 3']
-    };
-
-    // Save payload to memory cache before returning it
-    configCache.set(cacheKey, configResponse);
-
-    return res.json(configResponse);
+    });
 
   } catch (error) {
     console.error('Error fetching school config:', error);
@@ -96,18 +76,9 @@ exports.getSchoolConfig = async (req, res) => {
 };
 
 // Get assignment statistics for dashboard
-// Get assignment statistics for dashboard (with a brief 60-second cache)
 exports.getAssignmentDashboardStats = async (req, res) => {
   try {
     const schoolId = req.user.schoolId;
-    const cacheKey = `dashboard_stats_${schoolId}`;
-    
-    // Check short-term memory cache
-    const cachedStats = configCache.get(cacheKey);
-    if (cachedStats) {
-      return res.json(cachedStats);
-    }
-
     const Assignment = require('../models/Assignment');
     
     const now = new Date();
@@ -147,19 +118,14 @@ exports.getAssignmentDashboardStats = async (req, res) => {
       return acc;
     }, {});
 
-    const statsResponse = {
+    res.json({
       total: totalCount,
       active: statsObj.active || 0,
       completed: statsObj.completed || 0,
       archived: statsObj.archived || 0,
       overdue: overdueCount,
       dueThisWeek: dueThisWeekCount
-    };
-
-    // Cache it for exactly 60 seconds to protect DB under concurrent morning spikes
-    configCache.set(cacheKey, statsResponse, 60);
-
-    return res.json(statsResponse);
+    });
 
   } catch (error) {
     console.error('Error fetching dashboard stats:', error);

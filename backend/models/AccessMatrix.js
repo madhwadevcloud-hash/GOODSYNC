@@ -39,9 +39,6 @@ accessMatrixSchema.statics.getModelForConnection = function(connection) {
   return connection.model('AccessMatrix', accessMatrixSchema);
 };
 
-// Add index for faster lookups
-accessMatrixSchema.index({ schoolCode: 1 }, { unique: true });
-
 // Create model
 const AccessMatrix = mongoose.model('AccessMatrix', accessMatrixSchema);
 
