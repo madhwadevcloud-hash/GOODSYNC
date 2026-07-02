@@ -5,7 +5,7 @@ import api from '../../../api/axios';
 
 export const useTemplateData = () => {
   const { user } = useAuth();
-  
+
   const [templateSettings, setTemplateSettings] = useState<TemplateSettings>({
     schoolName: user?.schoolName || 'School Name',
     schoolCode: user?.schoolCode || 'SCH001',
@@ -37,11 +37,11 @@ export const useTemplateData = () => {
 
       const data = response.data;
       console.log('🏫 Fetched school data for templates:', data);
-      
+
       if (data.success && data.data) {
         const schoolData = data.data;
         let logoUrl = '';
-        
+
         if (schoolData.logo) {
           if (schoolData.logo.startsWith('/uploads')) {
             const envBase = (import.meta.env.VITE_API_BASE_URL as string) || 'http://localhost:5050/api';
@@ -52,15 +52,30 @@ export const useTemplateData = () => {
           }
         }
 
-        setTemplateSettings(prev => ({
-          ...prev,
-          schoolName: schoolData.name || schoolData.schoolName || prev.schoolName,
-          schoolCode: schoolData.code || schoolData.schoolCode || prev.schoolCode,
-          address: schoolData.address || prev.address,
-          phone: schoolData.phone || schoolData.contact?.phone || prev.phone,
-          email: schoolData.email || schoolData.contact?.email || prev.email,
-          logoUrl: logoUrl || prev.logoUrl
-        }));
+        setTemplateSettings(prev => {
+          let formattedAddress = prev.address;
+          if (schoolData.address) {
+            if (typeof schoolData.address === 'string') {
+              formattedAddress = schoolData.address;
+            } else if (typeof schoolData.address === 'object') {
+              const { street, area, city, state, pinCode, zipCode } = schoolData.address;
+              const parts = [street, area, city, state, pinCode || zipCode].filter(Boolean);
+              if (parts.length > 0) {
+                formattedAddress = parts.join(', ');
+              }
+            }
+          }
+
+          return {
+            ...prev,
+            schoolName: schoolData.name || schoolData.schoolName || prev.schoolName,
+            schoolCode: schoolData.code || schoolData.schoolCode || prev.schoolCode,
+            address: formattedAddress,
+            phone: schoolData.phone || schoolData.contact?.phone || prev.phone,
+            email: schoolData.email || schoolData.contact?.email || prev.email,
+            logoUrl: logoUrl || prev.logoUrl
+          };
+        });
       }
     } catch (error) {
       console.error('Error fetching school data:', error);
@@ -106,11 +121,11 @@ export const useTemplateData = () => {
           reject(new Error('Could not get canvas context'));
           return;
         }
-        
+
         canvas.width = img.width;
         canvas.height = img.height;
         ctx.drawImage(img, 0, 0);
-        
+
         try {
           const dataURL = canvas.toDataURL('image/png');
           resolve(dataURL);

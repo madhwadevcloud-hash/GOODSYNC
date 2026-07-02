@@ -33,11 +33,11 @@ const SchoolEditDetails: React.FC = () => {
       try {
         const res = await api.get(`/schools/${selectedSchoolId}`);
         console.log('[SchoolEditDetails] Raw API response:', res.data);
-        
+
         // Extract the actual school data - API returns {success: true, data: {...}}
         const schoolData = res.data.data || res.data;
         console.log('[SchoolEditDetails] Extracted school data:', schoolData);
-        
+
         console.log('[SchoolEditDetails] Key fields check:', {
           mobile: schoolData.mobile,
           contactPhone: schoolData.contact?.phone,
@@ -53,11 +53,11 @@ const SchoolEditDetails: React.FC = () => {
           pinCode: schoolData.pinCode,
           state: schoolData.state
         });
-        
+
         if (!schoolData) {
           throw new Error('No data received from API');
         }
-        
+
         setProfile(schoolData);
         setForm(schoolData);
         console.log('[SchoolEditDetails] Profile and form state updated successfully');
@@ -98,7 +98,7 @@ const SchoolEditDetails: React.FC = () => {
 
     try {
       console.log('📸 Image selected:', file.name, 'Size:', (file.size / 1024).toFixed(2), 'KB');
-      
+
       // Validate file type
       const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
       if (!allowedTypes.includes(file.type)) {
@@ -115,24 +115,24 @@ const SchoolEditDetails: React.FC = () => {
       // Compress the image before storing
       const compressedBlob = await compressImage(file);
       console.log('✅ Image compressed:', (compressedBlob.size / 1024).toFixed(2), 'KB');
-      
+
       // Convert blob to File with proper filename and MIME type
       const compressedFile = new File(
-        [compressedBlob], 
+        [compressedBlob],
         file.name.replace(/\.[^.]+$/, '.jpg'), // Replace extension with .jpg since we compress to JPEG
         { type: 'image/jpeg' }
       );
-      
+
       // Store the compressed file for upload
       setSelectedImage(compressedFile);
-      
+
       // Create preview
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result as string);
       };
       reader.readAsDataURL(compressedFile);
-      
+
       console.log('✅ Image ready for upload');
     } catch (error) {
       console.error('❌ Error processing image:', error);
@@ -180,25 +180,25 @@ const SchoolEditDetails: React.FC = () => {
     setError(null);
     try {
       console.log('💾 Saving school data...');
-      
+
       // Create FormData for multipart/form-data submission
       const formData = new FormData();
-      
+
       // If there's a new image, append it
       if (selectedImage) {
         formData.append('logo', selectedImage);
         console.log('📸 Image attached to form data');
       }
-      
+
       // Append only the fields we want to update (exclude read-only fields)
       const fieldsToExclude = ['_id', 'id', 'createdAt', 'updatedAt', '__v', 'databaseName', 'databaseCreated', 'databaseCreatedAt', 'fullAddress', 'admins', 'stats', 'features', 'settings', 'logoUrl'];
-      
+
       Object.keys(form).forEach(key => {
         // Skip excluded fields
         if (fieldsToExclude.includes(key)) {
           return;
         }
-        
+
         const value = form[key];
         if (value !== null && value !== undefined) {
           if (typeof value === 'object' && !Array.isArray(value)) {
@@ -213,21 +213,21 @@ const SchoolEditDetails: React.FC = () => {
           }
         }
       });
-      
+
       console.log('📤 Sending update request...');
       const res = await schoolAPI.updateSchool(selectedSchoolId, formData);
-      
+
       const updated = (res.data as any)?.school || res.data;
       console.log('✅ School updated successfully:', updated);
-      
+
       // Clear selected image and preview after successful save
       setSelectedImage(null);
       setImagePreview(null);
-      
+
       // Update profile with new data including logo URL
       setProfile(updated);
       setForm(updated);
-      
+
       await updateSchool({
         id: updated._id || updated.id || selectedSchoolId,
         name: updated.name,
@@ -248,7 +248,7 @@ const SchoolEditDetails: React.FC = () => {
         website: updated.contact?.website || '',
         secondaryContact: updated.secondaryContact || ''
       } as any);
-      
+
       alert('School updated successfully!');
       setCurrentView('school-details');
     } catch (e: any) {
@@ -348,30 +348,30 @@ const SchoolEditDetails: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">Street Address</label>
-              <input 
-                className="w-full px-3 py-2 border rounded-lg" 
-                value={form?.address?.street || form?.street || ''} 
-                onChange={(e) => update('address.street', e.target.value)} 
-                placeholder="Enter street address" 
+              <input
+                className="w-full px-3 py-2 border rounded-lg"
+                value={form?.address?.street || form?.street || ''}
+                onChange={(e) => update('address.street', e.target.value)}
+                placeholder="Enter street address"
                 title={`Current value: ${form?.address?.street || form?.street || 'Empty'}`}
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Area/Locality</label>
-              <input 
-                className="w-full px-3 py-2 border rounded-lg" 
-                value={form?.address?.area || form?.area || ''} 
-                onChange={(e) => update('address.area', e.target.value)} 
-                placeholder="Enter area/locality" 
+              <input
+                className="w-full px-3 py-2 border rounded-lg"
+                value={form?.address?.area || form?.area || ''}
+                onChange={(e) => update('address.area', e.target.value)}
+                placeholder="Enter area/locality"
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
-              <input 
-                className="w-full px-3 py-2 border rounded-lg" 
-                value={form?.address?.city || form?.city || ''} 
-                onChange={(e) => update('address.city', e.target.value)} 
-                placeholder="Enter city" 
+              <input
+                className="w-full px-3 py-2 border rounded-lg"
+                value={form?.address?.city || form?.city || ''}
+                onChange={(e) => update('address.city', e.target.value)}
+                placeholder="Enter city"
               />
             </div>
           </div>
@@ -398,15 +398,15 @@ const SchoolEditDetails: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Pin Code</label>
-              <input 
-                className="w-full px-3 py-2 border rounded-lg" 
-                value={form?.address?.pinCode || form?.address?.zipCode || form?.pinCode || ''} 
-                onChange={(e) => { 
-                  update('address.pinCode', e.target.value); 
-                  update('address.zipCode', e.target.value); 
-                  update('pinCode', e.target.value); 
-                }} 
-                placeholder="Enter pin code" 
+              <input
+                className="w-full px-3 py-2 border rounded-lg"
+                value={form?.address?.pinCode || form?.address?.zipCode || form?.pinCode || ''}
+                onChange={(e) => {
+                  update('address.pinCode', e.target.value);
+                  update('address.zipCode', e.target.value);
+                  update('pinCode', e.target.value);
+                }}
+                placeholder="Enter pin code"
               />
             </div>
             <div>
@@ -472,7 +472,7 @@ const SchoolEditDetails: React.FC = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Established Date</label>
-              <input type="date" className="w-full px-3 py-2 border rounded-lg" value={form?.establishedDate ? String(form.establishedDate).substring(0,10) : ''} onChange={(e) => update('establishedDate', e.target.value)} />
+              <input type="date" className="w-full px-3 py-2 border rounded-lg" value={form?.establishedDate ? String(form.establishedDate).substring(0, 10) : ''} onChange={(e) => update('establishedDate', e.target.value)} />
             </div>
           </div>
         </div>
@@ -506,16 +506,16 @@ const SchoolEditDetails: React.FC = () => {
             <ImageIcon className="h-6 w-6 text-orange-600" />
             <h2 className="text-lg font-semibold text-gray-900">School Image</h2>
           </div>
-          
+
           <div className="space-y-4">
             {/* Current Image Display */}
             {profile?.logoUrl && !imagePreview && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Current Image</label>
                 <div className="relative w-48 h-48 border-2 border-gray-200 rounded-lg overflow-hidden">
-                  <img 
-                    src={profile.logoUrl} 
-                    alt="Current school image" 
+                  <img
+                    src={profile.logoUrl}
+                    alt="Current school image"
                     className="w-full h-full object-cover"
                     onError={(e) => {
                       (e.target as HTMLImageElement).src = 'https://via.placeholder.com/200?text=No+Image';
@@ -524,15 +524,15 @@ const SchoolEditDetails: React.FC = () => {
                 </div>
               </div>
             )}
-            
+
             {/* Image Preview */}
             {imagePreview && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">New Image Preview</label>
                 <div className="relative w-48 h-48 border-2 border-green-500 rounded-lg overflow-hidden">
-                  <img 
-                    src={imagePreview} 
-                    alt="Preview" 
+                  <img
+                    src={imagePreview}
+                    alt="Preview"
                     className="w-full h-full object-cover"
                   />
                   <div className="absolute top-2 right-2 bg-green-500 text-white px-2 py-1 rounded text-xs">
@@ -541,7 +541,7 @@ const SchoolEditDetails: React.FC = () => {
                 </div>
               </div>
             )}
-            
+
             {/* Upload Button */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -551,9 +551,9 @@ const SchoolEditDetails: React.FC = () => {
                 <label className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer transition-colors">
                   <Upload className="h-4 w-4" />
                   <span>Choose Image</span>
-                  <input 
-                    type="file" 
-                    accept="image/jpeg,image/jpg,image/png,image/gif,image/webp" 
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
                     onChange={handleImageChange}
                     className="hidden"
                   />

@@ -144,8 +144,27 @@ const AcademicDetails: React.FC = () => {
     }
   ];
 
+  const idCardThemes: { id: 'modern' | 'classic' | 'minimalist', name: string, description: string }[] = [
+    {
+      id: 'modern',
+      name: 'Modern',
+      description: 'Solid school colors with sleek curves'
+    },
+    {
+      id: 'classic',
+      name: 'Classic',
+      description: 'Traditional solid header and structured grid'
+    },
+    {
+      id: 'minimalist',
+      name: 'Minimalist',
+      description: 'Clean whitespace with elegant typography'
+    }
+  ];
+
   // ID Card Generation State
   const [selectedOrientation, setSelectedOrientation] = useState('');
+  const [selectedTheme, setSelectedTheme] = useState<'modern' | 'classic' | 'minimalist'>('modern');
   const [idCardPreview, setIdCardPreview] = useState<any>(null);
   const [generatingCards, setGeneratingCards] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
@@ -445,8 +464,8 @@ const AcademicDetails: React.FC = () => {
     if (!hallTicketClass || !hallTicketSection) return;
 
     setLoadingSubjects(true);
-    setSubjectExams([]); 
-    
+    setSubjectExams([]);
+
     try {
       const schoolCode = (localStorage.getItem('erp.schoolCode') || user?.schoolCode || '').toUpperCase();
       const academicYearToUse = normalizeAcademicYear(viewingAcademicYear || currentAcademicYear || getDynamicFallbackYear());
@@ -459,7 +478,7 @@ const AcademicDetails: React.FC = () => {
           params: { academicYear: academicYearToUse },
           headers: { 'x-school-code': schoolCode }
         });
-        
+
         if (response.data?.success && response.data?.data?.classes) {
           const classData = response.data.data.classes.find((c: any) => {
             const matchClass = String(c.className).trim() === String(hallTicketClass).trim();
@@ -493,7 +512,7 @@ const AcademicDetails: React.FC = () => {
 
       // If we reach here, no subjects were found
       toast.error(`No subjects found for Class ${hallTicketClass} Section ${hallTicketSection} in ${academicYearToUse}. Please add subjects first.`);
-      
+
     } catch (error) {
       console.error('Error in fetchSubjects:', error);
       toast.error('Failed to fetch subjects');
@@ -505,7 +524,7 @@ const AcademicDetails: React.FC = () => {
   // Helper to process subjects list and fetch students
   const processSubjectsList = async (subjects: any[], source: string) => {
     const activeSubjects = subjects.filter((s: any) => s.isActive !== false);
-    
+
     if (activeSubjects.length === 0) {
       toast.error(`All subjects for this class are marked as inactive (${source}).`);
       return;
@@ -579,6 +598,36 @@ const AcademicDetails: React.FC = () => {
             return `${baseUrl}${rawImageUrl}`;
           }
           return rawImageUrl;
+        })(),
+        dateOfBirth: (() => {
+          const dob = student.studentDetails?.personal?.dateOfBirth;
+          if (dob) {
+            const date = new Date(dob);
+            return date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+          }
+          return undefined;
+        })(),
+        bloodGroup: student.studentDetails?.personal?.bloodGroup,
+        fatherName: student.studentDetails?.family?.father?.name,
+        motherName: student.studentDetails?.family?.mother?.name,
+        address: (() => {
+          let parts: string[] = [];
+          if (student.address?.permanent) {
+             const p = student.address.permanent;
+             parts = [p.street, p.area, p.city, p.state, p.pincode].filter(Boolean);
+          } else if (student.address?.current) {
+             const c = student.address.current;
+             parts = [c.street, c.area, c.city, c.state, c.pincode].filter(Boolean);
+          } else if (student.address && typeof student.address === 'object') {
+             parts = [student.address.street, student.address.area, student.address.city, student.address.state, student.address.pincode].filter(Boolean);
+          }
+          
+          if (parts.length > 0) return parts.join(', ');
+
+          if (typeof student.address === 'string' && student.address.trim() !== '') return student.address;
+          if (typeof student.personalDetails?.address === 'string') return student.personalDetails.address;
+          
+          return undefined;
         })()
       });
 
@@ -613,7 +662,7 @@ const AcademicDetails: React.FC = () => {
 
         const classMatch = String(studentClass).trim() === String(targetClass).trim();
         const sectionMatch = String(studentSection).trim().toUpperCase() === String(targetSection).trim().toUpperCase();
-        
+
         const normalizedStudentYear = normalizeAcademicYear(String(studentAcademicYear).trim());
         const normalizedTargetYear = normalizeAcademicYear(String(targetAcademicYear || academicYearToUse).trim());
         const academicYearMatch = normalizedStudentYear === normalizedTargetYear;
@@ -732,11 +781,35 @@ const AcademicDetails: React.FC = () => {
         className: idCardClass,
         section: idCardSection,
         profileImage: student.profileImage || student.profilePicture || null,
-        fatherName: student.parentDetails?.fatherName || student.fatherName || student.parent?.father?.name || 'Not Available',
-        motherName: student.parentDetails?.motherName || student.motherName || student.parent?.mother?.name || 'Not Available',
-        dateOfBirth: student.personalDetails?.dateOfBirth || student.dateOfBirth || student.dob || student.personal?.dateOfBirth || 'Not Available',
-        bloodGroup: student.personalDetails?.bloodGroup || student.bloodGroup || student.personal?.bloodGroup || student.medicalInfo?.bloodGroup || 'Not Available',
-        address: student.address?.permanent?.street || student.address?.street || student.personalDetails?.address || student.address || 'Not Available',
+        fatherName: student.studentDetails?.family?.father?.name || student.parentDetails?.fatherName || student.fatherName || student.parent?.father?.name || 'Not Available',
+        motherName: student.studentDetails?.family?.mother?.name || student.parentDetails?.motherName || student.motherName || student.parent?.mother?.name || 'Not Available',
+        dateOfBirth: (() => {
+          const dob = student.studentDetails?.personal?.dateOfBirth || student.personalDetails?.dateOfBirth || student.dateOfBirth || student.dob || student.personal?.dateOfBirth;
+          if (dob) {
+            return new Date(dob).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+          }
+          return 'Not Available';
+        })(),
+        bloodGroup: student.studentDetails?.personal?.bloodGroup || student.personalDetails?.bloodGroup || student.bloodGroup || student.personal?.bloodGroup || student.medicalInfo?.bloodGroup || 'Not Available',
+        address: (() => {
+          let parts: string[] = [];
+          if (student.address?.permanent) {
+             const p = student.address.permanent;
+             parts = [p.street, p.area, p.city, p.state, p.pincode].filter(Boolean);
+          } else if (student.address?.current) {
+             const c = student.address.current;
+             parts = [c.street, c.area, c.city, c.state, c.pincode].filter(Boolean);
+          } else if (student.address && typeof student.address === 'object') {
+             parts = [student.address.street, student.address.area, student.address.city, student.address.state, student.address.pincode].filter(Boolean);
+          }
+          
+          if (parts.length > 0) return parts.join(', ');
+
+          if (typeof student.address === 'string' && student.address.trim() !== '') return student.address;
+          if (typeof student.personalDetails?.address === 'string') return student.personalDetails.address;
+          
+          return 'Not Available';
+        })(),
         phone: student.contact?.primaryPhone || student.contact?.phone || student.phone || student.personalDetails?.phone || 'Not Available'
       });
 
@@ -1460,7 +1533,8 @@ const AcademicDetails: React.FC = () => {
               student: student,
               templateId: selectedOrientation as 'landscape' | 'portrait',
               side: 'front',
-              mode: 'print'
+              mode: 'print',
+              theme: selectedTheme
             })
           );
 
@@ -1471,7 +1545,8 @@ const AcademicDetails: React.FC = () => {
               student: student,
               templateId: selectedOrientation as 'landscape' | 'portrait',
               side: 'back',
-              mode: 'print'
+              mode: 'print',
+              theme: selectedTheme
             })
           );
 
@@ -1564,6 +1639,7 @@ const AcademicDetails: React.FC = () => {
         onClose={() => setShowPreview(false)}
         initialOrientation={selectedOrientation as 'landscape' | 'portrait'}
         lockOrientation={true}
+        theme={selectedTheme}
       />
     );
   }
@@ -1736,8 +1812,8 @@ const AcademicDetails: React.FC = () => {
                   <button
                     onClick={addSubject}
                     disabled={
-                      !newSubjectName.trim() || 
-                      (!applyToAllClasses && !selectedClass) || 
+                      !newSubjectName.trim() ||
+                      (!applyToAllClasses && !selectedClass) ||
                       (!applyToAllClasses && !applyToAllSections && !selectedSection) ||
                       loadingSubjects
                     }
@@ -2334,6 +2410,28 @@ const AcademicDetails: React.FC = () => {
                           <p className="text-xs text-gray-600 mb-2">{orientation.description}</p>
                           <p className="text-xs text-gray-500">{orientation.preview}</p>
                         </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Theme Selection */}
+              {idCardStudents.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Choose Design Theme</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {idCardThemes.map((theme) => (
+                      <div
+                        key={theme.id}
+                        onClick={() => setSelectedTheme(theme.id)}
+                        className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${selectedTheme === theme.id
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                          }`}
+                      >
+                        <h4 className="font-semibold text-gray-800 mb-1">{theme.name}</h4>
+                        <p className="text-sm text-gray-500">{theme.description}</p>
                       </div>
                     ))}
                   </div>
