@@ -597,35 +597,22 @@ userSchema.pre('save', function (next) {
 });
 
 // Enhanced Indexes for Performance
-userSchema.index({ role: 1, isActive: 1 }, { background: true });
-userSchema.index({ schoolCode: 1, role: 1, isActive: 1 }, { background: true });
-userSchema.index({ schoolCode: 1, 'schoolAccess.status': 1 }, { background: true });
-userSchema.index({ schoolId: 1, role: 1, isActive: 1 }, { background: true });
-userSchema.index({ schoolId: 1, 'schoolAccess.status': 1 }, { background: true });
-userSchema.index({ lastLogin: 1 }, { background: true });
-userSchema.index({ createdAt: -1 }, { background: true });
-userSchema.index({ 'auditTrail.lastModifiedAt': -1 }, { background: true });
-userSchema.index({ 'activeSessions.isActive': 1 }, { background: true });
+userSchema.index({ role: 1, isActive: 1 });
+userSchema.index({ schoolCode: 1, 'schoolAccess.status': 1 });
+userSchema.index({ lastLogin: 1 });
+userSchema.index({ 'activeSessions.isActive': 1 });
 
 // Student-specific indexes
 userSchema.index({
   'studentDetails.academic.currentClass': 1,
-  'studentDetails.academic.currentSection': 1,
-  schoolId: 1,
-  role: 1
-}, { background: true });
-userSchema.index({
-  'studentDetails.academic.currentClass': 1,
-  'studentDetails.academic.currentSection': 1,
-  schoolCode: 1,
-  role: 1
-}, { background: true });
-userSchema.index({ 'studentDetails.studentId': 1 }, { sparse: true, background: true });
-userSchema.index({ 'studentDetails.admissionNumber': 1 }, { sparse: true, background: true });
+  'studentDetails.academic.currentSection': 1
+});
+userSchema.index({ 'studentDetails.admissionNumber': 1 }, { sparse: true });
+userSchema.index({ schoolId: 1, role: 1 });
 
 // Teacher-specific indexes
-userSchema.index({ 'teacherDetails.subjects.subjectCode': 1 }, { background: true });
-userSchema.index({ 'teacherDetails.classTeacherOf': 1 }, { background: true });
+userSchema.index({ 'teacherDetails.subjects.subjectCode': 1 });
+userSchema.index({ 'teacherDetails.classTeacherOf': 1 });
 
 // Methods for session management
 userSchema.methods.addSession = function (sessionId, deviceInfo, ipAddress) {

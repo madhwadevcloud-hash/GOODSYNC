@@ -1,36 +1,9 @@
 const mongoose = require('mongoose');
-const NodeCache = require('node-cache');
 const Attendance = require('../models/Attendance');
 const User = require('../models/User');
 const School = require('../models/School');
 const DatabaseOptimization = require('../utils/databaseOptimization');
 const UserGenerator = require('../utils/userGenerator');
-
-const attendanceCache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
-
-const getAttendanceCacheKey = (prefix, params = {}) => {
-  const normalizedParams = Object.entries(params)
-    .filter(([, value]) => value !== undefined)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .reduce((acc, [key, value]) => {
-      acc[key] = value;
-      return acc;
-    }, {});
-
-  return `${prefix}:${JSON.stringify(normalizedParams)}`;
-};
-
-const getCachedAttendanceResponse = (key) => attendanceCache.get(key);
-
-const setCachedAttendanceResponse = (key, value, ttl) => attendanceCache.set(key, value, ttl);
-
-const clearAttendanceCache = () => {
-  attendanceCache.keys().forEach((key) => {
-    if (typeof key === 'string' && key.startsWith('attendance:')) {
-      attendanceCache.del(key);
-    }
-  });
-};
 
 // Enhanced attendance marking with multiple methods and tracking
 exports.markAttendance = async (req, res) => {
@@ -173,7 +146,6 @@ exports.markAttendance = async (req, res) => {
     }
 
     await attendance.save();
-    clearAttendanceCache();
 
     // Send parent notification for absence or late arrival
     if (status === 'absent' || status === 'late') {
@@ -543,7 +515,6 @@ exports.markBulkAttendance = async (req, res) => {
 
     const successCount = results.filter(r => r.success).length;
     const failCount = results.filter(r => !r.success).length;
-    clearAttendanceCache();
 
     res.json({
       success: true,
@@ -567,22 +538,6 @@ exports.getAttendance = async (req, res) => {
   try {
     const { class: className, section, date, startDate, endDate, session } = req.query;
     const schoolCode = req.user.schoolCode || 'P'; // Default fallback
-    const cacheKey = getAttendanceCacheKey('attendance:list', {
-      schoolCode,
-      role: req.user.role,
-      userId: req.user.userId || req.user._id,
-      className,
-      section,
-      date,
-      startDate,
-      endDate,
-      session
-    });
-    const cachedResponse = getCachedAttendanceResponse(cacheKey);
-
-    if (cachedResponse) {
-      return res.json(cachedResponse);
-    }
 
     console.log(`📊 Getting attendance for Class ${className} Section ${section} Date ${date} Session ${session}`);
 
@@ -708,16 +663,12 @@ exports.getAttendance = async (req, res) => {
 
     console.log(`✅ Found ${transformedAttendance.length} attendance sessions`);
 
-    const responsePayload = {
+    res.json({
       success: true,
       message: `Found ${transformedAttendance.length} attendance sessions`,
       data: transformedAttendance,
       totalSessions: transformedAttendance.length
-    };
-
-    setCachedAttendanceResponse(cacheKey, responsePayload);
-
-    res.json(responsePayload);
+    });
 
   } catch (error) {
     console.error('Error fetching attendance:', error);
@@ -734,18 +685,6 @@ exports.checkSessionStatus = async (req, res) => {
   try {
     const { class: className, section, date, session } = req.query;
     const schoolCode = req.user.schoolCode || 'P';
-    const cacheKey = getAttendanceCacheKey('attendance:session-status', {
-      schoolCode,
-      className,
-      section,
-      date,
-      session
-    });
-    const cachedResponse = getCachedAttendanceResponse(cacheKey);
-
-    if (cachedResponse) {
-      return res.json(cachedResponse);
-    }
 
     console.log(`🔍 Checking session status for ${date}_${className}_${section}_${session}`);
 
@@ -757,38 +696,41 @@ exports.checkSessionStatus = async (req, res) => {
     const sessionDocumentId = `${date}_${className}_${section}_${session}`;
     const existingSession = await attendanceCollection.findOne({ _id: sessionDocumentId });
 
-    const responsePayload = existingSession ? {
-      success: true,
-      isMarked: true,
-      isFrozen: true,
-      canModify: false,
-      message: `${session.charAt(0).toUpperCase() + session.slice(1)} attendance is already marked and frozen`,
-      data: {
-        documentId: sessionDocumentId,
-        markedAt: existingSession.markedAt,
-        markedBy: existingSession.markedBy,
-        totalStudents: existingSession.totalStudents,
-        progress: existingSession.progress,
-        session: existingSession.session,
-        classInfo: existingSession.classInfo
-      }
-    } : {
-      success: true,
-      isMarked: false,
-      isFrozen: false,
-      canModify: true,
-      message: `${session.charAt(0).toUpperCase() + session.slice(1)} attendance can be marked`,
-      data: {
-        documentId: sessionDocumentId,
-        date,
-        class: className,
-        section,
-        session
-      }
-    };
-
-    setCachedAttendanceResponse(cacheKey, responsePayload);
-    res.json(responsePayload);
+    if (existingSession) {
+      // Session is marked and frozen
+      res.json({
+        success: true,
+        isMarked: true,
+        isFrozen: true,
+        canModify: false,
+        message: `${session.charAt(0).toUpperCase() + session.slice(1)} attendance is already marked and frozen`,
+        data: {
+          documentId: sessionDocumentId,
+          markedAt: existingSession.markedAt,
+          markedBy: existingSession.markedBy,
+          totalStudents: existingSession.totalStudents,
+          progress: existingSession.progress,
+          session: existingSession.session,
+          classInfo: existingSession.classInfo
+        }
+      });
+    } else {
+      // Session is not marked yet
+      res.json({
+        success: true,
+        isMarked: false,
+        isFrozen: false,
+        canModify: true,
+        message: `${session.charAt(0).toUpperCase() + session.slice(1)} attendance can be marked`,
+        data: {
+          documentId: sessionDocumentId,
+          date,
+          class: className,
+          section,
+          session
+        }
+      });
+    }
 
   } catch (error) {
     console.error('Error checking session status:', error);
@@ -804,15 +746,6 @@ exports.checkSessionStatus = async (req, res) => {
 exports.getDailyAttendanceStats = async (req, res) => {
   try {
     const { schoolCode } = req.query;
-    const cacheKey = getAttendanceCacheKey('attendance:daily-stats', {
-      schoolCode: schoolCode || req.user?.schoolCode,
-      userId: req.user?.userId || req.user?._id
-    });
-    const cachedResponse = getCachedAttendanceResponse(cacheKey);
-
-    if (cachedResponse) {
-      return res.json(cachedResponse);
-    }
 
     // Check if user has access
     if (!req.user) {
@@ -903,17 +836,14 @@ exports.getDailyAttendanceStats = async (req, res) => {
 
     console.log(`[DAILY STATS] Calculated stats for ${dailyStats.length} days`);
 
-    const responsePayload = {
+    res.json({
       success: true,
       dailyStats,
       period: {
         from: sevenDaysAgo.toISOString().split('T')[0],
         to: today.toISOString().split('T')[0]
       }
-    };
-
-    setCachedAttendanceResponse(cacheKey, responsePayload);
-    res.json(responsePayload);
+    });
 
   } catch (error) {
     console.error('Error fetching daily attendance stats:', error);
@@ -929,20 +859,6 @@ exports.getDailyAttendanceStats = async (req, res) => {
 exports.getAttendanceStats = async (req, res) => {
   try {
     const { class: className, section, startDate, endDate, date, academicYear } = req.query;
-    const cacheKey = getAttendanceCacheKey('attendance:stats', {
-      schoolCode: req.user?.schoolCode,
-      className,
-      section,
-      startDate,
-      endDate,
-      date,
-      academicYear
-    });
-    const cachedResponse = getCachedAttendanceResponse(cacheKey);
-
-    if (cachedResponse) {
-      return res.json(cachedResponse);
-    }
 
     console.log(`[ATTENDANCE STATS] Request received:`, {
       userId: req.user?.userId,
@@ -1078,7 +994,7 @@ exports.getAttendanceStats = async (req, res) => {
 
     console.log(`[ATTENDANCE STATS] Total: ${totalRecords}, Present: ${totalPresent}, Absent: ${totalAbsent}, Half-Day: ${totalHalfDay}, Rate: ${averageAttendance}%`);
 
-    const responsePayload = {
+    res.json({
       success: true,
       totalSessions,
       totalPresent,
@@ -1088,10 +1004,7 @@ exports.getAttendanceStats = async (req, res) => {
       totalRecords,
       averageAttendance,
       attendanceRate: `${averageAttendance}%`
-    };
-
-    setCachedAttendanceResponse(cacheKey, responsePayload, 60);
-    res.json(responsePayload);
+    });
 
   } catch (error) {
     console.error('Error fetching attendance stats:', error);
@@ -1107,16 +1020,6 @@ exports.getAttendanceStats = async (req, res) => {
 exports.getSessionAttendanceData = async (req, res) => {
   try {
     const { date, session } = req.query;
-    const cacheKey = getAttendanceCacheKey('attendance:session-data', {
-      schoolCode: req.user?.schoolCode,
-      date,
-      session
-    });
-    const cachedResponse = getCachedAttendanceResponse(cacheKey);
-
-    if (cachedResponse) {
-      return res.json(cachedResponse);
-    }
 
     // Check if user has access
     if (!req.user) {
@@ -1200,7 +1103,7 @@ exports.getSessionAttendanceData = async (req, res) => {
 
     console.log(`[SESSION DATA] ${session} - Present: ${totalPresent}, Absent: ${totalAbsent}, Half-Day: ${totalHalfDay}, Rate: ${attendanceRate}%`);
 
-    const responsePayload = {
+    res.json({
       success: true,
       session: session.toLowerCase(),
       date,
@@ -1210,10 +1113,7 @@ exports.getSessionAttendanceData = async (req, res) => {
       totalRecords,
       attendanceRate,
       attendanceRateFormatted: `${attendanceRate}%`
-    };
-
-    setCachedAttendanceResponse(cacheKey, responsePayload);
-    res.json(responsePayload);
+    });
 
   } catch (error) {
     console.error('Error fetching session attendance data:', error);
@@ -1284,7 +1184,7 @@ exports.getOverallAttendanceRate = async (req, res) => {
 
     console.log(`[OVERALL ATTENDANCE] Total Sessions: ${allSessionDocs.length}, Total Records: ${totalRecords}, Present: ${totalPresent}, Absent: ${totalAbsent}, Half-Day: ${totalHalfDay}, Overall Rate: ${overallAttendanceRate}%`);
 
-    const responsePayload = {
+    res.json({
       success: true,
       totalSessions: allSessionDocs.length,
       totalPresent,
@@ -1293,10 +1193,7 @@ exports.getOverallAttendanceRate = async (req, res) => {
       totalRecords,
       overallAttendanceRate,
       attendanceRateFormatted: `${overallAttendanceRate}%`
-    };
-
-    setCachedAttendanceResponse(cacheKey, responsePayload);
-    res.json(responsePayload);
+    });
 
   } catch (error) {
     console.error('Error fetching overall attendance rate:', error);
@@ -1335,7 +1232,6 @@ exports.lockAttendance = async (req, res) => {
     attendance.updatedAt = new Date();
 
     await attendance.save();
-    clearAttendanceCache();
 
     res.json({
       message: 'Attendance locked successfully',
@@ -1364,19 +1260,6 @@ exports.getMyAttendance = async (req, res) => {
         success: false,
         message: 'This endpoint is only for students'
       });
-    }
-
-    const cacheKey = getAttendanceCacheKey('attendance:my-attendance', {
-      schoolCode: req.user.schoolCode,
-      studentId: req.user.userId || req.user._id,
-      startDate,
-      endDate,
-      limit
-    });
-    const cachedResponse = getCachedAttendanceResponse(cacheKey);
-
-    if (cachedResponse) {
-      return res.json(cachedResponse);
     }
 
     // Get student's userId from authenticated user
@@ -1770,7 +1653,7 @@ exports.getMyAttendance = async (req, res) => {
     console.log(`[GET MY ATTENDANCE] Statistics: Total Sessions: ${totalSessions}, Present Sessions: ${presentSessions}, Session-based %: ${attendancePercentage}`);
     console.log(`[GET MY ATTENDANCE] Day Statistics: Total Days: ${totalDays}, Present Days: ${presentDays}, Day-based %: ${attendanceRate}`);
 
-    const responsePayload = {
+    res.json({
       success: true,
       data: {
         student: {
@@ -1792,10 +1675,7 @@ exports.getMyAttendance = async (req, res) => {
         },
         records: finalRecords
       }
-    };
-
-    setCachedAttendanceResponse(cacheKey, responsePayload);
-    res.json(responsePayload);
+    });
 
   } catch (error) {
     console.error('[GET MY ATTENDANCE] Error:', error);
@@ -1950,21 +1830,6 @@ exports.getAttendanceAnalytics = async (req, res) => {
     } = req.query;
 
     const schoolCode = req.user.schoolCode;
-    const cacheKey = getAttendanceCacheKey('attendance:analytics', {
-      schoolCode,
-      type,
-      className: req.query.class,
-      section: req.query.section,
-      startDate: req.query.startDate,
-      endDate: req.query.endDate,
-      studentId: req.query.studentId
-    });
-    const cachedResponse = getCachedAttendanceResponse(cacheKey);
-
-    if (cachedResponse) {
-      return res.json(cachedResponse);
-    }
-
     const filters = { schoolCode };
 
     // Add filters based on query params
@@ -1997,15 +1862,12 @@ exports.getAttendanceAnalytics = async (req, res) => {
         return res.status(400).json({ message: 'Invalid analytics type' });
     }
 
-    const responsePayload = {
+    res.json({
       success: true,
       type,
       filters,
       analytics
-    };
-
-    setCachedAttendanceResponse(cacheKey, responsePayload, 60);
-    res.json(responsePayload);
+    });
 
   } catch (error) {
     console.error('Error fetching attendance analytics:', error);

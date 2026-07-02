@@ -1,10 +1,4 @@
 const School = require('../models/School');
-const NodeCache = require('node-cache');
-
-// Initialize cache for academic years
-// stdTTL: 30 minutes (1800 seconds) since school years change rarely
-// checkperiod: checks and removes expired elements every 60 seconds
-const academicCache = new NodeCache({ stdTTL: 1800, checkperiod: 60 });
 
 /**
  * Synchronously calculates the dynamic academic year based on current date.
@@ -25,20 +19,10 @@ const getDynamicAcademicYear = () => {
  */
 const getCurrentAcademicYear = async (schoolCode) => {
   try {
-    if (!schoolCode) return getDynamicAcademicYear();
-
-    const cacheKey = `ay_code_${schoolCode}`;
-    const cachedYear = academicCache.get(cacheKey);
-    if (cachedYear) {
-      return cachedYear; // Instant non-blocking return
-    }
-
     const school = await School.findOne({ code: schoolCode }).select('settings.academicYear.currentYear');
     
     if (school && school.settings && school.settings.academicYear && school.settings.academicYear.currentYear) {
-      const year = school.settings.academicYear.currentYear;
-      academicCache.set(cacheKey, year);
-      return year;
+      return school.settings.academicYear.currentYear;
     }
     
     return getDynamicAcademicYear();
@@ -55,20 +39,10 @@ const getCurrentAcademicYear = async (schoolCode) => {
  */
 const getCurrentAcademicYearById = async (schoolId) => {
   try {
-    if (!schoolId) return getDynamicAcademicYear();
-
-    const cacheKey = `ay_id_${schoolId.toString()}`;
-    const cachedYear = academicCache.get(cacheKey);
-    if (cachedYear) {
-      return cachedYear;
-    }
-
     const school = await School.findById(schoolId).select('settings.academicYear.currentYear');
     
     if (school && school.settings && school.settings.academicYear && school.settings.academicYear.currentYear) {
-      const year = school.settings.academicYear.currentYear;
-      academicCache.set(cacheKey, year);
-      return year;
+      return school.settings.academicYear.currentYear;
     }
     
     return getDynamicAcademicYear();
@@ -81,6 +55,5 @@ const getCurrentAcademicYearById = async (schoolId) => {
 module.exports = {
   getCurrentAcademicYear,
   getCurrentAcademicYearById,
-  getDynamicAcademicYear,
-  academicCache // Exporting cache instance allows clearing on settings update
+  getDynamicAcademicYear
 };

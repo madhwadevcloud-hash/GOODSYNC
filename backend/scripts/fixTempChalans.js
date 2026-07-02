@@ -1,3 +1,6 @@
+const dns = require('dns');
+dns.setServers(['8.8.8.8', '1.1.1.1']);
+
 require('dotenv').config();
 const mongoose = require('mongoose');
 const { MongoClient } = require('mongodb');
@@ -6,8 +9,13 @@ const Counter = require('../models/Counter');
 
 async function fixTempChalans() {
   try {
+    const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI;
+    if (!mongoUri) {
+      throw new Error('MongoDB URI not configured. Set MONGODB_URI or MONGO_URI.');
+    }
+
     // Connect to MongoDB
-    await mongoose.connect(process.env.MONGO_URI, {
+    await mongoose.connect(mongoUri, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });
