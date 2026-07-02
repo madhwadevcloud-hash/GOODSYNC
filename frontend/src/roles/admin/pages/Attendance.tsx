@@ -56,7 +56,28 @@ const Attendance: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeSession, setActiveSession] = useState<'morning' | 'afternoon'>('morning');
+  const getCurrentSession = (): 'morning' | 'afternoon' => {
+  const hour = new Date().getHours();
+
+  // 12:00 AM - 12:59 PM = Morning
+  // 1:00 PM - 11:59 PM = Afternoon
+  return hour < 13 ? 'morning' : 'afternoon';
+};
+
+const [activeSession, setActiveSession] = useState<'morning' | 'afternoon'>(getCurrentSession());
+useEffect(() => {
+  const updateSession = () => {
+    setActiveSession(getCurrentSession());
+  };
+
+  // Set immediately
+  updateSession();
+
+  // Check every minute
+  const timer = setInterval(updateSession, 60000);
+
+  return () => clearInterval(timer);
+}, []);
 
   // Get class list from superadmin configuration
   const classList = [...new Set(classesData?.classes?.map(c => c.className) || [])];
@@ -250,33 +271,35 @@ const Attendance: React.FC = () => {
   };
 
   // Save attendance data
-  const saveAttendance = async () => {
-    try {
-      setSaving(true);
+const saveAttendance = async () => {
+  try {
+    setSaving(true);
 
-      const attendanceData = {
-        date: selectedDate,
-        class: selectedClass,
-        section: selectedSection,
-        records: attendanceRecords,
-        markedBy: user?.id || user?.email,
-        timestamp: new Date().toISOString()
-      };
+    const session = activeSession;
 
-      console.log('Saving attendance data:', attendanceData);
+    const attendanceData = {
+      date: selectedDate,
+      class: selectedClass,
+      section: selectedSection,
+      session,
+      records: attendanceRecords,
+      markedBy: user?.id || user?.email,
+      timestamp: new Date().toISOString()
+    };
 
-      // Here you would typically send the data to your attendance API
-      // await attendanceAPI.saveAttendance(schoolCode, attendanceData, token);
+    console.log('Saving attendance data:', attendanceData);
 
-      toast.success('Attendance saved successfully');
+    // await attendanceAPI.saveAttendance(schoolCode, attendanceData, token);
 
-    } catch (error) {
-      console.error('Error saving attendance:', error);
-      toast.error('Failed to save attendance');
-    } finally {
-      setSaving(false);
-    }
-  };
+    toast.success('Attendance saved successfully');
+
+  } catch (error) {
+    console.error('Error saving attendance:', error);
+    toast.error('Failed to save attendance');
+  } finally {
+    setSaving(false);
+  }
+};
 
   // Filter students based on search term
   const filteredRecords = attendanceRecords.filter(record =>
@@ -331,11 +354,12 @@ const Attendance: React.FC = () => {
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
               <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs sm:text-sm"
-              />
+  type="date"
+  value={selectedDate}
+  max={new Date().toISOString().split('T')[0]}
+  onChange={(e) => setSelectedDate(e.target.value)}
+  className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs sm:text-sm"
+/>
             </div>
           </div>
 
@@ -378,25 +402,28 @@ const Attendance: React.FC = () => {
           <div>
             <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Session</label>
             <div className="flex bg-gray-100 rounded-lg p-1">
-              <button
-                onClick={() => setActiveSession('morning')}
-                className={`flex-1 px-2 sm:px-3 py-1 rounded text-xs sm:text-sm font-medium transition-colors ${activeSession === 'morning'
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-800'
-                  }`}
-              >
-                Morning
-              </button>
-              <button
-                onClick={() => setActiveSession('afternoon')}
-                className={`flex-1 px-2 sm:px-3 py-1 rounded text-xs sm:text-sm font-medium transition-colors ${activeSession === 'afternoon'
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-800'
-                  }`}
-              >
-                Afternoon
-              </button>
-            </div>
+  <button
+    disabled={activeSession !== 'morning'}
+    className={`flex-1 px-3 py-2 rounded text-sm font-medium transition-colors ${
+      activeSession === 'morning'
+        ? 'bg-white text-blue-600 shadow-sm'
+        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+    }`}
+  >
+    Morning
+  </button>
+
+  <button
+    disabled={activeSession !== 'afternoon'}
+    className={`flex-1 px-3 py-2 rounded text-sm font-medium transition-colors ${
+      activeSession === 'afternoon'
+        ? 'bg-white text-blue-600 shadow-sm'
+        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+    }`}
+  >
+    Afternoon
+  </button>
+</div>
           </div>
         </div>
 
@@ -479,8 +506,11 @@ const Attendance: React.FC = () => {
               Class {selectedClass} - Section {selectedSection}
             </h3>
             <p className="text-xs sm:text-sm text-gray-600 mt-1">
-              {new Date(selectedDate).toLocaleDateString()} | {activeSession.charAt(0).toUpperCase() + activeSession.slice(1)} Session
-            </p>
+    {new Date(selectedDate).toLocaleDateString()} | 
+    <span className="font-semibold text-blue-600 ml-1">
+      {activeSession.charAt(0).toUpperCase() + activeSession.slice(1)} Session (Auto-detected)
+    </span>
+  </p>
           </div>
 
           {loading ? (

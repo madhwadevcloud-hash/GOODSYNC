@@ -420,11 +420,19 @@ const ViewAttendanceRecords: React.FC = () => {
               onChange={(e) => setViewingYear(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
-              {availableYears.map((year) => (
-                <option key={year} value={year}>
-                  {year} {year === currentAcademicYear && '(Current)'}
-                </option>
-              ))}
+              {availableYears
+  .filter((year) => {
+    const currentStart = parseInt(currentAcademicYear.split("-")[0]);
+    const yearStart = parseInt(year.split("-")[0]);
+
+    // Hide future academic years
+    return yearStart <= currentStart;
+  })
+  .map((year) => (
+    <option key={year} value={year}>
+      {year} {year === currentAcademicYear && "(Current)"}
+    </option>
+))}
             </select>
           </div>
 
@@ -433,11 +441,12 @@ const ViewAttendanceRecords: React.FC = () => {
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="pl-10 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
+  type="date"
+  value={selectedDate}
+  max={new Date().toISOString().split("T")[0]}
+  onChange={(e) => setSelectedDate(e.target.value)}
+  className="pl-10 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+/>
             </div>
           </div>
 

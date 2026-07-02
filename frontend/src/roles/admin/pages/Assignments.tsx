@@ -346,6 +346,16 @@ const Assignments: React.FC = () => {
       alert(error.response?.data?.message || 'Failed to delete assignment');
     }
   };
+  const canEditAssignment = (dueDate: string) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const due = new Date(dueDate);
+  due.setHours(0, 0, 0, 0);
+
+  // Allow editing only if today is on or before the due date
+  return today <= due;
+};
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -389,18 +399,14 @@ const Assignments: React.FC = () => {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-900">Assignments</h1>
         <div className="flex space-x-3">
-          <button className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center transition-colors">
-            <Download className="h-4 w-4 mr-2" />
-            Export Data
-          </button>
-          <button
-            onClick={handleAddAssignment}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Assignment
-          </button>
-        </div>
+  <button
+    onClick={handleAddAssignment}
+    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+  >
+    <Plus className="h-4 w-4 mr-2" />
+    Add Assignment
+  </button>
+</div>
       </div>
 
       {/* Error Message */}
@@ -463,11 +469,9 @@ const Assignments: React.FC = () => {
               onChange={(e) => setViewingYear(e.target.value)}
               className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
-              {availableYears.map((year) => (
-                <option key={year} value={year}>
-                  {year} {year === currentAcademicYear && '(Current)'}
-                </option>
-              ))}
+              <option value={currentAcademicYear}>
+  {currentAcademicYear} (Current)
+</option>
             </select>
             <select
               value={selectedClass}
@@ -502,7 +506,14 @@ const Assignments: React.FC = () => {
           </div>
         </div>
       </div>
-
+      
+{/* Due Date Information */}
+<div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm">
+  <div className="flex items-center gap-2 text-gray-600">
+    <Calendar className="h-4 w-4 text-gray-400" />
+    <span>Assignments cannot be edited after the due date.</span>
+  </div>
+</div>
       {/* Assignments Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
@@ -563,14 +574,16 @@ const Assignments: React.FC = () => {
                           <Eye className="h-3.5 w-3.5" />
                           View
                         </button>
-                        <button
-                          onClick={() => handleEditAssignment(assignment._id)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg font-semibold text-xs hover:bg-blue-600 hover:text-white transition-all shadow-sm"
-                          title="Edit assignment"
-                        >
-                          <Edit className="h-3.5 w-3.5" />
-                          Edit
-                        </button>
+                        {canEditAssignment(assignment.dueDate) && (
+  <button
+    onClick={() => handleEditAssignment(assignment._id)}
+    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg font-semibold text-xs hover:bg-blue-600 hover:text-white transition-all shadow-sm"
+    title="Edit assignment"
+  >
+    <Edit className="h-3.5 w-3.5" />
+    Edit
+  </button>
+)}
                         <button
                           onClick={() => handleDeleteAssignment(assignment._id, assignment.title)}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-700 rounded-lg font-semibold text-xs hover:bg-red-600 hover:text-white transition-all shadow-sm"
