@@ -397,8 +397,8 @@ const SimpleIDCardGenerator: React.FC<SimpleIDCardGeneratorProps> = ({
                       </div>
                       <div className="flex items-center">
                         <span className="text-gray-500 bg-gray-100 border border-r-0 border-gray-300 px-3 py-1.5 rounded-l text-sm font-medium">HEX</span>
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           value={customColor || getDefaultSchoolColor().header}
                           onChange={handleColorChange}
                           className="border border-gray-300 px-3 py-1.5 w-24 text-sm rounded-r focus:outline-none focus:border-blue-500 uppercase"
@@ -599,12 +599,12 @@ const SimpleIDCardGenerator: React.FC<SimpleIDCardGeneratorProps> = ({
                 ×
               </button>
             </div>
-            
+
             <div className="flex flex-col md:flex-row flex-1 overflow-hidden bg-gray-50">
               {/* Sidebar Settings */}
               <div className="w-full md:w-72 bg-white border-r border-gray-200 p-6 shrink-0 overflow-y-auto">
                 <h4 className="font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-100">Live Editor</h4>
-                
+
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Theme Color
@@ -625,8 +625,8 @@ const SimpleIDCardGenerator: React.FC<SimpleIDCardGeneratorProps> = ({
                       <div className="flex flex-col gap-2">
                         <div className="flex items-center">
                           <span className="text-gray-500 bg-gray-100 border border-r-0 border-gray-300 px-2 py-1.5 rounded-l text-xs font-medium">HEX</span>
-                          <input 
-                            type="text" 
+                          <input
+                            type="text"
                             value={customColor || getDefaultSchoolColor().header}
                             onChange={handleColorChange}
                             className="border border-gray-300 px-2 py-1.5 w-20 text-sm rounded-r focus:outline-none focus:border-blue-500 uppercase"
