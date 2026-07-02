@@ -430,14 +430,14 @@ const ManageUsers: React.FC = () => {
     return `${year}-${month}-${day}`;
   };
 
-  const { 
-    currentAcademicYear, 
-    viewingAcademicYear, 
-    isViewingHistoricalYear, 
-    setViewingYear, 
-    availableYears, 
+  const {
+    currentAcademicYear,
+    viewingAcademicYear,
+    isViewingHistoricalYear,
+    setViewingYear,
+    availableYears,
     loading: academicYearLoading,
-    ready: academicYearReady 
+    ready: academicYearReady
   } = useAcademicYear();
   // Use the school classes hook to get dynamic data
   const {
@@ -1435,6 +1435,13 @@ const ManageUsers: React.FC = () => {
           return;
         }
 
+        // Update the users list with the fetched password
+        setUsers(prevUsers => prevUsers.map(u =>
+          (u.userId === selectedTeacherId || u._id === selectedTeacherId)
+            ? { ...u, temporaryPassword: teacherData.temporaryPassword }
+            : u
+        ));
+
         // Show single password
         setPasswordVisibility(prev => ({
           ...prev,
@@ -1455,10 +1462,20 @@ const ManageUsers: React.FC = () => {
         }
 
         setAllTeacherPasswords(response.data || []);
+
+        // Update the users list with all fetched passwords
+        setUsers(prevUsers => prevUsers.map(u => {
+          const fetchedTeacher = teachersWithPasswords.find((t: any) => t.userId === u.userId || t._id === u._id);
+          if (fetchedTeacher) {
+            return { ...u, temporaryPassword: fetchedTeacher.temporaryPassword };
+          }
+          return u;
+        }));
+
         const visibilityState: Record<string, boolean> = {};
         (response.data || []).forEach((teacher: any) => {
           if (teacher.temporaryPassword) {
-            visibilityState[teacher.userId] = true;
+            visibilityState[teacher.userId || teacher._id] = true;
           }
         });
         setPasswordVisibility(visibilityState);
@@ -2090,8 +2107,8 @@ const ManageUsers: React.FC = () => {
             const processedUser: any = {
               _id: userData._id || userData.userId,
               userId: userData.userId,
-              name: userData.name?.displayName || 
-                userData.displayName || 
+              name: userData.name?.displayName ||
+                userData.displayName ||
                 (userData.name?.firstName ? `${userData.name.firstName} ${userData.name.lastName || ''}`.trim() : null) ||
                 (userData.firstName ? `${userData.firstName} ${userData.lastName || ''}`.trim() : null) ||
                 userData.studentNameEnglish?.displayName ||
@@ -2171,8 +2188,8 @@ const ManageUsers: React.FC = () => {
                 const processedUser: any = {
                   _id: userData._id || userData.userId,
                   userId: userData.userId, // Add the userId field
-                  name: userData.name?.displayName || 
-                    userData.displayName || 
+                  name: userData.name?.displayName ||
+                    userData.displayName ||
                     (userData.name?.firstName ? `${userData.name.firstName} ${userData.name.lastName || ''}`.trim() : null) ||
                     (userData.firstName ? `${userData.firstName} ${userData.lastName || ''}`.trim() : null) ||
                     userData.studentNameEnglish?.displayName ||
@@ -2360,13 +2377,13 @@ const ManageUsers: React.FC = () => {
               return {
                 exists: true,
                 role: emailConflict.role,
-                name: emailConflict.name?.displayName || 
-                       emailConflict.displayName ||
-                       (emailConflict.name?.firstName ? `${emailConflict.name.firstName} ${emailConflict.name.lastName || ''}`.trim() : null) ||
-                       (emailConflict.firstName ? `${emailConflict.firstName} ${emailConflict.lastName || ''}`.trim() : null) ||
-                       emailConflict.studentNameEnglish?.displayName ||
-                       (emailConflict.studentNameEnglish?.firstName ? `${emailConflict.studentNameEnglish.firstName} ${emailConflict.studentNameEnglish.lastName || ''}`.trim() : null) ||
-                       'Unknown'
+                name: emailConflict.name?.displayName ||
+                  emailConflict.displayName ||
+                  (emailConflict.name?.firstName ? `${emailConflict.name.firstName} ${emailConflict.name.lastName || ''}`.trim() : null) ||
+                  (emailConflict.firstName ? `${emailConflict.firstName} ${emailConflict.lastName || ''}`.trim() : null) ||
+                  emailConflict.studentNameEnglish?.displayName ||
+                  (emailConflict.studentNameEnglish?.firstName ? `${emailConflict.studentNameEnglish.firstName} ${emailConflict.studentNameEnglish.lastName || ''}`.trim() : null) ||
+                  'Unknown'
               };
             }
           }
@@ -4114,9 +4131,9 @@ const ManageUsers: React.FC = () => {
     const getUserNameString = (nameObj: any) => {
       if (!nameObj) return '';
       if (typeof nameObj === 'string') return nameObj;
-      return nameObj.displayName || 
-             (nameObj.firstName ? `${nameObj.firstName} ${nameObj.lastName || ''}`.trim() : '') || 
-             '';
+      return nameObj.displayName ||
+        (nameObj.firstName ? `${nameObj.firstName} ${nameObj.lastName || ''}`.trim() : '') ||
+        '';
     };
     const userName = getUserNameString(user.name).toLowerCase();
     const userEmail = (user.email || '').toLowerCase();
@@ -4194,7 +4211,7 @@ const ManageUsers: React.FC = () => {
       // If classes are identical, sort alphabetically by section
       const sectionA = String(a.studentDetails?.currentSection || (a.studentDetails as any)?.section || (a as any).academicInfo?.section || '').trim().toUpperCase();
       const sectionB = String(b.studentDetails?.currentSection || (b.studentDetails as any)?.section || (b as any).academicInfo?.section || '').trim().toUpperCase();
-      
+
       const secComp = sectionA.localeCompare(sectionB);
       if (secComp !== 0) return secComp;
 
@@ -6118,7 +6135,7 @@ const ManageUsers: React.FC = () => {
           {renderErrorDetails && (
             <div className="bg-gray-100 p-4 rounded text-left mb-4 overflow-auto max-h-40 text-xs text-red-800 font-mono">
               {renderErrorDetails.message}
-              <br/>
+              <br />
               {renderErrorDetails.stack?.split('\n').map((line, i) => <div key={i}>{line}</div>)}
             </div>
           )}
@@ -6454,8 +6471,8 @@ const ManageUsers: React.FC = () => {
                                       <div className="flex-shrink-0">
                                         <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
                                           <span className="text-sm font-medium text-blue-600">
-                                            {(student.name as any)?.displayName?.charAt(0) || 
-                                              (student.name as any)?.firstName?.charAt(0) || 
+                                            {(student.name as any)?.displayName?.charAt(0) ||
+                                              (student.name as any)?.firstName?.charAt(0) ||
                                               (student as any).studentNameEnglish?.displayName?.charAt(0) ||
                                               (student as any).studentNameEnglish?.firstName?.charAt(0) || 'U'}
                                           </span>
@@ -6463,7 +6480,7 @@ const ManageUsers: React.FC = () => {
                                       </div>
                                       <div className="flex-1 min-w-0">
                                         <div className="text-sm font-medium text-gray-900 break-words">
-                                          {(student.name as any)?.displayName || 
+                                          {(student.name as any)?.displayName ||
                                             (student as any).displayName ||
                                             ((student.name as any)?.firstName ? `${(student.name as any).firstName} ${(student.name as any).lastName || ''}`.trim() : null) ||
                                             ((student as any).firstName ? `${(student as any).firstName} ${(student as any).lastName || ''}`.trim() : null) ||
@@ -6653,7 +6670,7 @@ const ManageUsers: React.FC = () => {
                                     <>
                                       {/* Display Password with Show/Hide */}
                                       <span className="flex-grow font-mono text-xs text-gray-700">
-                                        {passwordVisibility[user.userId]
+                                        {passwordVisibility[user.userId || user._id]
                                           ? (user as any).temporaryPassword
                                           : '********'
                                         }
@@ -6662,13 +6679,13 @@ const ManageUsers: React.FC = () => {
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          togglePasswordVisibility(user.userId, (user as any).name?.displayName || 'this user');
+                                          togglePasswordVisibility(user.userId || user._id, (user as any).name?.displayName || 'this user');
                                         }}
                                         className="text-gray-400 hover:text-gray-600 p-0.5 rounded hover:bg-gray-100 flex-shrink-0"
-                                        title={passwordVisibility[user.userId] ? "Hide password" : "Show password (requires admin password)"}
+                                        title={passwordVisibility[user.userId || user._id] ? "Hide password" : "Show password (requires admin password)"}
                                         type="button"
                                       >
-                                        {passwordVisibility[user.userId] ? <EyeOff size={14} /> : <Eye size={14} />}
+                                        {passwordVisibility[user.userId || user._id] ? <EyeOff size={14} /> : <Eye size={14} />}
                                       </button>
                                     </>
                                   ) : (
@@ -10144,9 +10161,9 @@ const ManageUsers: React.FC = () => {
                         return str;
                       };
                       const hasMismatch = importedYear && viewingAcademicYear && normalizeYearStr(importedYear) !== normalizeYearStr(viewingAcademicYear);
-                      
+
                       if (!hasMismatch && !importResults.skippedSummary?.alreadyExistsCount) return null;
-                      
+
                       return (
                         <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 animate-in fade-in slide-in-from-top-2 duration-500">
                           <div className="flex gap-3">
@@ -10158,7 +10175,7 @@ const ManageUsers: React.FC = () => {
                               <div className="mt-1 text-sm text-blue-800 space-y-2">
                                 {hasMismatch && (
                                   <p>
-                                    Students were imported for <strong>{importedYear}</strong>, but you are currently viewing <strong>{viewingAcademicYear}</strong>. 
+                                    Students were imported for <strong>{importedYear}</strong>, but you are currently viewing <strong>{viewingAcademicYear}</strong>.
                                     Switch the academic year filter in the dashboard to see them.
                                   </p>
                                 )}
@@ -10168,7 +10185,7 @@ const ManageUsers: React.FC = () => {
                                   </p>
                                 ) : null}
                               </div>
-                              <button 
+                              <button
                                 onClick={() => {
                                   if (importedYear) setViewingYear(importedYear);
                                   setSelectedGrade('all');
@@ -10205,7 +10222,7 @@ const ManageUsers: React.FC = () => {
                         {importResults.success.length > 0 && (importResults.skipped?.length > 0 || importResults.errors.length > 0) && ' · '}
                         {importResults.skipped?.length > 0 && (
                           <span className="text-amber-600 font-medium">
-                            {importResults.skipped.length} skipped 
+                            {importResults.skipped.length} skipped
                             {importResults.skippedSummary?.alreadyExistsCount ? ` (${importResults.skippedSummary.alreadyExistsCount} already existed)` : ''}
                           </span>
                         )}
@@ -10254,7 +10271,7 @@ const ManageUsers: React.FC = () => {
                         <h4 className="font-medium text-amber-900 mb-2">
                           ⚠️ Skipped Records ({importResults.skipped.length})
                         </h4>
-                        
+
                         {importResults.skippedSummary?.alreadyExistsCount ? (
                           <div className="mb-3 p-2 bg-white/50 rounded border border-amber-100 text-xs text-amber-800">
                             <strong>Note:</strong> {importResults.skippedSummary.alreadyExistsCount} students already existed in the system and were skipped to avoid duplicates.
@@ -10263,7 +10280,7 @@ const ManageUsers: React.FC = () => {
 
                         {(importResults.skipped.length > (importResults.skippedSummary?.alreadyExistsCount || 0)) && (
                           <p className="text-xs text-amber-700 mb-3">
-                            Some students were skipped because their class or section has not been created by the SuperAdmin. 
+                            Some students were skipped because their class or section has not been created by the SuperAdmin.
                             Create the missing classes/sections and re-import to include them.
                           </p>
                         )}

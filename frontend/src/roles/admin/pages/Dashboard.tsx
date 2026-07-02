@@ -102,6 +102,7 @@ const Dashboard: React.FC = () => {
   const { user, token, logout } = useAuth();
   const [school, setSchool] = useState<School | null>(null);
   const [users, setUsers] = useState<User[]>([]);
+  const [userStats, setUserStats] = useState({ student: 0, teacher: 0, parent: 0, admin: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<any>(null);
@@ -236,6 +237,18 @@ const Dashboard: React.FC = () => {
               return userObj;
             });
             setUsers(normalized);
+
+            // Save the real counts from the backend's breakdown
+            const apiBreakdown = usersResponse?.data?.breakdown || (usersResponse as any)?.breakdown;
+            if (apiBreakdown) {
+              setUserStats({
+                student: apiBreakdown.student || 0,
+                teacher: apiBreakdown.teacher || 0,
+                parent: apiBreakdown.parent || 0,
+                admin: apiBreakdown.admin || 0
+              });
+            }
+
             debug.usersFetch = {
               success: true,
               totalUsers: allUsers.length,
@@ -299,12 +312,12 @@ const Dashboard: React.FC = () => {
     console.log('[DASHBOARD] User data:', user);
     console.log('[DASHBOARD] School code:', user?.schoolCode);
     console.log('[DASHBOARD] Socket ref exists:', !!socketRef.current);
-    
+
     if (user?.schoolCode && !socketRef.current) {
       const socketUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:5050';
       console.log('🔌 [DASHBOARD] Connecting to socket server:', socketUrl);
       console.log('🔌 [DASHBOARD] Will join school room:', user.schoolCode);
-      
+
       socketRef.current = io(socketUrl, {
         transports: ['polling', 'websocket'],
         reconnection: true,
@@ -328,7 +341,7 @@ const Dashboard: React.FC = () => {
       socketRef.current.on('sos-alert', (alert: any) => {
         console.log('🚨🚨🚨 [DASHBOARD] SOS ALERT RECEIVED!', alert);
         console.log('[DASHBOARD] Current alerts before adding:', sosAlerts);
-        
+
         // Add to alerts list
         setSOSAlerts(prev => {
           console.log('[DASHBOARD] Adding alert to list. Previous:', prev);
@@ -336,7 +349,7 @@ const Dashboard: React.FC = () => {
           console.log('[DASHBOARD] New alerts list:', newAlerts);
           return newAlerts;
         });
-        
+
         // Show toast notification
         console.log('[DASHBOARD] Showing toast notification...');
         toast.error(
@@ -656,7 +669,7 @@ const Dashboard: React.FC = () => {
     socketRef.current.emit('acknowledge-sos', {
       alertId,
       schoolCode: user.schoolCode,
-      adminId: user._id,
+      adminId: user.id,
       adminName: user.name || 'Admin'
     });
 
@@ -669,9 +682,9 @@ const Dashboard: React.FC = () => {
     setSOSAlerts(prev => prev.filter(alert => alert.id !== alertId));
   };
 
-  // Calculate stats from actual user data
-  const totalStudents = users.filter(user => user.role === 'student').length;
-  const totalTeachers = users.filter(user => user.role === 'teacher').length;
+  // Calculate stats from API breakdown first, then school.stats, then fallback to users array
+  const totalStudents = userStats.student > 0 ? userStats.student : (school?.stats?.totalStudents ?? users.filter(user => user.role === 'student').length);
+  const totalTeachers = userStats.teacher > 0 ? userStats.teacher : (school?.stats?.totalTeachers ?? users.filter(user => user.role === 'teacher').length);
 
   // Use real data from the school or fallback to sample data
   const stats = [

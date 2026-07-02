@@ -10,6 +10,7 @@ export interface AuthUser {
   schoolCode?: string;
   schoolName?: string;
   lastLogin?: string;
+  academicYear?: string;
 }
 
 export interface AuthState {
