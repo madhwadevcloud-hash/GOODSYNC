@@ -929,7 +929,8 @@ exports.getStudentFeeRecords = async (req, res) => {
     }
 
     if (status && status !== 'ALL') {
-      query.status = status;
+      const normalizedStatus = String(status).trim().toLowerCase();
+      query.status = { $regex: `^${normalizedStatus}$`, $options: 'i' };
     }
 
     if (search) {

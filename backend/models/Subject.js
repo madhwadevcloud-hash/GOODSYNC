@@ -20,8 +20,7 @@ const subjectSchema = new mongoose.Schema({
   subjectCode: {
     type: String,
     required: true,
-    uppercase: true,
-    unique: true
+    uppercase: true
   },
   
   // School Information

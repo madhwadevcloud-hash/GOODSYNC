@@ -11,7 +11,7 @@ import ViewChalan from '../../../components/fees/ViewChalan';
 
 const FeePaymentsTab: React.FC = () => {
   const { user } = useAuth();
-  const { currentAcademicYear, viewingAcademicYear, setViewingYear, availableYears, loading: academicYearLoading } = useAcademicYear();
+  const { currentAcademicYear } = useAcademicYear();
   const [selectedClass, setSelectedClass] = useState('ALL');
   const [selectedSection, setSelectedSection] = useState('ALL');
   const [searchTerm, setSearchTerm] = useState('');
@@ -184,7 +184,7 @@ const FeePaymentsTab: React.FC = () => {
         class: selectedClass,
         section: selectedSection,
         search: searchTerm,
-        academicYear: viewingAcademicYear
+        academicYear: currentAcademicYear
       });
       
       // Fetch fee records and student details in parallel
@@ -193,7 +193,7 @@ const FeePaymentsTab: React.FC = () => {
         search: searchTerm,
         limit: 50,
         fields: '_id,userId,name,studentId,class,section,admissionNumber',
-        academicYear: viewingAcademicYear
+        academicYear: currentAcademicYear
       };
       
       if (selectedClass && selectedClass !== 'ALL') {
@@ -209,7 +209,7 @@ const FeePaymentsTab: React.FC = () => {
           class: selectedClass,
           section: selectedSection,
           search: searchTerm,
-          academicYear: viewingAcademicYear,
+          academicYear: currentAcademicYear,
           limit: 50,
           fields: 'studentId,installments,totalAmount,paidAmount,balance'
         }),
@@ -369,9 +369,10 @@ const FeePaymentsTab: React.FC = () => {
   };
 
 
-  const generateReceiptData = async (receiptNumber: string) => {
+  const generateReceiptData = async (receiptNumber: string, record?: any) => {
     try {
-      if (!historyRecord) {
+      const history = record || historyRecord;
+      if (!history) {
         toast.error('No payment history available');
         return;
       }
@@ -381,7 +382,7 @@ const FeePaymentsTab: React.FC = () => {
       let targetInstallment = null;
 
       // Search through all installments and their payments
-      for (const inst of (historyRecord.installments || [])) {
+      for (const inst of (history.installments || [])) {
         for (const payment of (inst.payments || [])) {
           if (payment.receiptNumber === receiptNumber) {
             targetPayment = payment;
@@ -393,12 +394,12 @@ const FeePaymentsTab: React.FC = () => {
       }
 
       // Also search in the payments array directly
-      if (!targetPayment && historyRecord.payments) {
-        for (const payment of historyRecord.payments) {
+      if (!targetPayment && history.payments) {
+        for (const payment of history.payments) {
           if (payment.receiptNumber === receiptNumber) {
             targetPayment = payment;
             // Find the installment for this payment
-            targetInstallment = (historyRecord.installments || []).find((inst: any) => 
+            targetInstallment = (history.installments || []).find((inst: any) => 
               inst.name === payment.installmentName
             );
             break;
@@ -495,55 +496,62 @@ hasSchoolLogo: !!(data.logoUrl || data.logo || schoolData.schoolLogo),
 
       // Student ID handling - prioritize userId from student collection
       let studentId = '';
-      
+
+      // Use the local `history` variable (which equals record || historyRecord) so this
+      // works whether called from the main list OR the history modal.
+      const activeRecord = history;
+      // historyStudent is only set when coming from the history modal; fall back to
+      // student info embedded in the fee record itself.
+      const activeStudent = historyStudent || null;
+
       // Debug: Log available student data
-      console.log('Student ID Debug - historyRecord:', {
-        sequenceNumber: historyRecord.sequenceNumber,
-        studentUniqueId: historyRecord.studentUniqueId,
-        enrollmentNo: historyRecord.enrollmentNo,
-        admissionNo: historyRecord.admissionNo,
-        studentId: historyRecord.studentId,
-        userId: historyRecord.userId,
-        rollNumber: historyRecord.rollNumber,
-        studentRollNumber: historyRecord.studentRollNumber,
-        studentName: historyRecord.studentName
+      console.log('Student ID Debug - activeRecord:', {
+        sequenceNumber: activeRecord?.sequenceNumber,
+        studentUniqueId: activeRecord?.studentUniqueId,
+        enrollmentNo: activeRecord?.enrollmentNo,
+        admissionNo: activeRecord?.admissionNo,
+        studentId: activeRecord?.studentId,
+        userId: activeRecord?.userId,
+        rollNumber: activeRecord?.rollNumber,
+        studentRollNumber: activeRecord?.studentRollNumber,
+        studentName: activeRecord?.studentName
       });
-      
-      console.log('Student ID Debug - historyStudent:', historyStudent);
-      
+
+      console.log('Student ID Debug - activeStudent:', activeStudent);
+
       // Try to fetch complete student data if we have a userId
-      let completeStudentData = historyStudent;
-      
+      let completeStudentData = activeStudent;
+
       // Debug: Check what userId sources we have
       console.log('Student ID Debug - Available userId sources:', {
-        'historyRecord.userId': historyRecord.userId,
-        'historyStudent?.userId': historyStudent?.userId,
-        'historyRecord.studentId': historyRecord.studentId,
-        'historyRecord._id': historyRecord._id
+        'activeRecord.userId': activeRecord?.userId,
+        'activeStudent?.userId': activeStudent?.userId,
+        'activeRecord.studentId': activeRecord?.studentId,
+        'activeRecord._id': activeRecord?._id
       });
-      
+
       // Try multiple approaches to get the userId
-      const userIdToFetch = historyRecord.userId || historyRecord.studentId || historyRecord._id;
-      
+      const userIdToFetch = activeRecord?.userId || activeRecord?.studentId || activeRecord?._id;
+
       // First, check if we already have userId in the fee record
-      if (historyRecord.userId && historyRecord.userId !== 'undefined' && historyRecord.userId !== 'null') {
-        console.log('Student ID Debug - Found userId in fee record:', historyRecord.userId);
-        completeStudentData = { userId: historyRecord.userId };
-      } else if (userIdToFetch && !historyStudent?.userId) {
+      if (activeRecord?.userId && activeRecord.userId !== 'undefined' && activeRecord.userId !== 'null') {
+        console.log('Student ID Debug - Found userId in fee record:', activeRecord.userId);
+        completeStudentData = { userId: activeRecord.userId };
+      } else if (userIdToFetch && !activeStudent?.userId) {
         try {
           console.log('Fetching complete student data using userId:', userIdToFetch);
-          
+
           // Try to get all students and find the one with matching userId
           const allStudentsResponse = await feesAPI.getStudentFeeRecords({});
           const allStudents = allStudentsResponse.data?.data || [];
-          
+
           // Look for student with matching userId in the fee records
-          const matchingStudent = allStudents.find(student => 
-            student.userId === userIdToFetch || 
+          const matchingStudent = allStudents.find((student: any) =>
+            student.userId === userIdToFetch ||
             student.studentId === userIdToFetch ||
             student._id === userIdToFetch
           );
-          
+
           if (matchingStudent) {
             console.log('Found matching student in fee records:', matchingStudent);
             completeStudentData = matchingStudent;
@@ -553,7 +561,7 @@ hasSchoolLogo: !!(data.logoUrl || data.logo || schoolData.schoolLogo),
             completeStudentData = studentDataResponse.data?.data;
             console.log('Complete student data from students collection:', completeStudentData);
           }
-          
+
           // If we still don't have userId, try to find it in the response
           if (!completeStudentData?.userId && completeStudentData) {
             const studentData = completeStudentData;
@@ -566,32 +574,32 @@ hasSchoolLogo: !!(data.logoUrl || data.logo || schoolData.schoolLogo),
           }
         } catch (error) {
           console.log('Failed to fetch complete student data:', error);
-          console.log('Using existing data:', historyStudent);
+          console.log('Using existing data:', activeStudent);
         }
       }
-      
+
       // Priority order for Student ID extraction:
       // 1. userId from student collection (this is the actual Student ID like "SK-S-0850")
       // 2. Other valid student identifiers
       const possibleIds = [
         completeStudentData?.userId,  // This is the primary Student ID from student collection
-        historyRecord.userId,         // Fallback to fee record userId
-        historyRecord.sequenceNumber,
-        historyRecord.studentUniqueId,
-        historyRecord.enrollmentNo,
-        historyRecord.admissionNo,
-        historyRecord.studentId,
-        historyRecord.rollNumber,
-        historyRecord.studentRollNumber,
+        activeRecord?.userId,         // Fallback to fee record userId
+        activeRecord?.sequenceNumber,
+        activeRecord?.studentUniqueId,
+        activeRecord?.enrollmentNo,
+        activeRecord?.admissionNo,
+        activeRecord?.studentId,
+        activeRecord?.rollNumber,
+        activeRecord?.studentRollNumber,
         completeStudentData?.studentId,
         completeStudentData?.studentDetails?.studentId,
         completeStudentData?.rollNumber,
         completeStudentData?.studentDetails?.rollNumber
-      ].filter(id => id && id !== 'undefined' && id !== 'null' && !/^[a-fA-F0-9]{24}$/.test(id));
-      
+      ].filter((id: any) => id && id !== 'undefined' && id !== 'null' && !/^[a-fA-F0-9]{24}$/.test(id));
+
       console.log('Student ID Debug - possibleIds:', possibleIds);
       console.log('Student ID Debug - completeStudentData:', completeStudentData);
-      
+
       if (possibleIds.length > 0) {
         // Use the first valid ID found
         studentId = String(possibleIds[0]).trim();
@@ -600,30 +608,30 @@ hasSchoolLogo: !!(data.logoUrl || data.logo || schoolData.schoolLogo),
         console.log('Student ID Debug - No valid IDs found, using fallback logic');
         // Fallback: generate a meaningful ID using school code and roll number
         const schoolCode = ((schoolData.schoolCode || 'SC').toString().trim() || 'SC').toUpperCase();
-        
+
         // Try to extract roll number from various sources
         let rawRoll = '';
         const rollSources = [
-          historyRecord.rollNumber,
-          historyRecord.studentRollNumber,
+          activeRecord?.rollNumber,
+          activeRecord?.studentRollNumber,
           completeStudentData?.rollNumber,
           completeStudentData?.studentDetails?.rollNumber
         ];
-        
+
         for (const source of rollSources) {
           if (source && source !== 'undefined' && source !== 'null') {
             rawRoll = String(source).trim();
             break;
           }
         }
-        
+
         // If no roll number, try to extract from admission/enrollment numbers
         if (!rawRoll) {
-          const source = String(historyRecord.admissionNo || historyRecord.enrollmentNo || '');
+          const source = String(activeRecord?.admissionNo || activeRecord?.enrollmentNo || '');
           const digits = (source.match(/\d+/g) || []).join('');
           rawRoll = digits.slice(-4);
         }
-        
+
         // Generate student ID
         if (rawRoll) {
           const n = parseInt(rawRoll, 10);
@@ -632,10 +640,10 @@ hasSchoolLogo: !!(data.logoUrl || data.logo || schoolData.schoolLogo),
           console.log('Student ID Debug - Generated from roll number:', studentId);
         } else {
           // Last resort: use student name initials + sequence
-          const nameInitials = (historyRecord.studentName || 'STU').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+          const nameInitials = (activeRecord?.studentName || 'STU').split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
           const timestamp = Date.now().toString().slice(-4);
           studentId = `${schoolCode}-${nameInitials}-${timestamp}`;
-          console.log('Student ID Debug - Generated from name initials:', studentId, 'from name:', historyRecord.studentName);
+          console.log('Student ID Debug - Generated from name initials:', studentId, 'from name:', activeRecord?.studentName);
         }
       }
       
@@ -643,11 +651,11 @@ hasSchoolLogo: !!(data.logoUrl || data.logo || schoolData.schoolLogo),
 
       // Prepare student data
       const studentData = {
-        name: historyRecord.studentName,
+        name: history.studentName,
         studentId: studentId,
-        class: historyRecord.studentClass,
-        section: historyRecord.studentSection,
-        academicYear: historyRecord.academicYear || `${new Date().getFullYear()}-${String((new Date().getFullYear()+1)).slice(-2)}`
+        class: history.studentClass,
+        section: history.studentSection,
+        academicYear: history.academicYear || `${new Date().getFullYear()}-${String((new Date().getFullYear()+1)).slice(-2)}`
       };
 
       // Prepare payment data with proper date handling
@@ -685,7 +693,7 @@ hasSchoolLogo: !!(data.logoUrl || data.logo || schoolData.schoolLogo),
       console.log('Current date:', currentDate.toISOString());
 
       // Prepare installment details
-      const installmentDetails = (historyRecord.installments || []).map((inst: any) => ({
+      const installmentDetails = (history.installments || []).map((inst: any) => ({
         name: inst.name,
         amount: inst.amount || 0,
         paid: inst.paidAmount || 0,
@@ -694,8 +702,8 @@ hasSchoolLogo: !!(data.logoUrl || data.logo || schoolData.schoolLogo),
       }));
 
       // Calculate totals
-      const totalAmount = historyRecord.totalAmount || 0;
-      const totalPaid = historyRecord.totalPaid || 0;
+      const totalAmount = history.totalAmount || 0;
+      const totalPaid = history.totalPaid || 0;
       const totalRemaining = Math.max(0, totalAmount - totalPaid);
 
       // Set receipt data and open modal
@@ -719,7 +727,6 @@ hasSchoolLogo: !!(data.logoUrl || data.logo || schoolData.schoolLogo),
   const handleDownloadReceipt = async (receiptNumber: string) => {
     await generateReceiptData(receiptNumber);
   };
-
 
   const generateSimpleReceiptForStudent = (studentData: any, paymentData: any) => {
     // Create professional HTML receipt using FeeStructureTab styling
@@ -1108,105 +1115,130 @@ hasSchoolLogo: !!(data.logoUrl || data.logo || schoolData.schoolLogo),
     }
   };
 
-  const openHistoryModal = async (student: any) => {
-    try {
-      setHistoryLoading(true);
-      setIsHistoryOpen(true);
-      setHistoryStudent(student);
-      
-      // Log all available student data for debugging
-      console.log('Student data:', JSON.stringify(student, null, 2));
-      
-      // Define all possible identifiers in order of preference
-      const identifiers = [
-        { type: 'admissionNumber', value: student.admissionNumber },
-        { type: '_id', value: student._id },
-        { type: 'id', value: student.id },
-        { type: 'userId', value: student.userId },
-        { type: 'studentId', value: student.studentId }
-      ].filter(id => id.value); // Remove any undefined/null values
-      
-      console.log('Trying identifiers in order:', identifiers);
-      
-      if (identifiers.length === 0) {
-        throw new Error('No valid student identifier found. Available fields: ' + Object.keys(student).join(', '));
-      }
-      
-      let res;
-      let lastError;
-      
-      // Try each identifier in order
-      for (const { type, value } of identifiers) {
-        try {
-          console.log(`Attempting to fetch fee record using ${type}:`, value);
-          res = await feesAPI.getStudentFeeRecord(value);
-          console.log(`Successfully fetched fee record using ${type}`, res);
-          break; // Exit loop if successful
-        } catch (error) {
-          lastError = error;
-          console.warn(`Failed to fetch with ${type} ${value}:`, error.message);
-          
-          // If this was the last identifier, try the chalan API as a fallback
-          if (type === identifiers[identifiers.length - 1].type) {
-            console.log('All identifiers failed, trying chalan API...');
-            try {
-              const chalanRes = await api.get(`/api/chalans/student/${value}`);
-              if (chalanRes.data) {
-                console.log('Successfully fetched chalan data:', chalanRes.data);
-                res = { data: { data: chalanRes.data } }; // Format to match fee record structure
-                break;
-              }
-            } catch (chalanError) {
-              console.error('Chalan API also failed:', chalanError);
-              throw new Error(`Failed to fetch fee records. Last error: ${lastError?.message || 'Unknown error'}`);
+  const fetchFeeRecordForStudent = async (student: any) => {
+    // Define all possible identifiers in order of preference
+    const identifiers = [
+      { type: 'admissionNumber', value: student.admissionNumber },
+      { type: '_id', value: student._id },
+      { type: 'id', value: student.id },
+      { type: 'userId', value: student.userId },
+      { type: 'studentId', value: student.studentId }
+    ].filter(id => id.value);
+
+    if (identifiers.length === 0) {
+      throw new Error('No valid student identifier found. Available fields: ' + Object.keys(student).join(', '));
+    }
+
+    let res;
+    let lastError;
+
+    for (const { type, value } of identifiers) {
+      try {
+        console.log(`Attempting to fetch fee record using ${type}:`, value);
+        res = await feesAPI.getStudentFeeRecord(value);
+        console.log(`Successfully fetched fee record using ${type}`, res);
+        break;
+      } catch (error: any) {
+        lastError = error;
+        console.warn(`Failed to fetch with ${type} ${value}:`, error.message);
+
+        if (type === identifiers[identifiers.length - 1].type) {
+          console.log('All identifiers failed, trying chalan API...');
+          try {
+            const chalanRes = await api.get(`/api/chalans/student/${value}`);
+            if (chalanRes.data) {
+              console.log('Successfully fetched chalan data:', chalanRes.data);
+              res = { data: { data: chalanRes.data } };
+              break;
             }
+          } catch (chalanError) {
+            console.error('Chalan API also failed:', chalanError);
+            throw new Error(`Failed to fetch fee records. Last error: ${lastError?.message || 'Unknown error'}`);
           }
         }
       }
-      
-      const rec = res?.data?.data || res?.data;
+    }
+
+    return res?.data?.data || res?.data;
+  };
+
+  const openHistoryModal = async (student: any) => {
+    try {
+      setHistoryLoading(true);
+      setHistoryRecord(null);
+      setHistoryInstallmentName('');
+      setHistoryStudent(student);
+      setIsHistoryOpen(true);
+
+      console.log('Student data:', JSON.stringify(student, null, 2));
+
+      const rec = await fetchFeeRecordForStudent(student);
       setHistoryRecord(rec || null);
       const firstInst = (rec?.installments || [])[0];
       setHistoryInstallmentName(firstInst?.name || '');
-      
-      // If we already have a roll number, we're done
+
       if (student?.rollNumber) return;
-      
+
       try {
-        // First try to get rollNumber from the fee record data
         const rollNumberFromRecord = rec?.student?.rollNumber || rec?.studentDetails?.rollNumber;
         if (rollNumberFromRecord) {
           setHistoryStudent((prev: any) => ({ ...(prev || {}), rollNumber: rollNumberFromRecord }));
           return;
         }
-        
-        // Fallback: try to get from student ID or user ID
+
         const userId = rec?.userId || rec?.student?.userId || rec?.studentId || student.id;
         if (!userId) return;
-        
-        // Try to get roll number from other fields as a last resort
-        const possibleRollNumber = 
-          rec?.rollNumber || 
-          rec?.student?.rollNumber || 
+
+        const possibleRollNumber =
+          rec?.rollNumber ||
+          rec?.student?.rollNumber ||
           rec?.studentDetails?.rollNumber ||
           String(rec?.admissionNo || '').slice(-4) ||
           String(rec?.enrollmentNo || '').slice(-4);
-          
+
         if (possibleRollNumber) {
           setHistoryStudent((prev: any) => ({ ...(prev || {}), rollNumber: possibleRollNumber }));
         }
-  } catch (error) {
+      } catch (error) {
         console.log('Error processing roll number:', error);
-        // Continue without rollNumber - it's not critical for receipt generation
       }
     } catch (error: any) {
       console.error('Error in openHistoryModal:', error);
-      toast.error(error?.response?.data?.message || 'Failed to load payment history');
+      toast.error(error?.response?.data?.message || error.message || 'Failed to load payment history');
       setIsHistoryOpen(false);
-  } finally {
-    setHistoryLoading(false);
-  }
-};
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const openReceiptForStudent = async (student: any) => {
+    try {
+      const rec = await fetchFeeRecordForStudent(student);
+      if (!rec) {
+        toast.error('No fee record found for this student');
+        return;
+      }
+
+      const foundPayment = (rec.installments || [])
+        .flatMap((inst: any) => (inst.payments || []).map((payment: any) => ({ payment, installment: inst })))
+        .find((item: any) => item.payment.receiptNumber);
+
+      const receiptPayment = foundPayment?.payment || (Array.isArray(rec.payments) ? rec.payments.find((p: any) => p.receiptNumber) : null);
+      const paymentInstallment = foundPayment?.installment;
+
+      if (!receiptPayment) {
+        toast.error('No receipt number available for this student');
+        return;
+      }
+
+      setReceiptData(null);
+      setSelectedReceiptNumber('');
+      await generateReceiptData(receiptPayment.receiptNumber, rec);
+    } catch (error: any) {
+      console.error('Error opening receipt for student:', error);
+      toast.error(error?.response?.data?.message || error.message || 'Failed to open receipt slip');
+    }
+  };
 
   const handleViewChalan = (student: any, installment: any) => {
     // Use the already fetched bank details from schoolDetails
@@ -1275,14 +1307,14 @@ hasSchoolLogo: !!(data.logoUrl || data.logo || schoolData.schoolLogo),
 
     fetchSchoolDetails();
     fetchRecords();
-  }, [user?.schoolId, selectedClass, selectedSection, searchTerm, viewingAcademicYear]);
+  }, [user?.schoolId, selectedClass, selectedSection, searchTerm, currentAcademicYear]);
 
   // naive debounce for search
   React.useEffect(() => {
     const t = setTimeout(() => fetchRecords(), 400);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, viewingAcademicYear]);
+  }, [searchTerm, currentAcademicYear]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -1389,18 +1421,12 @@ return (
               <Filter className="inline h-4 w-4 mr-1" />
               Academic Year
             </label>
-            <select
-              value={viewingAcademicYear}
-              onChange={(e) => setViewingYear(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-              disabled={academicYearLoading}
-            >
-              {availableYears.map((year) => (
-                <option key={year} value={year}>
-                  {year} {year === currentAcademicYear && '(Current)'}
-                </option>
-              ))}
-            </select>
+            <input
+              type="text"
+              value={`${currentAcademicYear} (Current)`}
+              readOnly
+              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-700 cursor-not-allowed"
+            />
           </div>
 
           <ClassSectionSelect
@@ -1579,9 +1605,11 @@ return (
               <button
                 type="button"
                 onClick={() => handleDownloadReceipt(p.receiptNumber)}
-                className="text-blue-600 hover:underline"
+                className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-900"
+                title="View receipt"
               >
-                {p.receiptNumber}
+                <Receipt className="h-4 w-4" />
+                <span>{p.receiptNumber}</span>
               </button>
             ) : (
               '-'
@@ -1621,7 +1649,7 @@ return (
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex space-x-2">
+                    <div className="flex flex-wrap gap-2">
                       <button
                         onClick={() => openPaymentModal(student)}
                         className="text-blue-600 hover:text-blue-900 flex items-center"
@@ -1629,6 +1657,16 @@ return (
                         <Plus className="h-4 w-4 mr-1" />
                         Record Payment
                       </button>
+                      {(student.status === 'partial' || student.status === 'paid') && (
+                        <button
+                          onClick={() => openReceiptForStudent(student)}
+                          className="text-blue-600 hover:text-blue-900 flex items-center"
+                          title="View invoice slip"
+                        >
+                          <Receipt className="h-4 w-4 mr-1" />
+                          View Receipt
+                        </button>
+                      )}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">

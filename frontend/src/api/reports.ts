@@ -75,7 +75,9 @@ export const getStudentFeeRecords = async (params: {
   search?: string;
   status?: string;
 }): Promise<FeeRecordsResponse> => {
-  const response = await api.get('/reports/dues', { params });
+  // Align the reports dues UI with the fees tab dataset.
+  // The fees endpoint returns the same student fee records and includes paid rows.
+  const response = await api.get('/fees/records', { params });
   return response.data;
 };
 

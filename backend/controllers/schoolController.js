@@ -9,32 +9,7 @@ const sharp = require('sharp');
 const { uploadToCloudinary, deleteFromCloudinary, extractPublicId, deleteLocalFile } = require('../config/cloudinary');
 const path = require('path');
 const fs = require('fs');
-const NodeCache = require('node-cache');
 const { getDynamicAcademicYear } = require('../utils/academicYearHelper');
-
-const schoolInfoCache = new NodeCache({ stdTTL: 3600, checkperiod: 300 });
-
-const getSchoolInfoCacheKey = (prefix, params = {}) => {
-  const normalizedParams = Object.entries(params)
-    .filter(([, value]) => value !== undefined)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .reduce((acc, [key, value]) => {
-      acc[key] = value;
-      return acc;
-    }, {});
-
-  return `${prefix}:${JSON.stringify(normalizedParams)}`;
-};
-
-const getCachedSchoolInfoResponse = (key) => schoolInfoCache.get(key);
-const setCachedSchoolInfoResponse = (key, value, ttl = 3600) => schoolInfoCache.set(key, value, ttl);
-const clearSchoolInfoCache = (schoolCode) => {
-  schoolInfoCache.keys().forEach((key) => {
-    if (typeof key === 'string' && (schoolCode ? key.includes(schoolCode) : key.startsWith('school-info:'))) {
-      schoolInfoCache.del(key);
-    }
-  });
-};
 
 // Helper to normalize a provided name into schema-compliant fields
 function normalizeName(inputName, fallbackLast = 'User') {
@@ -1788,12 +1763,6 @@ exports.getSchoolInfo = async (req, res) => {
 
     console.log(`[getSchoolInfo] Fetching school info for: ${schoolId}`);
 
-    const cacheKey = getSchoolInfoCacheKey('school-info:main', { schoolId });
-    const cachedResponse = getCachedSchoolInfoResponse(cacheKey);
-    if (cachedResponse) {
-      return res.json(cachedResponse);
-    }
-
     let school = null;
 
     const centralSchoolModel = req.mainDb?.model?.('School') || mongoose.connection.model('School');
@@ -1835,7 +1804,8 @@ exports.getSchoolInfo = async (req, res) => {
 
     console.log(`[getSchoolInfo] Found school: ${school.name} (${school.code})`);
 
-    const responsePayload = {
+    // Return school info directly from main database
+    res.json({
       success: true,
       data: {
         _id: school._id,
@@ -1861,12 +1831,7 @@ exports.getSchoolInfo = async (req, res) => {
         createdAt: school.createdAt,
         updatedAt: school.updatedAt
       }
-    };
-
-    setCachedSchoolInfoResponse(cacheKey, responsePayload, 3600);
-
-    // Return school info directly from main database
-    res.json(responsePayload);
+    });
 
   } catch (error) {
     console.error('Error fetching school info:', error);
@@ -1883,12 +1848,6 @@ exports.getSchoolInfo = async (req, res) => {
 exports.getSchoolInfoFromDatabase = async (req, res) => {
   try {
     const schoolCode = req.user?.schoolCode || req.params.schoolCode;
-
-    const cacheKey = getSchoolInfoCacheKey('school-info:database', { schoolCode });
-    const cachedResponse = getCachedSchoolInfoResponse(cacheKey);
-    if (cachedResponse) {
-      return res.json(cachedResponse);
-    }
 
     if (!schoolCode) {
       return res.status(400).json({
@@ -1939,7 +1898,8 @@ exports.getSchoolInfoFromDatabase = async (req, res) => {
     console.log(`[getSchoolInfoFromDatabase] Found school: ${schoolInfo.name} (${schoolInfo.code})`);
     console.log(`[getSchoolInfoFromDatabase] Bank details present:`, !!schoolInfo.bankDetails);
 
-    const responsePayload = {
+    // Return school info from school's database
+    res.json({
       success: true,
       data: {
         _id: schoolInfo._id,
@@ -1964,12 +1924,7 @@ exports.getSchoolInfoFromDatabase = async (req, res) => {
         createdAt: schoolInfo.createdAt,
         updatedAt: schoolInfo.updatedAt
       }
-    };
-
-    setCachedSchoolInfoResponse(cacheKey, responsePayload, 3600);
-
-    // Return school info from school's database
-    res.json(responsePayload);
+    });
 
   } catch (error) {
     console.error('Error fetching school info from database:', error);
@@ -1986,12 +1941,6 @@ exports.getSchoolInfoFromDatabase = async (req, res) => {
 exports.getSchoolProfile = async (req, res) => {
   try {
     const schoolCode = req.headers['x-school-code'] || req.user.schoolCode;
-
-    const cacheKey = getSchoolInfoCacheKey('school-info:profile', { schoolCode });
-    const cachedResponse = getCachedSchoolInfoResponse(cacheKey);
-    if (cachedResponse) {
-      return res.json(cachedResponse);
-    }
 
     if (!schoolCode) {
       return res.status(400).json({
@@ -2017,7 +1966,8 @@ exports.getSchoolProfile = async (req, res) => {
       });
     }
 
-    const responsePayload = {
+    // Return structured data including 'logo' field for frontend compatibility
+    res.json({
       success: true,
       data: {
         _id: school._id,
@@ -2045,12 +1995,7 @@ exports.getSchoolProfile = async (req, res) => {
         createdAt: school.createdAt,
         updatedAt: school.updatedAt
       }
-    };
-
-    setCachedSchoolInfoResponse(cacheKey, responsePayload, 3600);
-
-    // Return structured data including 'logo' field for frontend compatibility
-    res.json(responsePayload);
+    });
   } catch (error) {
     console.error('Error fetching school profile:', error);
     res.status(500).json({
@@ -2104,7 +2049,6 @@ exports.fixSchoolData = async (req, res) => {
     }
 
     await school.save();
-    clearSchoolInfoCache(school.code || schoolId);
     console.log('✅ School data fixed successfully');
 
     res.json({ message: 'School data fixed successfully', school });
