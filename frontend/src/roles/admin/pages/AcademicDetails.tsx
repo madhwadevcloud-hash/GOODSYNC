@@ -611,11 +611,22 @@ const AcademicDetails: React.FC = () => {
         fatherName: student.studentDetails?.family?.father?.name,
         motherName: student.studentDetails?.family?.mother?.name,
         address: (() => {
-          const p = student.address?.permanent;
-          if (p) {
-            const parts = [p.street, p.area, p.city, p.state, p.pincode].filter(Boolean);
-            if (parts.length > 0) return parts.join(', ');
+          let parts: string[] = [];
+          if (student.address?.permanent) {
+             const p = student.address.permanent;
+             parts = [p.street, p.area, p.city, p.state, p.pincode].filter(Boolean);
+          } else if (student.address?.current) {
+             const c = student.address.current;
+             parts = [c.street, c.area, c.city, c.state, c.pincode].filter(Boolean);
+          } else if (student.address && typeof student.address === 'object') {
+             parts = [student.address.street, student.address.area, student.address.city, student.address.state, student.address.pincode].filter(Boolean);
           }
+          
+          if (parts.length > 0) return parts.join(', ');
+
+          if (typeof student.address === 'string' && student.address.trim() !== '') return student.address;
+          if (typeof student.personalDetails?.address === 'string') return student.personalDetails.address;
+          
           return undefined;
         })()
       });
@@ -781,12 +792,23 @@ const AcademicDetails: React.FC = () => {
         })(),
         bloodGroup: student.studentDetails?.personal?.bloodGroup || student.personalDetails?.bloodGroup || student.bloodGroup || student.personal?.bloodGroup || student.medicalInfo?.bloodGroup || 'Not Available',
         address: (() => {
-          const p = student.address?.permanent;
-          if (p) {
-            const parts = [p.street, p.area, p.city, p.state, p.pincode].filter(Boolean);
-            if (parts.length > 0) return parts.join(', ');
+          let parts: string[] = [];
+          if (student.address?.permanent) {
+             const p = student.address.permanent;
+             parts = [p.street, p.area, p.city, p.state, p.pincode].filter(Boolean);
+          } else if (student.address?.current) {
+             const c = student.address.current;
+             parts = [c.street, c.area, c.city, c.state, c.pincode].filter(Boolean);
+          } else if (student.address && typeof student.address === 'object') {
+             parts = [student.address.street, student.address.area, student.address.city, student.address.state, student.address.pincode].filter(Boolean);
           }
-          return student.personalDetails?.address || (typeof student.address === 'string' ? student.address : 'Not Available');
+          
+          if (parts.length > 0) return parts.join(', ');
+
+          if (typeof student.address === 'string' && student.address.trim() !== '') return student.address;
+          if (typeof student.personalDetails?.address === 'string') return student.personalDetails.address;
+          
+          return 'Not Available';
         })(),
         phone: student.contact?.primaryPhone || student.contact?.phone || student.phone || student.personalDetails?.phone || 'Not Available'
       });

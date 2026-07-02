@@ -51,6 +51,26 @@ const SimpleIDCardGenerator: React.FC<SimpleIDCardGeneratorProps> = ({
   const [orientationLocked, setOrientationLocked] = useState(lockOrientation);
   const [principalSign, setPrincipalSign] = useState<string | null>(null);
 
+  const [customColor, setCustomColor] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    const schoolId = templateSettings?.schoolCode || templateSettings?.schoolName || 'default';
+    setCustomColor(localStorage.getItem(`idCardColor_${schoolId}`));
+  }, [templateSettings?.schoolCode, templateSettings?.schoolName]);
+
+  const handleColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const color = e.target.value;
+    setCustomColor(color);
+    const schoolId = templateSettings?.schoolCode || templateSettings?.schoolName || 'default';
+    localStorage.setItem(`idCardColor_${schoolId}`, color);
+  };
+
+  const handleResetColor = () => {
+    setCustomColor(null);
+    const schoolId = templateSettings?.schoolCode || templateSettings?.schoolName || 'default';
+    localStorage.removeItem(`idCardColor_${schoolId}`);
+  };
+
   const colorPalette = [
     { header: '#1e3a8a', accent: '#3b82f6' }, // Blue
     { header: '#064e3b', accent: '#10b981' }, // Emerald
@@ -64,10 +84,26 @@ const SimpleIDCardGenerator: React.FC<SimpleIDCardGeneratorProps> = ({
     { header: '#991b1b', accent: '#ef4444' }  // Red
   ];
 
+  const getDefaultSchoolColor = () => {
+    const schoolIdentifier = templateSettings?.schoolCode || templateSettings?.schoolName || 'default';
+    let hash = 0;
+    for (let i = 0; i < schoolIdentifier.length; i++) {
+      hash = schoolIdentifier.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const safeIndex = Math.abs(hash) % colorPalette.length;
+    return colorPalette[safeIndex];
+  };
+
   const getStudentColorSettings = (student: any) => {
-    const index = selectedStudents.findIndex(s => (s._id || s.id) === (student._id || student.id));
-    const safeIndex = index >= 0 ? index : 0;
-    const colors = colorPalette[safeIndex % colorPalette.length];
+    if (customColor) {
+      return {
+        ...templateSettings,
+        headerColor: customColor,
+        accentColor: customColor
+      };
+    }
+
+    const colors = getDefaultSchoolColor();
     return {
       ...templateSettings,
       headerColor: colors.header,
@@ -340,6 +376,33 @@ const SimpleIDCardGenerator: React.FC<SimpleIDCardGeneratorProps> = ({
                     )}
                   </div>
 
+                  <div className="mt-6 mb-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Theme Color
+                    </label>
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded overflow-hidden border border-gray-300 flex-shrink-0 relative cursor-pointer hover:border-blue-500 transition-colors shadow-sm">
+                        <input
+                          type="color"
+                          value={customColor || getDefaultSchoolColor().header}
+                          onChange={handleColorChange}
+                          className="absolute inset-[-10px] w-20 h-20 cursor-pointer"
+                        />
+                      </div>
+                      <div className="text-sm text-gray-600 flex-1">
+                        Select a custom primary color for this school's ID cards. This will be saved for future use.
+                      </div>
+                      {customColor && (
+                        <button
+                          onClick={handleResetColor}
+                          className="text-xs text-red-600 hover:bg-red-50 font-medium px-3 py-1.5 border border-red-200 rounded transition-colors"
+                        >
+                          Reset Default
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
                   <div>
                     <label className="flex items-center">
                       <input
@@ -505,10 +568,10 @@ const SimpleIDCardGenerator: React.FC<SimpleIDCardGeneratorProps> = ({
       {/* Preview Modal */}
       {showPreview && previewStudent && (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[60] p-4">
-          <div className={`bg-white rounded-lg w-full overflow-auto ${orientation === 'portrait' ? 'max-w-2xl max-h-[95vh]' : 'max-w-5xl max-h-[90vh]'}`}>
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
+          <div className={`bg-white rounded-lg w-full overflow-hidden flex flex-col ${orientation === 'portrait' ? 'max-w-4xl max-h-[95vh]' : 'max-w-6xl max-h-[90vh]'}`}>
+            <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10 shrink-0">
               <h3 className="text-lg font-semibold text-gray-900">
-                ID Card Preview ({orientation === 'portrait' ? 'Portrait' : 'Landscape'}) - {previewSide === 'front' ? 'Front' : 'Back'}
+                Preview ({orientation === 'portrait' ? 'Portrait' : 'Landscape'}) - {previewSide === 'front' ? 'Front' : 'Back'}
               </h3>
               <button
                 onClick={() => {
@@ -520,15 +583,51 @@ const SimpleIDCardGenerator: React.FC<SimpleIDCardGeneratorProps> = ({
                 ×
               </button>
             </div>
-            <div className="p-6 flex justify-center bg-gray-50">
-              <div style={{ transform: 'scale(1)', transformOrigin: 'top center' }}>
-                <NewIDCardTemplate
-                  settings={getStudentColorSettings(previewStudent)}
-                  student={previewStudent as any}
-                  templateId={orientation}
-                  side={previewSide}
-                  theme={theme}
-                />
+            
+            <div className="flex flex-col md:flex-row flex-1 overflow-hidden bg-gray-50">
+              {/* Sidebar Settings */}
+              <div className="w-full md:w-72 bg-white border-r border-gray-200 p-6 shrink-0 overflow-y-auto">
+                <h4 className="font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-100">Live Editor</h4>
+                
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Theme Color
+                  </label>
+                  <div className="text-xs text-gray-500 mb-3">
+                    Change this color to instantly update the ID card. The chosen color will be saved permanently for this school.
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded overflow-hidden border border-gray-300 relative cursor-pointer shadow-sm">
+                      <input
+                        type="color"
+                        value={customColor || getDefaultSchoolColor().header}
+                        onChange={handleColorChange}
+                        className="absolute inset-[-10px] w-20 h-20 cursor-pointer"
+                      />
+                    </div>
+                    {customColor && (
+                      <button
+                        onClick={handleResetColor}
+                        className="text-xs text-red-600 hover:bg-red-50 font-medium px-3 py-1.5 border border-red-200 rounded transition-colors"
+                      >
+                        Reset Default
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* ID Card Canvas Area */}
+              <div className="flex-1 p-6 overflow-auto flex items-center justify-center min-h-[400px]">
+                <div style={{ transform: 'scale(1)', transformOrigin: 'center center', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
+                  <NewIDCardTemplate
+                    settings={getStudentColorSettings(previewStudent)}
+                    student={previewStudent as any}
+                    templateId={orientation}
+                    side={previewSide}
+                    theme={theme}
+                  />
+                </div>
               </div>
             </div>
           </div>
