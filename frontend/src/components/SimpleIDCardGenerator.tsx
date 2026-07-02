@@ -51,23 +51,18 @@ const SimpleIDCardGenerator: React.FC<SimpleIDCardGeneratorProps> = ({
   const [orientationLocked, setOrientationLocked] = useState(lockOrientation);
   const [principalSign, setPrincipalSign] = useState<string | null>(null);
 
-  const DEFAULT_TERMS = [
-    "This card is the property of the school.",
-    "It must be carried at all times while in the school premises.",
-    "If found, please return to the school address.",
-    "This card is non-transferable."
-  ];
-  const [termsAndConditions, setTermsAndConditions] = useState<string>(DEFAULT_TERMS.join(' '));
+  const [term1, setTerm1] = useState<string>("This card is the property of the school. It must be carried at all times while in the school premises.");
+  const [term2, setTerm2] = useState<string>("If found, please return to the school address. This card is non-transferable.");
 
-  const handleTermsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const text = e.target.value;
-    const words = text.split(/\s+/).filter(w => w.length > 0);
-    if (words.length <= 40) {
-      setTermsAndConditions(text);
-    }
+  const handleTerm1Change = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setTerm1(e.target.value);
+  };
+  
+  const handleTerm2Change = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setTerm2(e.target.value);
   };
 
-  const termsArray = termsAndConditions.split('\n').filter(t => t.trim().length > 0);
+  const termsArray = [term1, term2].filter(t => t.trim().length > 0);
 
   const [customColor, setCustomColor] = React.useState<string | null>(null);
 
@@ -457,17 +452,23 @@ const SimpleIDCardGenerator: React.FC<SimpleIDCardGeneratorProps> = ({
                         <label className="block text-sm font-medium text-gray-700">
                           Terms and Conditions (Back Side)
                         </label>
-                        <span className="text-xs text-gray-500 font-medium bg-gray-100 px-2 py-1 rounded">
-                          {termsAndConditions.split(/\s+/).filter(w => w.length > 0).length}/40 words
-                        </span>
                       </div>
-                      <input
-                        type="text"
-                        value={termsAndConditions}
-                        onChange={(e) => handleTermsChange(e as any)}
-                        className="block w-full text-sm border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-3 border"
-                        placeholder="Enter terms and conditions (max 40 words)"
-                      />
+                      <div className="space-y-3">
+                        <input
+                          type="text"
+                          value={term1}
+                          onChange={handleTerm1Change}
+                          className="block w-full text-sm border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-3 border"
+                          placeholder="Enter term 1"
+                        />
+                        <input
+                          type="text"
+                          value={term2}
+                          onChange={handleTerm2Change}
+                          className="block w-full text-sm border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-3 border"
+                          placeholder="Enter term 2"
+                        />
+                      </div>
                     </div>
                   )}
 

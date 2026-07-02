@@ -93,21 +93,35 @@ async function regularLogin(payload: LoginPayload): Promise<LoginResponse> {
 }
 
 async function schoolLogin(payload: LoginPayload): Promise<LoginResponse> {
+
   if (!payload.schoolCode) {
-    throw new Error('School code is required for school login');
+    throw new Error("School code is required for school login");
   }
 
   const endpoint = `${API_BASE}/auth/school-login`;
 
-  console.log(`[LOGIN] Trying school login for: ${payload.email} at school: ${payload.schoolCode}`);
+
+  const identifier =
+    (payload as any).identifier || payload.email;
+
+  const formattedPassword =
+    payload.role === "student"
+      ? payload.password.replace(/\D/g, "")
+      : payload.password;
+
+  console.log(
+    `[LOGIN] Trying school login for: ${identifier} (${payload.role})`
+  );
 
   const res = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    credentials: "include",
     body: JSON.stringify({
-      identifier: payload.email,
-      password: payload.password,
+      identifier,
+      password: formattedPassword,
       schoolCode: payload.schoolCode,
       role: payload.role
     })

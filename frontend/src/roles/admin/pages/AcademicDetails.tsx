@@ -57,6 +57,8 @@ interface Student {
   email?: string;
   admissionNumber?: string;
   academicYear?: string | number;
+  studentDetails?: any;
+  family?: any;
 }
 
 interface HallTicketData {
@@ -781,8 +783,8 @@ const AcademicDetails: React.FC = () => {
         className: idCardClass,
         section: idCardSection,
         profileImage: student.profileImage || student.profilePicture || null,
-        fatherName: student.studentDetails?.family?.father?.name || student.parentDetails?.fatherName || student.fatherName || student.parent?.father?.name || 'Not Available',
-        motherName: student.studentDetails?.family?.mother?.name || student.parentDetails?.motherName || student.motherName || student.parent?.mother?.name || 'Not Available',
+        fatherName: student.studentDetails?.family?.father?.name || student.family?.father?.name || student.parentDetails?.fatherName || student.fatherName || student.parent?.father?.name || 'Not Available',
+        motherName: student.studentDetails?.family?.mother?.name || student.family?.mother?.name || student.parentDetails?.motherName || student.motherName || student.parent?.mother?.name || 'Not Available',
         dateOfBirth: (() => {
           const dob = student.studentDetails?.personal?.dateOfBirth || student.personalDetails?.dateOfBirth || student.dateOfBirth || student.dob || student.personal?.dateOfBirth;
           if (dob) {
@@ -1630,8 +1632,8 @@ const AcademicDetails: React.FC = () => {
           profileImage: student.profileImage,
           dateOfBirth: student.dateOfBirth,
           bloodGroup: student.bloodGroup,
-          fatherName: student.fatherName,
-          motherName: student.motherName,
+          fatherName: student.studentDetails?.family?.father?.name || student.family?.father?.name || student.fatherName,
+          motherName: student.studentDetails?.family?.mother?.name || student.family?.mother?.name || student.motherName,
           address: student.address,
           phone: student.phone,
           email: student.email

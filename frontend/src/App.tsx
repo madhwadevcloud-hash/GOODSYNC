@@ -5,6 +5,7 @@ import RoleGuard from './auth/RoleGuard';
 import { useAuth } from './auth/AuthContext';
 import { AdminApp } from './roles/admin/AdminApp';
 import { TeacherApp } from './roles/teacher/TeacherApp';
+import { StudentApp } from './roles/student/StudentApp';
 import { SuperAdminApp } from './roles/superadmin/SuperAdminApp';
 import Login from './pages/Login';
 
@@ -14,6 +15,7 @@ function RootRedirect() {
   if (user.role === 'superadmin') return <Navigate to="/super-admin" replace />;
   if (user.role === 'admin') return <Navigate to="/admin" replace />;
   if (user.role === 'teacher') return <Navigate to="/teacher" replace />;
+  if (user.role === 'student') return <Navigate to="/student" replace />;
   return <Navigate to="/login" replace />;
 }
 
@@ -80,6 +82,11 @@ export default function App() {
           {/* Teacher portal */}
           <Route element={<RoleGuard allow={['teacher']} />}>
             <Route path="/teacher/*" element={<TeacherApp />} />
+          </Route>
+
+          {/* Student portal */}
+          <Route element={<RoleGuard allow={['student']} />}>
+            <Route path="/student/*" element={<StudentApp />} />
           </Route>
         </Route>
 
