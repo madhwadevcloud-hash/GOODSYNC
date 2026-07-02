@@ -1523,6 +1523,9 @@ return (
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Chalan
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Receipt
+                </th>
 </tr>
 </thead>
 <tbody className="bg-white divide-y divide-gray-200">
@@ -1657,16 +1660,6 @@ return (
                         <Plus className="h-4 w-4 mr-1" />
                         Record Payment
                       </button>
-                      {(student.status === 'partial' || student.status === 'paid') && (
-                        <button
-                          onClick={() => openReceiptForStudent(student)}
-                          className="text-blue-600 hover:text-blue-900 flex items-center"
-                          title="View invoice slip"
-                        >
-                          <Receipt className="h-4 w-4 mr-1" />
-                          View Receipt
-                        </button>
-                      )}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -1809,6 +1802,18 @@ return (
                           Chalan
                 </button>
               )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    {(student.status === 'partial' || student.status === 'paid') && (
+                      <button
+                        onClick={() => openHistoryModal(student)}
+                        className="bg-green-100 hover:bg-green-200 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded flex items-center border border-green-200"
+                        title="View Receipt"
+                      >
+                        <Eye className="h-3 w-3 mr-1" />
+                        Receipt
+                      </button>
+                    )}
                   </td>
         </tr>
               ))}
