@@ -1,10 +1,10 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Eye, EyeOff, Shield, GraduationCap, Settings } from "lucide-react";
+import { Eye, EyeOff, Shield, GraduationCap, Settings, Users } from "lucide-react";
 import { getDemoCredentialsApi } from "../api/auth";
 
-type RoleKey = "superadmin" | "admin" | "teacher";
+type RoleKey = "superadmin" | "admin" | "teacher" | "student";
 
 const initialRoleMeta: Record<
   RoleKey,
@@ -31,13 +31,20 @@ const initialRoleMeta: Record<
     demoEmail: "",
     demoPass: "",
   },
+  student: {
+    title: "Students & Parents",
+    subtitle: "Student & Parent Portal",
+    icon: <Users className="w-5 h-5" />,
+    demoEmail: "",
+    demoPass: "",
+  },
 };
 
 export default function Login() {
   const { login } = useAuth();
   const [roleMeta, setRoleMeta] = useState(initialRoleMeta);
   const [selectedRole, setSelectedRole] = useState<RoleKey>("superadmin");
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [schoolCode, setSchoolCode] = useState(""); // Start empty, will be set based on role
   const [remember, setRemember] = useState(false);
@@ -64,7 +71,7 @@ export default function Login() {
 
         // If superadmin is currently selected, update the fields
         if (selectedRole === 'superadmin') {
-          setEmail(data.superadmin.email);
+          setIdentifier(data.superadmin.email);
           setPassword(data.superadmin.password);
         }
       }
@@ -84,7 +91,7 @@ export default function Login() {
   // Auto-fill demo creds when role changes
   const onPickRole = (role: RoleKey) => {
     setSelectedRole(role);
-    setEmail(roleMeta[role].demoEmail);
+    setIdentifier(roleMeta[role].demoEmail);
     setPassword(roleMeta[role].demoPass);
     setSchoolCode('');
   };
@@ -120,6 +127,7 @@ export default function Login() {
               {rk === "superadmin" && <span></span>}
               {rk === "admin" && <span></span>}
               {rk === "teacher" && <span></span>}
+              {rk === "student" && <span></span>}
             </div>
             <div className="text-xs text-slate-500 hidden sm:block">{m.subtitle}</div>
           </button>
@@ -134,9 +142,29 @@ export default function Login() {
     setLoading(true);
     try {
       // Include school code if provided (not empty)
-      const loginPayload = schoolCode && schoolCode.trim()
-        ? { email, password, schoolCode: schoolCode.trim(), role: selectedRole }
-        : { email, password, role: selectedRole };
+      let loginPayload;
+      if (selectedRole === "student") {
+          loginPayload = {
+              identifier: identifier.trim(),
+              password: password,
+              schoolCode: schoolCode.trim(),
+              role: "student"
+          };
+      } else {
+          loginPayload = schoolCode.trim()
+              ? {
+                  email: identifier.trim(),
+                  password,
+                  schoolCode: schoolCode.trim(),
+                  role: selectedRole
+              }
+              : {
+                  email: identifier.trim(),
+                  password,
+                  role: selectedRole
+              };
+
+      }
 
       await login(loginPayload);
       const from = location.state?.from as string | undefined;
@@ -182,14 +210,20 @@ export default function Login() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-sm text-slate-600">Email Address</label>
+                <label className="text-sm text-slate-600">
+                  {selectedRole === "student" ? "Student ID" : "Email Address"}
+                </label>
                 <div className="relative">
                   <input
-                    type="email"
+                    type={selectedRole === "student" ? "text" : "email"}
                     className="w-full border border-slate-200 rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 pr-10 focus:outline-none focus:ring-2 focus:ring-violet-200 focus:border-violet-400 text-sm sm:text-base"
-                    placeholder="your.email@school.com "
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder={
+                      selectedRole === "student"
+                        ? "Enter Student ID (e.g. VK-S-1208)"
+                        : "your.email@school.com"
+                    }
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
                     required
                     autoComplete="username"
                   />
@@ -198,12 +232,18 @@ export default function Login() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-sm text-slate-600">Password</label>
+                <label className="text-sm text-slate-600">
+                  {selectedRole === "student" ? "Date of Birth" : "Password"}
+                </label>
                 <div className="relative">
                   <input
                     type={showPass ? "text" : "password"}
                     className="w-full border border-slate-200 rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-violet-200 focus:border-violet-400 text-sm sm:text-base"
-                    placeholder="Your super secret password "
+                    placeholder={
+                      selectedRole === "student"
+                        ? "DD/MM/YYYY"
+                        : "Your super secret password"
+                    }
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
