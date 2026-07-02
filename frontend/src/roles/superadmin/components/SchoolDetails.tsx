@@ -778,6 +778,18 @@ function SchoolDetailsContent() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 sm:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
+        <button 
+          onClick={() => {
+          if (window.history.length > 1) {
+            window.history.back();
+          } else {
+            setCurrentView('dashboard'); // Falls back to dashboard if no history exists
+          }   
+        }} 
+        className="mb-4 px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-50 transition flex items-center gap-1"
+        >
+          ← Back
+        </button>
         <div className="mb-6 sm:mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{school.name}</h1>
           <p className="text-xs sm:text-sm text-gray-600 mt-1">School Code: {schoolCode || 'N/A'}</p>
@@ -1033,9 +1045,9 @@ function SchoolDetailsContent() {
                                 {/* *** THIS IS THE FIX for Problem 1 *** */}
                                 {user.role === 'student' && (
                                   <div className="text-sm text-gray-500">
-                                    Class: <strong>{user.studentDetails?.currentClass || 'N/A'}</strong>
-                                    {' - '}
-                                    <strong>{user.studentDetails?.currentSection || 'N/A'}</strong>
+                                    Class: {user.studentDetails?.academic?.currentClass || 'N/A'}
+                                    {'-'}
+                                    {user.studentDetails?.academic?.currentSection || 'N/A'}
                                   </div>
                                 )}
                                 {/* *** END OF FIX *** */}
@@ -1175,6 +1187,7 @@ function SchoolDetailsContent() {
                 <input
                   type="date"
                   value={academicYearStart}
+                  min={new Date().toISOString().split("T")[0]}
                   onChange={(e) => setAcademicYearStart(e.target.value)}
                   className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
                 />
@@ -1187,6 +1200,7 @@ function SchoolDetailsContent() {
                 <input
                   type="date"
                   value={academicYearEnd}
+                  min={academicYearStart || new Date().toISOString().split("T")[0]}
                   onChange={(e) => setAcademicYearEnd(e.target.value)}
                   className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
                 />
