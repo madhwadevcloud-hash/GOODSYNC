@@ -11,7 +11,7 @@ import ViewChalan from '../../../components/fees/ViewChalan';
 
 const FeePaymentsTab: React.FC = () => {
   const { user } = useAuth();
-  const { currentAcademicYear, viewingAcademicYear, setViewingYear, availableYears, loading: academicYearLoading } = useAcademicYear();
+  const { currentAcademicYear } = useAcademicYear();
   const [selectedClass, setSelectedClass] = useState('ALL');
   const [selectedSection, setSelectedSection] = useState('ALL');
   const [searchTerm, setSearchTerm] = useState('');
@@ -184,7 +184,7 @@ const FeePaymentsTab: React.FC = () => {
         class: selectedClass,
         section: selectedSection,
         search: searchTerm,
-        academicYear: viewingAcademicYear
+        academicYear: currentAcademicYear
       });
       
       // Fetch fee records and student details in parallel
@@ -193,7 +193,7 @@ const FeePaymentsTab: React.FC = () => {
         search: searchTerm,
         limit: 50,
         fields: '_id,userId,name,studentId,class,section,admissionNumber',
-        academicYear: viewingAcademicYear
+        academicYear: currentAcademicYear
       };
       
       if (selectedClass && selectedClass !== 'ALL') {
@@ -209,7 +209,7 @@ const FeePaymentsTab: React.FC = () => {
           class: selectedClass,
           section: selectedSection,
           search: searchTerm,
-          academicYear: viewingAcademicYear,
+          academicYear: currentAcademicYear,
           limit: 50,
           fields: 'studentId,installments,totalAmount,paidAmount,balance'
         }),
@@ -1307,14 +1307,14 @@ hasSchoolLogo: !!(data.logoUrl || data.logo || schoolData.schoolLogo),
 
     fetchSchoolDetails();
     fetchRecords();
-  }, [user?.schoolId, selectedClass, selectedSection, searchTerm, viewingAcademicYear]);
+  }, [user?.schoolId, selectedClass, selectedSection, searchTerm, currentAcademicYear]);
 
   // naive debounce for search
   React.useEffect(() => {
     const t = setTimeout(() => fetchRecords(), 400);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, viewingAcademicYear]);
+  }, [searchTerm, currentAcademicYear]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -1421,18 +1421,12 @@ return (
               <Filter className="inline h-4 w-4 mr-1" />
               Academic Year
             </label>
-            <select
-              value={viewingAcademicYear}
-              onChange={(e) => setViewingYear(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-              disabled={academicYearLoading}
-            >
-              {availableYears.map((year) => (
-                <option key={year} value={year}>
-                  {year} {year === currentAcademicYear && '(Current)'}
-                </option>
-              ))}
-            </select>
+            <input
+              type="text"
+              value={`${currentAcademicYear} (Current)`}
+              readOnly
+              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-700 cursor-not-allowed"
+            />
           </div>
 
           <ClassSectionSelect
