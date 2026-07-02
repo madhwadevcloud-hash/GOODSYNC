@@ -1347,28 +1347,10 @@ const ManageUsers: React.FC = () => {
 
   // --- ADD TOGGLE FUNCTION ---
   const togglePasswordVisibility = (userId: string, userName: string) => {
-    try {
-      console.log(`Toggling visibility for user: ${userId}, Current state: ${!!passwordVisibility[userId]}`);
-      const isCurrentlyVisible = passwordVisibility[userId];
-
-      if (isCurrentlyVisible) {
-        console.log(`Hiding password for ${userId}`);
-        setPasswordVisibility(prev => {
-          const newState = { ...prev, [userId]: false };
-          console.log("New visibility state (hiding):", newState);
-          return newState;
-        });
-      } else {
-        console.log(`Requesting admin password to show password for ${userId} (${userName})`);
-        setSelectedTeacherId(userId);
-        setSelectedTeacherName(userName);
-        setPasswordModalType('single');
-        setShowPasswordModal(true);
-      }
-    } catch (error) {
-      console.error('Error in togglePasswordVisibility:', error);
-      toast.error('Failed to toggle password visibility');
-    }
+    setPasswordVisibility(prev => ({
+      ...prev,
+      [userId]: !prev[userId]
+    }));
   };
 
   // Handle showing/hiding all teacher passwords
