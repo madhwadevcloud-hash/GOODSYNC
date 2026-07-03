@@ -1144,6 +1144,201 @@ exports.getResults = async (req, res) => {
 };
 
 // ---------------------------------------------------------
+// Get the logged-in student's own results, aggregated per subject.
+// Self-contained: only needs the auth token (no query params required).
+// Used by the student portal Results page.
+// ---------------------------------------------------------
+exports.getMyResults = async (req, res) => {
+  try {
+    if (req.user.role !== 'student') {
+      return res.status(403).json({
+        success: false,
+        message: 'This endpoint is only for students'
+      });
+    }
+
+    const schoolCode = req.user.schoolCode;
+    const studentUserId = req.user.userId || req.user._id;
+
+    if (!schoolCode) {
+      return res.status(400).json({
+        success: false,
+        message: 'School code not found'
+      });
+    }
+
+    const DatabaseManager = require('../utils/databaseManager');
+    const schoolConn = await DatabaseManager.getSchoolConnection(schoolCode);
+
+    // Look up the student record to get class/section and the ObjectId
+    // used to store results (mirrors the logic in getResults above).
+    const studentsCollection = schoolConn.collection('students');
+    const student = await studentsCollection.findOne({
+      userId: studentUserId,
+      role: 'student'
+    });
+
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student not found'
+      });
+    }
+
+    const studentClass =
+      student.studentDetails?.academic?.currentClass ||
+      student.academicInfo?.class ||
+      student.class;
+    const studentSection =
+      student.studentDetails?.academic?.currentSection ||
+      student.academicInfo?.section ||
+      student.section;
+    const studentObjectId = student._id;
+
+    if (!studentClass || !studentSection) {
+      return res.status(400).json({
+        success: false,
+        message: 'Student class/section information not found'
+      });
+    }
+
+    // Resolve current academic year (same approach as getResults)
+    let yearToFilter;
+    try {
+      const School = require('../models/School');
+      const school = await School.findOne({ code: { $regex: new RegExp(`^${schoolCode}$`, 'i') } });
+      yearToFilter = school?.settings?.academicYear?.currentYear;
+    } catch (e) {
+      // ignore, fall back below
+    }
+    if (!yearToFilter) {
+      const now = new Date();
+      const y = now.getFullYear();
+      yearToFilter = now.getMonth() + 1 >= 4 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
+    }
+
+    const parts = yearToFilter.split('-');
+    let academicYearQuery = yearToFilter;
+    if (parts.length === 2) {
+      const startYear = parts[0];
+      const endYear = parts[1].length === 2 ? parts[1] : parts[1].slice(-2);
+      const fullEndYear = parts[1].length === 4 ? parts[1] : `20${parts[1]}`;
+      academicYearQuery = { $in: [`${startYear}-${endYear}`, `${startYear}-${fullEndYear}`] };
+    }
+
+    const resultsCollection = schoolConn.collection('results');
+    const query = {
+      schoolCode: schoolCode.toUpperCase(),
+      className: studentClass,
+      section: studentSection,
+      academicYear: academicYearQuery,
+      $or: [
+        { studentId: studentObjectId.toString() },
+        { studentId: studentObjectId },
+        { userId: studentUserId }
+      ]
+    };
+
+    const resultDocs = await resultsCollection.find(query).sort({ createdAt: -1 }).toArray();
+
+    // Flatten into subject-test entries (handles both nested and legacy flat docs)
+    const entries = [];
+    for (const doc of resultDocs) {
+      if (doc.subjects && Array.isArray(doc.subjects)) {
+        for (const subj of doc.subjects) {
+          entries.push({
+            subject: subj.subjectName,
+            obtainedMarks: subj.obtainedMarks,
+            totalMarks: subj.totalMarks || subj.maxMarks,
+            grade: subj.grade,
+            createdAt: subj.createdAt || doc.createdAt
+          });
+        }
+      } else if (doc.testType && doc.obtainedMarks !== undefined) {
+        entries.push({
+          subject: doc.subject || 'Unknown',
+          obtainedMarks: doc.obtainedMarks,
+          totalMarks: doc.totalMarks || doc.maxMarks,
+          grade: doc.grade,
+          createdAt: doc.createdAt
+        });
+      }
+    }
+
+    // Aggregate per subject: sum marks across all tests recorded so far
+    // this academic year (cumulative standing per subject).
+    const bySubject = new Map();
+    for (const e of entries) {
+      if (!e.subject || e.obtainedMarks === undefined || !e.totalMarks) continue;
+      const existing = bySubject.get(e.subject) || { obtained: 0, total: 0, latestGrade: e.grade, latestAt: e.createdAt };
+      existing.obtained += e.obtainedMarks;
+      existing.total += e.totalMarks;
+      if (!existing.latestAt || new Date(e.createdAt) > new Date(existing.latestAt)) {
+        existing.latestGrade = e.grade;
+        existing.latestAt = e.createdAt;
+      }
+      bySubject.set(e.subject, existing);
+    }
+
+    // CBSE-style grade thresholds (matches the "high" grading system used
+    // elsewhere in this app) - used to derive the letter grade shown on the
+    // student portal from a percentage.
+    const gradeTable = [
+      { grade: 'A1', min: 91 }, { grade: 'A2', min: 81 },
+      { grade: 'B1', min: 71 }, { grade: 'B2', min: 61 },
+      { grade: 'C1', min: 51 }, { grade: 'C2', min: 41 },
+      { grade: 'D1', min: 33 }, { grade: 'D2', min: 21 },
+      { grade: 'E1', min: 0 }
+    ];
+    const percentageToGrade = (pct) => {
+      for (const g of gradeTable) {
+        if (pct >= g.min) return g.grade;
+      }
+      return 'E1';
+    };
+    const PASS_THRESHOLD = 33; // matches this app's existing passing grade cutoffs
+
+    let subjectId = 0;
+    const subjects = Array.from(bySubject.entries()).map(([subjectName, agg]) => {
+      subjectId += 1;
+      const percentage = agg.total > 0 ? (agg.obtained / agg.total) * 100 : 0;
+      return {
+        id: String(subjectId),
+        subject: subjectName,
+        marksObtained: agg.obtained,
+        totalMarks: agg.total,
+        grade: agg.latestGrade || percentageToGrade(percentage),
+        status: percentage >= PASS_THRESHOLD ? 'Pass' : 'Fail'
+      };
+    });
+
+    const totalObtained = subjects.reduce((sum, s) => sum + s.marksObtained, 0);
+    const totalMax = subjects.reduce((sum, s) => sum + s.totalMarks, 0);
+    const overallPercentage = totalMax > 0 ? Math.round((totalObtained / totalMax) * 100) : null;
+
+    res.json({
+      success: true,
+      data: {
+        summary: {
+          overallPercentage,
+          overallGrade: overallPercentage !== null ? percentageToGrade(overallPercentage) : null,
+          totalSubjects: subjects.length,
+          passedSubjects: subjects.filter(s => s.status === 'Pass').length
+        },
+        subjects
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error fetching student results:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch results',
+      error: error.message
+    });
+  }
+};
+
+// ---------------------------------------------------------
 // Update a single student result (subject-level). Respects frozen flag.
 // ---------------------------------------------------------
 exports.updateResult = async (req, res) => {
@@ -2022,6 +2217,7 @@ module.exports = {
   generateClassPerformanceReport: exports.generateClassPerformanceReport,
   saveResults: exports.saveResults,
   getResults: exports.getResults,
+  getMyResults: exports.getMyResults,
   updateResult: exports.updateResult,
   freezeResults: exports.freezeResults,
   getResultsForTeacher: exports.getResultsForTeacher,

@@ -5,6 +5,7 @@ import {
   BookOpen,
   Award,
 } from "lucide-react";
+import api from "../../../services/api";
 
 interface ResultSummary {
   overallPercentage: number | null;
@@ -38,117 +39,33 @@ export default function Results() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-
-    /*
-    ===========================================================
-    DEMO DATA (FRONTEND ONLY)
-
-    This data is only for frontend development.
-
-    Backend team should REMOVE this demo block and
-    replace it with the API call shown below.
-
-    ===========================================================
-    */
-
-    setResultsData({
-
-      summary: {
-        overallPercentage: 92,
-        overallGrade: "A+",
-        totalSubjects: 6,
-        passedSubjects: 6,
-      },
-
-      subjects: [
-        {
-          id: "1",
-          subject: "Mathematics",
-          marksObtained: 95,
-          totalMarks: 100,
-          grade: "A+",
-          status: "Pass",
-        },
-        {
-          id: "2",
-          subject: "Science",
-          marksObtained: 91,
-          totalMarks: 100,
-          grade: "A+",
-          status: "Pass",
-        },
-        {
-          id: "3",
-          subject: "English",
-          marksObtained: 89,
-          totalMarks: 100,
-          grade: "A",
-          status: "Pass",
-        },
-        {
-          id: "4",
-          subject: "Social Science",
-          marksObtained: 94,
-          totalMarks: 100,
-          grade: "A+",
-          status: "Pass",
-        },
-        {
-          id: "5",
-          subject: "Computer Science",
-          marksObtained: 98,
-          totalMarks: 100,
-          grade: "A+",
-          status: "Pass",
-        },
-        {
-          id: "6",
-          subject: "Tamil",
-          marksObtained: 87,
-          totalMarks: 100,
-          grade: "A",
-          status: "Pass",
-        },
-      ],
-
-    });
-
-    /*
-    ===========================================================
-
-    BACKEND API INTEGRATION
-
     const fetchResults = async () => {
+      try {
+        setLoading(true);
+        setError("");
 
-        try{
+        // Backend returns { success, data: { summary, subjects } }
+        const response = await api.get("/results/my-results");
 
-            setLoading(true);
-
-            const response = await api.get("/student/results");
-
-            setResultsData(response.data);
-
-        }
-
-        catch(err){
-
-            setError("Unable to load results.");
-
-        }
-
-        finally{
-
-            setLoading(false);
-
-        }
-
+        setResultsData(
+          response.data?.data ?? {
+            summary: {
+              overallPercentage: null,
+              overallGrade: null,
+              totalSubjects: null,
+              passedSubjects: null,
+            },
+            subjects: [],
+          }
+        );
+      } catch (err) {
+        setError("Unable to load results.");
+      } finally {
+        setLoading(false);
+      }
     };
 
     fetchResults();
-
-    ===========================================================
-    */
-
   }, []);
 
   if (loading) {

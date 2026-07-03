@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { BookOpen, CalendarDays, Clock, FileText } from "lucide-react";
+import api from "../../../services/api";
 
 interface Assignment {
   id: string;
@@ -14,54 +15,27 @@ interface Assignment {
 }
 
 export default function Assignments() {
-  const [assignmentsData, setAssignmentsData] = useState<Assignment[]>([
-    //This is a demo data. The backend team will replace this with actual API response.
-    {
-      id: "1",
-      title: "Quadratic Equations",
-      subject: "Mathematics",
-      description: "Solve Exercise 4 (Questions 1–20).",
-      assignedDate: "10 Jul 2026",
-      dueDate: "15 Jul 2026",
-      status: "Pending",
-    },
-    {
-      id: "2",
-      title: "Photosynthesis",
-      subject: "Science",
-      description: "Prepare a chart on Photosynthesis.",
-      assignedDate: "08 Jul 2026",
-      dueDate: "13 Jul 2026",
-      status: "Graded",
-      marks: 18,
-      totalMarks: 20,
-    },
-  ]);
+  const [assignmentsData, setAssignmentsData] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    /*
-      ==========================
-      BACKEND INTEGRATION POINT
-      ==========================
+    const fetchAssignments = async () => {
+      try {
+        setLoading(true);
+        setError("");
 
-      const fetchAssignments = async () => {
-        try {
-          setLoading(true);
+        const response = await api.get("/student/assignments");
 
-          const response = await api.get("/student/assignments");
+        setAssignmentsData(response.data);
+      } catch (err) {
+        setError("Unable to load assignments");
+      } finally {
+        setLoading(false);
+      }
+    };
 
-          setAssignmentsData(response.data);
-        } catch (err) {
-          setError("Unable to load assignments");
-        } finally {
-          setLoading(false);
-        }
-      };
-
-      fetchAssignments();
-    */
+    fetchAssignments();
   }, []);
 
   const getStatusColor = (status: Assignment["status"]) => {
