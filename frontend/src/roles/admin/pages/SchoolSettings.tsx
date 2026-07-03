@@ -8,6 +8,27 @@ import { normalizeAcademicYear, getDynamicFallbackYear } from '../../../utils/ac
 import PromotionTab from '../components/PromotionTab';
 import UniversalTemplate from '../components/UniversalTemplate';
 
+const getPreviousAcademicYear = (currentYear: string): string => {
+  if (!currentYear) return '';
+  const match = currentYear.match(/^(\d{4})-(\d{2})$/);
+  if (match) {
+    const start = parseInt(match[1]);
+    const end = parseInt(match[2]);
+    return `${start - 1}-${(end - 1).toString().padStart(2, '0')}`;
+  }
+  const matchLong = currentYear.match(/^(\d{4})-(\d{4})$/);
+  if (matchLong) {
+    const start = parseInt(matchLong[1]);
+    const end = parseInt(matchLong[2]);
+    return `${start - 1}-${end - 1}`;
+  }
+  const start = parseInt(currentYear);
+  if (!isNaN(start)) {
+    return `${start - 1}`;
+  }
+  return currentYear;
+};
+
 interface TestData {
   _id: string;
   testName: string;
@@ -752,9 +773,9 @@ const SchoolSettings: React.FC = () => {
                 </div>
               ) : (
                 <PromotionTab
-                  fromYear={fromYear}
+                  fromYear={getPreviousAcademicYear(currentAcademicYear)}
                   setFromYear={setFromYear}
-                  toYear={toYear}
+                  toYear={currentAcademicYear}
                   classes={classes}
                   loading={loading}
                   currentAcademicYear={currentAcademicYear}
