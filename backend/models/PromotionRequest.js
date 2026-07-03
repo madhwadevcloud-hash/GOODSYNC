@@ -22,6 +22,7 @@ const promotionRequestSchema = new mongoose.Schema({
   completedAt: { type: Date },
   excelReportUrl: { type: String },
   excelReportFilename: { type: String },
+  promotionRecords: { type: Array, default: [] }, // Accumulated per-section promotion results for final Excel
   auditLog: [{
     action: { type: String, required: true },
     doneBy: { type: String, required: true },

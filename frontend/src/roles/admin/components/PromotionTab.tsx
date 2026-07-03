@@ -71,6 +71,12 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
 
   const [notifications, setNotifications] = useState<any[]>([]);
 
+  const isCurrentRequest = !!(activeRequest &&
+    academicYearsMatch(activeRequest.fromYear, fromYear) &&
+    academicYearsMatch(activeRequest.toYear, toYear));
+  const hasActiveRequest = !!(activeRequest && isCurrentRequest);
+  const isCompletedForCurrentTransition = !!(hasActiveRequest && activeRequest?.status === 'Completed');
+
   const classOrder = ['LKG', 'UKG', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
   const selectedClassData = classes.find(c => c.className === selectedClass);
 
@@ -151,18 +157,13 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
     return () => clearInterval(interval);
   }, [fetchActiveRequest, fetchNotifications]);
 
-  // Set Request Years from default fromYear
+  // Always sync request years from the parent-supplied dynamic props
+  // fromYear = previous academic year (source), toYear = current academic year (destination)
+  // These are computed from the Super Admin's active academic year and must never be manually editable
   useEffect(() => {
-    if (fromYear) {
-      setReqFromYear(fromYear);
-      const [start, end] = fromYear.split('-').map(Number);
-      if (end) {
-        setReqToYear(`${start + 1}-${(end + 1).toString().slice(-2)}`);
-      } else {
-        setReqToYear(`${start + 1}`);
-      }
-    }
-  }, [fromYear]);
+    if (fromYear) setReqFromYear(fromYear);
+    if (toYear) setReqToYear(toYear);
+  }, [fromYear, toYear]);
 
   // Resolve a student's actual current class/section, since different records
   // store this under different field paths (academicInfo.class, studentDetails.academic.currentClass,
@@ -210,12 +211,29 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
     return 'Graduated';
   };
 
-  // Whether a given student's current class has no valid "next class" configured (i.e. must graduate)
+  // Whether a given student's current class is the highest configured class (i.e. must graduate)
+  // This mirrors the backend logic: graduate only if this is the final configured class
+  // AND no higher class exists in the school's configured classes.
   const isStudentGraduating = React.useCallback((currentClass: string): boolean => {
     if (!currentClass) return false; // unknown class - don't wrongly mark as graduating
+    if (!classes || classes.length === 0) return false; // no class data loaded yet - assume not graduating
+
+    // Find the highest configured class in the school
+    const configuredClassNames = classes.map(c => c.className);
+    const highestClass = configuredClassNames.reduce((max, cls) => {
+      const maxIndex = classOrder.indexOf(max);
+      const clsIndex = classOrder.indexOf(cls);
+      return clsIndex > maxIndex ? cls : max;
+    }, configuredClassNames[0] || '');
+
+    // Student graduates only if they are in the highest configured class
+    if (currentClass !== highestClass) return false;
+
+    // And there is no next class in the progression that exists in the school
     const nextClass = getPromotedClass(currentClass);
-    if (nextClass === 'Graduated') return true;
-    return !classes.some(c => c.className === nextClass);
+    if (nextClass !== 'Graduated' && configuredClassNames.includes(nextClass)) return false;
+
+    return true;
   }, [classes]);
 
   // Validate if next class exists in school (works across every distinct class present in `students`,
@@ -353,6 +371,11 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
       return;
     }
 
+    if (isCompletedForCurrentTransition) {
+      alert(`Student promotion for Academic Year ${fromYear} to ${toYear} has already been completed. The Promotion Module will be available again after the Super Admin activates the next Academic Year.`);
+      return;
+    }
+
     if (!currentAcademicYear || currentAcademicYear !== reqToYear) {
       alert('The next Academic Year has not been created or activated by the Super Admin. Student promotion cannot proceed until the new Academic Year is set.');
       return;
@@ -384,6 +407,16 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
   const handleConfirmPromotion = async () => {
     const { schoolCode } = getAuthData();
     if (!schoolCode) return;
+
+    if (!fromYear || !toYear) {
+      alert('Academic Year parameters are missing. Please wait for the page configurations to load.');
+      return;
+    }
+
+    if (isCompletedForCurrentTransition) {
+      alert(`Student promotion for Academic Year ${fromYear} to ${toYear} has already been completed. The Promotion Module will be available again after the Super Admin activates the next Academic Year.`);
+      return;
+    }
 
     if (!currentAcademicYear || currentAcademicYear !== toYear) {
       alert('The next Academic Year has not been created or activated by the Super Admin. Student promotion cannot proceed until the new Academic Year is set.');
@@ -428,6 +461,11 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
       for (const [key, groupStudents] of groups.entries()) {
         const [groupClass, groupSection] = key.split('-');
 
+        if (!groupClass || !groupSection) {
+          console.warn(`⚠️ Skipping group with invalid class/section: "${key}"`);
+          continue;
+        }
+
         const holdBackIds = groupStudents
           .filter(s => !selectedStudents.has(s.userId || s.sequenceId))
           .map(s => s.userId || s.sequenceId);
@@ -441,7 +479,7 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
           className: groupClass,
           section: groupSection,
           holdBackSequenceIds: holdBackIds,
-          graduateStudents: isStudentGraduating(groupClass)
+          graduateStudents: false // Backend determines graduation dynamically from configured class hierarchy
         });
 
         if (!response.data.success) {
@@ -505,8 +543,28 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
         <p className="text-sm text-gray-600">Request and execute student academic year promotions</p>
       </div>
 
+      {/* Completed / Locked State */}
+      {isCompletedForCurrentTransition && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-6">
+          <div className="flex items-start">
+            <CheckCircle className="h-6 w-6 text-emerald-600 mt-0.5 mr-3 flex-shrink-0" />
+            <div>
+              <h4 className="text-md font-semibold text-emerald-800 mb-2">Promotion Cycle Completed</h4>
+              <p className="text-sm text-emerald-700 font-medium">
+                Student promotion for Academic Year <strong>{fromYear}</strong> to <strong>{toYear}</strong> has already been completed. The Promotion Module will be available again after the Super Admin activates the next Academic Year.
+              </p>
+              <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-emerald-800 bg-emerald-100/50 p-4 rounded-lg">
+                <p><strong>Completed On:</strong> {activeRequest.completedAt ? new Date(activeRequest.completedAt).toLocaleDateString() : 'N/A'}</p>
+                <p><strong>Students Processed:</strong> {activeRequest.totalStudents || 'N/A'}</p>
+                <p><strong>Status:</strong> <span className="bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full text-xs font-semibold">Completed</span></p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Promotion Request Submission Form */}
-      {(!activeRequest || activeRequest.status === 'Rejected' || activeRequest.status === 'Completed') && (
+      {!isCompletedForCurrentTransition && (!hasActiveRequest || activeRequest?.status === 'Rejected') && (
         <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
           <h4 className="text-md font-semibold text-gray-900 mb-4">Request Student Promotion Approval</h4>
           {activeRequest?.status === 'Rejected' && (
@@ -517,35 +575,24 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
           <form onSubmit={handleSubmitRequest} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Current Academic Year</label>
-                <select
+                <label className="block text-sm font-medium text-gray-700 mb-1">Source Academic Year (Students From)</label>
+                <input
+                  type="text"
                   value={reqFromYear}
-                  onChange={(e) => {
-                    setReqFromYear(e.target.value);
-                    const [start, end] = e.target.value.split('-').map(Number);
-                    if (end) {
-                      setReqToYear(`${start + 1}-${(end + 1).toString().slice(-2)}`);
-                    }
-                  }}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500"
-                >
-                  {[...Array(3)].map((_, i) => {
-                    const now = new Date();
-                    const baseStart = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
-                    const start = baseStart - 1 + i;
-                    const yearStr = `${start}-${(start + 1).toString().slice(-2)}`;
-                    return <option key={yearStr} value={yearStr}>{yearStr}</option>;
-                  })}
-                </select>
+                  readOnly
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-100 text-gray-700 cursor-not-allowed"
+                />
+                <p className="text-xs text-gray-500 mt-1">Automatically derived from the institution's active Academic Year</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Next Academic Year</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Destination Academic Year (Promote To)</label>
                 <input
                   type="text"
                   value={reqToYear}
                   readOnly
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-50 text-gray-700"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-100 text-gray-700 cursor-not-allowed"
                 />
+                <p className="text-xs text-gray-500 mt-1">Set by the Super Admin as the current active Academic Year</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Promotion Date</label>
@@ -580,7 +627,7 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
       )}
 
       {/* Pending State */}
-      {activeRequest?.status === 'Pending Approval' && (
+      {hasActiveRequest && activeRequest?.status === 'Pending Approval' && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
           <div className="flex items-start">
             <AlertTriangle className="h-6 w-6 text-yellow-600 mt-0.5 mr-3 flex-shrink-0" />
@@ -600,7 +647,7 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
       )}
 
       {/* Approved State */}
-      {activeRequest?.status === 'Approved' && (
+      {hasActiveRequest && activeRequest?.status === 'Approved' && (
         <>
           {(!currentAcademicYear || currentAcademicYear !== toYear) && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-6 flex items-start mb-6">

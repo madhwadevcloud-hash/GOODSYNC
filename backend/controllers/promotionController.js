@@ -225,12 +225,27 @@ exports.bulkPromotion = async (req, res) => {
     });
   }
 
+  // Check if promotion has already been completed for this transition (LOCK enforcement)
+  const completedRequest = await PromotionRequest.findOne({
+    schoolCode: schoolCode,
+    fromYear,
+    toYear,
+    status: 'Completed'
+  });
+
+  if (completedRequest) {
+    return res.status(400).json({
+      success: false,
+      message: `Student promotion for Academic Year ${fromYear} to ${toYear} has already been completed. The Promotion Module will be available again after the Super Admin activates the next Academic Year.`
+    });
+  }
+
   // Retrieve approved promotion request matching both fromYear and toYear
   const activeRequest = await PromotionRequest.findOne({
     schoolCode: schoolCode,
     fromYear,
     toYear,
-    status: { $in: ['Approved', 'Completed'] }
+    status: 'Approved'
   });
 
   if (!activeRequest) {
@@ -284,16 +299,17 @@ exports.bulkPromotion = async (req, res) => {
     }
 
     const classOrder = ['LKG', 'UKG', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
-    const uniqueClasses = [...new Set(students.map(s => getStudentClass(s)).filter(Boolean))];
-    const finalYearClass = uniqueClasses.reduce((max, cls) => {
-      const maxIndex = classOrder.indexOf(max);
-      const clsIndex = classOrder.indexOf(cls);
-      return clsIndex > maxIndex ? cls : max;
-    }, 'LKG');
-
     const classesCollection = schoolConnection.collection('classes');
     const availableClasses = await classesCollection.find({ schoolCode, isActive: true }).toArray();
     const availableClassNames = new Set(availableClasses.map(c => c.className));
+
+    // Determine the highest configured class in the database
+    const configuredClassNames = Array.from(availableClassNames);
+    const finalYearClass = configuredClassNames.reduce((max, cls) => {
+      const maxIndex = classOrder.indexOf(max);
+      const clsIndex = classOrder.indexOf(cls);
+      return clsIndex > maxIndex ? cls : max;
+    }, configuredClassNames[0] || 'LKG');
 
     let promotedCount = 0;
     let graduatedCount = 0;
@@ -595,14 +611,11 @@ exports.bulkPromotion = async (req, res) => {
       }
     }
 
-    // Compile and upload Excel report (MIME type 'text/csv', and .csv extension)
-    const csvBuffer = buildPromotionCsv(promotionRecords);
-    const uploadResult = await uploadPDFBufferToCloudinary(
-      csvBuffer,
-      `promotions/${schoolCode}`,
-      `bulk_promotion_report_${activeRequest._id}_${Date.now()}`,
-      'text/csv'
-    );
+    // Accumulate records into the request document
+    activeRequest.promotionRecords = [
+      ...(activeRequest.promotionRecords || []),
+      ...promotionRecords
+    ];
 
     // Check if there are any remaining students in fromYear to be processed
     const processedStudentIds = await promotionHistoryCollection.distinct('studentId', {
@@ -621,21 +634,32 @@ exports.bulkPromotion = async (req, res) => {
     });
 
     if (remainingStudentsCount === 0) {
+      // All students processed — generate the FINAL combined CSV
+      const allRecords = activeRequest.promotionRecords || promotionRecords;
+      const csvBuffer = buildPromotionCsv(allRecords);
+      const uploadResult = await uploadPDFBufferToCloudinary(
+        csvBuffer,
+        `promotions/${schoolCode}`,
+        `promotion_report_${activeRequest._id}_final`,
+        'text/csv'
+      );
+
       activeRequest.status = 'Completed';
       activeRequest.completedAt = new Date();
-      console.log(`🎉 All students processed. Promotion request marked as Completed.`);
+      activeRequest.excelReportUrl = uploadResult.downloadUrl;
+      activeRequest.excelReportFilename = `promotion_report_${fromYear}_to_${toYear}.csv`;
+      activeRequest.totalStudents = allRecords.length;
+      console.log(`🎉 All students processed (${allRecords.length} records). Promotion request marked as Completed.`);
     } else {
       activeRequest.status = 'Approved';
       console.log(`📊 ${remainingStudentsCount} students remaining. Request status kept as Approved.`);
     }
 
-    activeRequest.excelReportUrl = uploadResult.downloadUrl;
-    activeRequest.excelReportFilename = `bulk_promotion_report_${fromYear}.csv`;
     activeRequest.auditLog.push({
       action: 'Execute Promotion',
       doneBy: req.user?.userId || 'admin',
       timestamp: new Date(),
-      details: `Executed bulk promotion (${promotedCount} promoted, ${graduatedCount} graduated, ${skippedCount} skipped). Generated Excel report. Status: ${activeRequest.status}`
+      details: `Executed bulk promotion (${promotedCount} promoted, ${graduatedCount} graduated, ${skippedCount} skipped). Status: ${activeRequest.status}`
     });
     await activeRequest.save();
 
@@ -647,7 +671,7 @@ exports.bulkPromotion = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: `Successfully executed bulk promotion. Report generated: ${uploadResult.downloadUrl}`,
+      message: `Successfully executed bulk promotion.${remainingStudentsCount === 0 ? ' All students processed. Excel report generated.' : ''}`,
       data: {
         promoted: promotedCount,
         graduated: graduatedCount,
@@ -695,12 +719,27 @@ exports.sectionPromotion = async (req, res) => {
     });
   }
 
+  // Check if promotion has already been completed for this transition (LOCK enforcement)
+  const completedRequest = await PromotionRequest.findOne({
+    schoolCode: schoolCode,
+    fromYear,
+    toYear,
+    status: 'Completed'
+  });
+
+  if (completedRequest) {
+    return res.status(400).json({
+      success: false,
+      message: `Student promotion for Academic Year ${fromYear} to ${toYear} has already been completed. The Promotion Module will be available again after the Super Admin activates the next Academic Year.`
+    });
+  }
+
   // Retrieve approved promotion request matching both fromYear and toYear
   const activeRequest = await PromotionRequest.findOne({
     schoolCode: schoolCode,
     fromYear,
     toYear,
-    status: { $in: ['Approved', 'Completed'] }
+    status: 'Approved'
   });
 
   if (!activeRequest) {
@@ -760,20 +799,54 @@ exports.sectionPromotion = async (req, res) => {
       });
     }
 
+    const classOrder = ['LKG', 'UKG', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
+    const classesCollection = schoolConnection.collection('classes');
+    const activeClasses = await classesCollection.find({ isActive: true }).toArray();
+    const configuredClassNames = activeClasses.map(c => c.className);
+
+    // Determine the highest configured class in the school
+    const finalYearClass = configuredClassNames.reduce((max, cls) => {
+      const maxIndex = classOrder.indexOf(max);
+      const clsIndex = classOrder.indexOf(cls);
+      return clsIndex > maxIndex ? cls : max;
+    }, configuredClassNames[0] || 'LKG');
+
+    const isFinalClass = className === finalYearClass;
+
+    // Determine next class from progression map
     const nextClass = classProgression[className];
-    if (!nextClass && !graduateStudents) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({
-        success: false,
-        message: `No progression defined for class ${className}. This may be the final year.`
-      });
+
+    // Backend-driven graduation decision:
+    // Graduate ONLY if this is the final configured class AND there is no valid next class to promote into.
+    // If a next class exists in classProgression AND is configured in the school, always promote (never graduate).
+    let shouldGraduate = false;
+    if (isFinalClass && (!nextClass || !configuredClassNames.includes(nextClass))) {
+      shouldGraduate = true;
+      console.log(`🎓 Class ${className} is the final configured class. Students will be graduated as Alumni.`);
+    } else if (!nextClass) {
+      // classProgression doesn't define a next class (e.g. '12' -> null),
+      // but the school may have custom classes beyond the standard progression.
+      // Check if there's any higher class configured
+      const currentIndex = classOrder.indexOf(className);
+      const higherConfigured = configuredClassNames.find(c => classOrder.indexOf(c) > currentIndex);
+      if (!higherConfigured) {
+        shouldGraduate = true;
+        console.log(`🎓 No higher class configured after ${className}. Students will be graduated as Alumni.`);
+      } else {
+        // There IS a higher class, but classProgression doesn't map to it.
+        // This is a configuration gap — block promotion with a clear error.
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(400).json({
+          success: false,
+          message: `No progression defined from Class ${className}. Higher classes exist (e.g. ${higherConfigured}) but no mapping is configured. Please contact support.`
+        });
+      }
     }
 
-    if (!graduateStudents) {
-      const classesCollection = schoolConnection.collection('classes');
+    if (!shouldGraduate) {
+      // Verify the destination class actually exists in the school
       const nextClassExists = await classesCollection.findOne({
-        schoolCode,
         className: nextClass,
         isActive: true
       });
@@ -787,6 +860,7 @@ exports.sectionPromotion = async (req, res) => {
           errorCode: 'CLASS_NOT_FOUND'
         });
       }
+      console.log(`📚 Class ${className} -> ${nextClass}. Students will be promoted (not graduated).`);
     }
 
     let promotedCount = 0;
@@ -908,7 +982,7 @@ exports.sectionPromotion = async (req, res) => {
           promotedBy: req.user?.userId || 'admin',
           timestamp: new Date().toISOString()
         });
-      } else if (graduateStudents) {
+      } else if (shouldGraduate) {
         // Add to promotion history
         await promotionHistoryCollection.insertOne({
           batchId: promotionBatchId,
@@ -1060,14 +1134,12 @@ exports.sectionPromotion = async (req, res) => {
       }
     }
 
-    // Compile and upload Excel report (MIME type 'text/csv', and .csv extension)
-    const csvBuffer = buildPromotionCsv(promotionRecords);
-    const uploadResult = await uploadPDFBufferToCloudinary(
-      csvBuffer,
-      `promotions/${schoolCode}`,
-      `section_promotion_report_${activeRequest._id}_${Date.now()}`,
-      'text/csv'
-    );
+    // Accumulate this section's records into the request document
+    // This ensures all sections' data is combined into one final Excel report
+    activeRequest.promotionRecords = [
+      ...(activeRequest.promotionRecords || []),
+      ...promotionRecords
+    ];
 
     // Check if there are any remaining students in fromYear to be processed
     const processedStudentIds = await promotionHistoryCollection.distinct('studentId', {
@@ -1086,21 +1158,32 @@ exports.sectionPromotion = async (req, res) => {
     });
 
     if (remainingStudentsCount === 0) {
+      // All students processed — generate the FINAL combined CSV from all accumulated records
+      const allRecords = activeRequest.promotionRecords || promotionRecords;
+      const csvBuffer = buildPromotionCsv(allRecords);
+      const uploadResult = await uploadPDFBufferToCloudinary(
+        csvBuffer,
+        `promotions/${schoolCode}`,
+        `promotion_report_${activeRequest._id}_final`,
+        'text/csv'
+      );
+
       activeRequest.status = 'Completed';
       activeRequest.completedAt = new Date();
-      console.log(`🎉 All students processed. Promotion request marked as Completed.`);
+      activeRequest.excelReportUrl = uploadResult.downloadUrl;
+      activeRequest.excelReportFilename = `promotion_report_${fromYear}_to_${toYear}.csv`;
+      activeRequest.totalStudents = allRecords.length;
+      console.log(`🎉 All students processed (${allRecords.length} records). Promotion request marked as Completed. Excel: ${uploadResult.downloadUrl}`);
     } else {
       activeRequest.status = 'Approved';
-      console.log(`📊 ${remainingStudentsCount} students remaining. Request status kept as Approved.`);
+      console.log(`📊 ${remainingStudentsCount} students remaining. Request status kept as Approved. Accumulated ${activeRequest.promotionRecords.length} records so far.`);
     }
 
-    activeRequest.excelReportUrl = uploadResult.downloadUrl;
-    activeRequest.excelReportFilename = `promotion_report_${className}_${section}_${fromYear}.csv`;
     activeRequest.auditLog.push({
       action: 'Execute Promotion',
       doneBy: req.user?.userId || 'admin',
       timestamp: new Date(),
-      details: `Executed manual promotion for Class ${className}-${section} (${promotedCount} promoted, ${heldBackCount} held back, ${graduatedCount} graduated, ${skippedCount} skipped). Generated Excel report. Status: ${activeRequest.status}`
+      details: `Executed promotion for Class ${className}-${section} (${promotedCount} promoted, ${heldBackCount} held back, ${graduatedCount} graduated, ${skippedCount} skipped). Status: ${activeRequest.status}`
     });
     await activeRequest.save();
 
@@ -1112,7 +1195,7 @@ exports.sectionPromotion = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: `Successfully executed manual promotion. Report generated: ${uploadResult.downloadUrl}`,
+      message: `Successfully promoted Class ${className}-${section}.${remainingStudentsCount === 0 ? ' All sections complete. Excel report generated.' : ` ${remainingStudentsCount} students remaining in other sections.`}`,
       data: {
         promoted: promotedCount,
         graduated: graduatedCount,
@@ -1158,14 +1241,21 @@ exports.submitPromotionRequest = async (req, res) => {
       });
     }
 
+    // Check for any existing request (pending, approved, or already completed)
     const existingActive = await PromotionRequest.findOne({
       schoolCode: schoolCode,
       fromYear,
       toYear,
-      status: { $in: ['Pending Approval', 'Approved'] }
+      status: { $in: ['Pending Approval', 'Approved', 'Completed'] }
     });
 
     if (existingActive) {
+      if (existingActive.status === 'Completed') {
+        return res.status(400).json({
+          success: false,
+          message: `Student promotion for Academic Year ${fromYear} to ${toYear} has already been completed. The Promotion Module will be available again after the Super Admin activates the next Academic Year.`
+        });
+      }
       return res.status(400).json({
         success: false,
         message: 'A duplicate promotion request is already pending or approved for this academic year transition.'

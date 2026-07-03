@@ -205,12 +205,29 @@ const SchoolSettings: React.FC = () => {
       console.log('📡 Fetching classes from endpoint:', endpoint);
       console.log('📡 Using school code:', schoolCode, 'year:', yearToFetch);
 
-      const response = await api.get(endpoint);
+      let response = await api.get(endpoint);
 
       console.log('📥 Classes API Response:', response.data);
 
       if (response.data.success) {
-        const classes = response.data.data?.classes || response.data.classes || [];
+        let classes = response.data.data?.classes || response.data.classes || [];
+
+        // Fallback: if no classes are returned for the new year, fetch for the previous academic year
+        if (classes.length === 0) {
+          const prevYear = getPreviousAcademicYear(yearToFetch);
+          if (prevYear) {
+            const fallbackEndpoint = `/admin/classes/${schoolCode}/classes-sections?academicYear=${prevYear}`;
+            console.log('📡 Classes empty for current year, fetching from fallback year:', prevYear);
+            const fallbackResponse = await api.get(fallbackEndpoint);
+            if (fallbackResponse.data.success) {
+              const fallbackClasses = fallbackResponse.data.data?.classes || fallbackResponse.data.classes || [];
+              if (fallbackClasses.length > 0) {
+                classes = fallbackClasses;
+                response = fallbackResponse;
+              }
+            }
+          }
+        }
 
         // Fetch all students once (more efficient than per-class)
         let allStudents: any[] = [];
