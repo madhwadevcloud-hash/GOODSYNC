@@ -49,12 +49,6 @@ export default function Sidebar() {
         })}
       </nav>
 
-      <div className="absolute bottom-5 left-4">
-        <button className="flex items-center gap-3 text-red-600">
-          <LogOut size={18} />
-          Logout
-        </button>
-      </div>
     </aside>
   );
 }
