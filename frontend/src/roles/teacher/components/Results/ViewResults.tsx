@@ -56,7 +56,6 @@ const ViewResults: React.FC = () => {
 
   // Freeze functionality
   const [isFrozen, setIsFrozen] = useState(false);
-  const [freezing, setFreezing] = useState(false);
 
   // Comparator: sort by userId like SK-S-0847 (prefix, then numeric)
   const compareUserId = useCallback((a: string | undefined, b: string | undefined) => {
@@ -416,37 +415,7 @@ const ViewResults: React.FC = () => {
     }
   };
 
-  const handleFreezeResults = async () => {
-    if (!selectedClass || !selectedSection || !selectedTestType) {
-      toast.error('Please select class, section, and test');
-      return;
-    }
 
-    const confirmed = window.confirm(
-      `Are you sure you want to FREEZE results for Class ${selectedClass}-${selectedSection} (${selectedTestType})?\n\nOnce frozen, marks for all subjects under this test CANNOT be edited anymore!`
-    );
-    if (!confirmed) return;
-
-    setFreezing(true);
-    try {
-      const schoolCode = localStorage.getItem('erp.schoolCode') || user?.schoolCode || '';
-      await resultsAPI.freezeResults({
-        schoolCode,
-        class: selectedClass,
-        section: selectedSection,
-        testType: selectedTestType,
-        academicYear: viewingAcademicYear || getDynamicFallbackYear()
-      });
-
-      setIsFrozen(true);
-      toast.success('Results frozen successfully! Marks are now locked.');
-    } catch (error) {
-      console.error('Error freezing results:', error);
-      toast.error('Failed to freeze results');
-    } finally {
-      setFreezing(false);
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -567,17 +536,7 @@ const ViewResults: React.FC = () => {
             Search
           </button>
 
-          {/* Freeze Results Button */}
-          {showResultsTable && !isFrozen && (
-            <button
-              onClick={handleFreezeResults}
-              disabled={freezing || loading}
-              className="bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded-lg flex items-center transition-colors self-end shadow-sm font-medium"
-            >
-              <ShieldAlert className="h-4 w-4 mr-2" />
-              Freeze Results
-            </button>
-          )}
+
         </div>
       </div>
 

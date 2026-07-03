@@ -357,6 +357,55 @@ exports.getStudentResultHistory = async (req, res) => {
       isActive: true
     };
 
+    const isStudentOrParent = req.user && ['student', 'parent'].includes(req.user.role);
+    if (isStudentOrParent) {
+      const DatabaseManager = require('../utils/databaseManager');
+      const schoolConn = await DatabaseManager.getSchoolConnection(schoolCode);
+      const studentsCollection = schoolConn.collection('students');
+      const mongoose = require('mongoose');
+      const student = await studentsCollection.findOne({
+        $or: [
+          { userId: studentId },
+          { _id: studentId },
+          studentId.toString().match(/^[0-9a-fA-F]{24}$/) ? { _id: new mongoose.Types.ObjectId(studentId.toString()) } : null
+        ].filter(Boolean)
+      });
+
+      if (!student) {
+        return res.status(404).json({
+          success: false,
+          message: 'Student not found in school database'
+        });
+      }
+
+      // Perform authorization check
+      if (req.user.role === 'student') {
+        const selfUserId = req.user.userId || req.user._id?.toString();
+        if (student.userId !== selfUserId && student._id.toString() !== req.user._id?.toString()) {
+          return res.status(403).json({
+            success: false,
+            message: 'Access denied. You can only view your own results.'
+          });
+        }
+      } else if (req.user.role === 'parent') {
+        const children = req.user.parentDetails?.children || [];
+        const isParentOfChild = children.some(c => 
+          c.studentId?.toString() === student._id.toString() ||
+          c.studentName === student.name?.displayName ||
+          (student.name && c.studentName === `${student.name.firstName} ${student.name.lastName}`.trim())
+        );
+        if (!isParentOfChild) {
+          return res.status(403).json({
+            success: false,
+            message: "Access denied. You can only view your own children's results."
+          });
+        }
+      }
+
+      // Restrict to published results
+      query.status = 'published';
+    }
+
     if (academicYear) query['classDetails.academicYear'] = academicYear;
     if (examType) query['examDetails.examType'] = examType;
 
@@ -374,6 +423,13 @@ exports.getStudentResultHistory = async (req, res) => {
         'overallResult.rank': 1,
         'overallResult.totalStudents': 1
       });
+
+    if (isStudentOrParent && results.length === 0) {
+      return res.status(403).json({
+        success: false,
+        message: 'Results have not yet been published.'
+      });
+    }
 
     // Calculate progress trend
     const progressTrend = calculateProgressTrend(results);
@@ -813,11 +869,78 @@ exports.getResults = async (req, res) => {
     let studentSection = section;
     let studentObjectId = null; // Store the student's ObjectId for results query
 
-    // Establish school database connection once
-    const schoolConn = await DatabaseManager.getSchoolConnection(schoolCode);
+    const reqSchoolCode = schoolCode || req.user?.schoolCode;
+    if (!reqSchoolCode) {
+      return res.status(400).json({
+        success: false,
+        message: 'schoolCode is required'
+      });
+    }
 
-    // If studentId is provided (student fetching their own results), get their class/section
-    if (studentId && !className) {
+    // Establish school database connection once
+    const schoolConn = await DatabaseManager.getSchoolConnection(reqSchoolCode);
+
+    // Secure Result Publication & Student/Parent Authorization Enforcer
+    const isStudentOrParent = req.user && ['student', 'parent'].includes(req.user.role);
+    if (isStudentOrParent) {
+      const studentIdToSearch = req.user.role === 'student' 
+        ? (req.user.userId || req.user._id?.toString()) 
+        : studentId;
+
+      if (!studentIdToSearch) {
+        return res.status(400).json({
+          success: false,
+          message: 'studentId is required.'
+        });
+      }
+
+      const studentsCollection = schoolConn.collection('students');
+      const mongoose = require('mongoose');
+      const student = await studentsCollection.findOne({
+        $or: [
+          { userId: studentIdToSearch },
+          { _id: studentIdToSearch },
+          studentIdToSearch.toString().match(/^[0-9a-fA-F]{24}$/) ? { _id: new mongoose.Types.ObjectId(studentIdToSearch.toString()) } : null
+        ].filter(Boolean)
+      });
+
+      if (!student) {
+        return res.status(404).json({
+          success: false,
+          message: 'Student not found in school database'
+        });
+      }
+
+      // Perform authorization check
+      if (req.user.role === 'student') {
+        const selfUserId = req.user.userId || req.user._id?.toString();
+        if (student.userId !== selfUserId && student._id.toString() !== req.user._id?.toString()) {
+          return res.status(403).json({
+            success: false,
+            message: 'Access denied. You can only view your own results.'
+          });
+        }
+      } else if (req.user.role === 'parent') {
+        const children = req.user.parentDetails?.children || [];
+        const isParentOfChild = children.some(c => 
+          c.studentId?.toString() === student._id.toString() ||
+          c.studentName === student.name?.displayName ||
+          (student.name && c.studentName === `${student.name.firstName} ${student.name.lastName}`.trim())
+        );
+        if (!isParentOfChild) {
+          return res.status(403).json({
+            success: false,
+            message: "Access denied. You can only view your own children's results."
+          });
+        }
+      }
+
+      // Force-override class/section/studentId/studentObjectId to ensure security
+      studentClass = student.academicInfo?.class || student.studentDetails?.academic?.currentClass || student.studentDetails?.currentClass || student.class;
+      studentSection = student.academicInfo?.section || student.studentDetails?.academic?.currentSection || student.studentDetails?.currentSection || student.section;
+      studentObjectId = student._id;
+      // We skip the subsequent query-based fetching of student since we already have it!
+    } else if (studentId && !className) {
       console.log('🔍 [RESULTS] Student query detected, fetching student info for:', studentId);
       
       try {
@@ -1069,6 +1192,9 @@ exports.getResults = async (req, res) => {
         }
 
         for (const subj of matchingSubjects) {
+          if (isStudentOrParent && subj.frozen !== true) {
+            continue;
+          }
           filteredResults.push({
             _id: doc._id,
             schoolCode: doc.schoolCode,
@@ -1099,6 +1225,9 @@ exports.getResults = async (req, res) => {
         const matchesTestType = !testType || doc.testType === testType;
 
         if (matchesSubject && matchesTestType) {
+          if (isStudentOrParent && doc.frozen !== true) {
+            continue;
+          }
           filteredResults.push({
             _id: doc._id,
             schoolCode: doc.schoolCode,
@@ -1123,6 +1252,13 @@ exports.getResults = async (req, res) => {
           });
         }
       }
+    }
+
+    if (isStudentOrParent && filteredResults.length === 0) {
+      return res.status(403).json({
+        success: false,
+        message: 'Results have not yet been published.'
+      });
     }
 
     console.log(`✅ Found ${filteredResults.length} subject-specific results for ${className}-${section}${subject ? ` (${subject})` : ''}${testType ? ` (${testType})` : ''}`);
@@ -1541,6 +1677,40 @@ exports.freezeResults = async (req, res) => {
     );
 
     console.log(`✅ Frozen ${updateResult.modifiedCount} results for ${className}-${section} (${testType})`);
+
+    // Sync publication status to the main database Result collection
+    try {
+      const Result = require('../models/Result');
+      const mainDbFilter = {
+        schoolCode: schoolCode.toUpperCase(),
+        'classDetails.grade': className,
+        'classDetails.section': section,
+        $or: [
+          { 'classDetails.academicYear': academicYear },
+          { academicYear: academicYear }
+        ]
+      };
+      if (testType) {
+        mainDbFilter['examDetails.examType'] = testType;
+      }
+      if (subject) {
+        mainDbFilter['subjects.subjectName'] = subject;
+      }
+
+      const mainDbUpdate = await Result.updateMany(
+        mainDbFilter,
+        {
+          $set: {
+            status: 'published',
+            publishedAt: now,
+            publishedBy: req.user?._id || null
+          }
+        }
+      );
+      console.log(`✅ Main DB: Published ${mainDbUpdate.modifiedCount} matching results`);
+    } catch (mainDbErr) {
+      console.error('⚠️ Failed to update main DB results status:', mainDbErr.message);
+    }
 
     res.json({
       success: true,

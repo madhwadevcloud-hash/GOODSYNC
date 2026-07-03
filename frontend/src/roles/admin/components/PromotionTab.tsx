@@ -21,14 +21,31 @@ interface PromotionTabProps {
   toYear: string;
   classes: any[];
   loading: boolean;
+  currentAcademicYear: string;
 }
+
+const normalizeAcademicYear = (year: any): string | null => {
+  if (!year) return null;
+  const str = String(year).trim();
+  if (/^\d{4}-\d{2}$/.test(str)) return str;
+  const longMatch = str.match(/^(\d{4})-(\d{4})$/);
+  if (longMatch) return `${longMatch[1]}-${longMatch[2].slice(-2)}`;
+  return str;
+};
+
+const academicYearsMatch = (a: any, b: any): boolean => {
+  const na = normalizeAcademicYear(a);
+  const nb = normalizeAcademicYear(b);
+  return na !== null && na === nb;
+};
 
 const PromotionTab: React.FC<PromotionTabProps> = ({
   fromYear,
   setFromYear,
   toYear,
   classes,
-  loading
+  loading,
+  currentAcademicYear
 }) => {
   const [activeRequest, setActiveRequest] = useState<any>(null);
   const [loadingRequest, setLoadingRequest] = useState(true);
@@ -155,9 +172,10 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
       student?.academicInfo?.class ||
       student?.studentDetails?.academic?.currentClass ||
       student?.studentDetails?.currentClass ||
+      student?.studentDetails?.class ||
       student?.class ||
       ''
-    );
+    ).toString().trim();
   };
 
   const getStudentSection = (student: any): string => {
@@ -165,9 +183,21 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
       student?.academicInfo?.section ||
       student?.studentDetails?.academic?.currentSection ||
       student?.studentDetails?.currentSection ||
+      student?.studentDetails?.section ||
       student?.section ||
       ''
-    );
+    ).toString().trim();
+  };
+
+  const getStudentAcademicYear = (student: any): string => {
+    return (
+      student?.academicInfo?.academicYear ||
+      student?.studentDetails?.academic?.academicYear ||
+      student?.studentDetails?.academicYear ||
+      student?.academicYear ||
+      student?.currentAcademicYear ||
+      ''
+    ).toString().trim();
   };
 
   // Calculate promoted class
@@ -240,9 +270,9 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
       if (response.data.success) {
         const allStudents = response.data.data || response.data.users || [];
         const classStudents = allStudents.filter((s: any) => {
-          const studentClass = s.academicInfo?.class || s.studentDetails?.academic?.currentClass || s.studentDetails?.currentClass || s.class;
-          const studentSection = s.academicInfo?.section || s.studentDetails?.academic?.currentSection || s.studentDetails?.currentSection || s.section;
-          const studentYear = s.studentDetails?.academicYear || s.studentDetails?.academic?.academicYear || s.academicYear || s.academicInfo?.academicYear;
+          const studentClass = getStudentClass(s);
+          const studentSection = getStudentSection(s);
+          const studentYear = getStudentAcademicYear(s);
 
           const classMatch = selectedClass === 'ALL'
             ? true
@@ -250,7 +280,7 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
           const sectionMatch = selectedSection === 'ALL'
             ? true
             : String(studentSection).trim().toUpperCase() === String(selectedSection).trim().toUpperCase();
-          const yearMatch = !studentYear || String(studentYear).trim() === String(fromYear).trim();
+          const yearMatch = !studentYear || academicYearsMatch(studentYear, fromYear);
           return classMatch && sectionMatch && yearMatch;
         });
         setStudents(classStudents);
@@ -323,6 +353,11 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
       return;
     }
 
+    if (!currentAcademicYear || currentAcademicYear !== reqToYear) {
+      alert('The next Academic Year has not been created or activated by the Super Admin. Student promotion cannot proceed until the new Academic Year is set.');
+      return;
+    }
+
     try {
       setSubmittingRequest(true);
       const resp = await api.post(`/admin/promotion/${schoolCode}/request`, {
@@ -349,6 +384,11 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
   const handleConfirmPromotion = async () => {
     const { schoolCode } = getAuthData();
     if (!schoolCode) return;
+
+    if (!currentAcademicYear || currentAcademicYear !== toYear) {
+      alert('The next Academic Year has not been created or activated by the Super Admin. Student promotion cannot proceed until the new Academic Year is set.');
+      return;
+    }
 
     if (selectedStudents.size === 0) {
       alert('Please select at least one student to promote.');
@@ -562,6 +602,17 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
       {/* Approved State */}
       {activeRequest?.status === 'Approved' && (
         <>
+          {(!currentAcademicYear || currentAcademicYear !== toYear) && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-6 flex items-start mb-6">
+              <AlertTriangle className="h-6 w-6 text-red-600 mt-0.5 mr-3 flex-shrink-0" />
+              <div>
+                <h4 className="text-md font-semibold text-red-800 mb-2">Promotion Blocked</h4>
+                <p className="text-sm text-red-700 font-medium">
+                  The next Academic Year has not been created or activated by the Super Admin. Student promotion cannot proceed until the new Academic Year is set.
+                </p>
+              </div>
+            </div>
+          )}
           <div className="bg-green-50 border border-green-200 rounded-lg p-6">
             <div className="flex items-start">
               <CheckCircle className="h-6 w-6 text-green-600 mt-0.5 mr-3 flex-shrink-0" />
@@ -821,12 +872,12 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
 
                 {/* Action Buttons */}
                 <div className="flex gap-3">
-                  {!showPreview ? (
+                   {!showPreview ? (
                     <button
                       onClick={() => setShowPreview(true)}
-                      disabled={selectedStudents.size === 0 || (!nextClassExists && !graduateMode)}
+                      disabled={selectedStudents.size === 0 || (!nextClassExists && !graduateMode) || currentAcademicYear !== toYear}
                       className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                      title={!nextClassExists && !graduateMode ? 'Please select graduation mode' : ''}
+                      title={currentAcademicYear !== toYear ? 'Academic year not active' : (!nextClassExists && !graduateMode ? 'Please select graduation mode' : '')}
                     >
                       <Eye className="h-5 w-5" />
                       {graduateMode ? 'Preview Pass Out' : 'Preview Promotion'} {selectedStudents.size > 0 && `(${selectedStudents.size})`}
@@ -841,7 +892,7 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
                       </button>
                       <button
                         onClick={handleConfirmPromotion}
-                        disabled={promoting || selectedStudents.size === 0}
+                        disabled={promoting || selectedStudents.size === 0 || currentAcademicYear !== toYear}
                         className={`flex-1 ${graduateMode ? 'bg-purple-600 hover:bg-purple-700' : 'bg-green-600 hover:bg-green-700'} text-white px-6 py-3 rounded-lg font-medium disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2`}
                       >
                         <CheckCircle className="h-5 w-5" />
