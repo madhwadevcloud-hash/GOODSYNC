@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Check, X, Download, Clock, CheckCircle, AlertTriangle, AlertCircle, Loader, Bell } from 'lucide-react';
 import api from '../../../services/api';
 
@@ -38,21 +38,33 @@ export function SuperAdminPromotionTab({ schoolCode }: PromotionTabProps) {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<any[]>([]);
 
+  // Tracks whether we've completed the very first load. Background polls
+  // should never flip `loading` back to true - that's what was tearing down
+  // the whole card list and flashing the spinner every 10 seconds.
+  const hasLoadedOnce = useRef(false);
+
   // Fetch requests
   const fetchRequests = useCallback(async () => {
     try {
-      setLoading(true);
+      if (!hasLoadedOnce.current) {
+        setLoading(true);
+      }
       const resp = await api.get('/admin/promotion/requests');
       if (resp.data.success) {
         let list = resp.data.data || [];
         if (schoolCode) {
-          list = list.filter((r: Request) => r.schoolCode?.toLowerCase() === schoolCode.toLowerCase());
+          list = list.filter((r: Request) => r.schoolCode?.trim().toLowerCase() === schoolCode.trim().toLowerCase());
         }
-        setRequests(list);
+        // Only trigger a re-render if the data actually changed. The API
+        // returns a brand-new array/object graph on every poll even when
+        // nothing changed, which otherwise forces the whole list to
+        // re-render (and visibly flicker) every 10 seconds for no reason.
+        setRequests(prev => (JSON.stringify(prev) === JSON.stringify(list) ? prev : list));
       }
     } catch (err) {
       console.error('Failed to load requests:', err);
     } finally {
+      hasLoadedOnce.current = true;
       setLoading(false);
     }
   }, [schoolCode]);
@@ -62,7 +74,8 @@ export function SuperAdminPromotionTab({ schoolCode }: PromotionTabProps) {
     try {
       const resp = await api.get('/admin/promotion/notifications');
       if (resp.data.success) {
-        setNotifications(resp.data.data);
+        const fresh = resp.data.data;
+        setNotifications(prev => (JSON.stringify(prev) === JSON.stringify(fresh) ? prev : fresh));
       }
     } catch (err) {
       console.error('Failed to load notifications:', err);
@@ -75,6 +88,25 @@ export function SuperAdminPromotionTab({ schoolCode }: PromotionTabProps) {
       setNotifications(prev => prev.filter(n => n._id !== id));
     } catch (err) {
       console.error('Failed to mark notification as read:', err);
+    }
+  };
+
+  const handleDownloadReport = async (url: string, schoolCode: string, fromYear: string) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const excelBlob = new Blob([blob], { type: 'text/csv;charset=utf-8;' });
+      const blobUrl = window.URL.createObjectURL(excelBlob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.setAttribute('download', `promotion_report_${schoolCode}_${fromYear}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error('Error downloading report:', error);
+      window.open(url, '_blank');
     }
   };
 
@@ -301,15 +333,13 @@ export function SuperAdminPromotionTab({ schoolCode }: PromotionTabProps) {
                   <span className="text-xs text-green-700 bg-green-50 border border-green-200 px-3 py-1 rounded-full font-semibold">
                     Promotion Cycle Completed
                   </span>
-                  <a
-                    href={req.excelReportUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    onClick={() => handleDownloadReport(req.excelReportUrl!, req.schoolCode, req.fromYear)}
                     className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold text-xs transition-colors flex items-center gap-2"
                   >
                     <Download className="h-4 w-4" />
-                    Download Promotion Report (CSV)
-                  </a>
+                    Download Promotion Report (Excel)
+                  </button>
                 </div>
               )}
             </div>

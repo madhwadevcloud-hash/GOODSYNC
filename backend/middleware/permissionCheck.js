@@ -158,7 +158,10 @@ const checkPermission = (permission) => {
         
         // Check if this is an action permission that maps to a view permission
         const basePermission = permissionMapping[permission];
-        if (basePermission && rolePermissions && rolePermissions[basePermission]) {
+        if (permission === 'freezeResults' && req.user.role === 'teacher') {
+          console.log(`[PERMISSION CHECK] Explicitly denying freezeResults to teacher`);
+          hasAccess = false;
+        } else if (basePermission && rolePermissions && rolePermissions[basePermission]) {
           console.log(`[PERMISSION CHECK] Granting ${permission} access based on ${basePermission} permission for ${req.user.role}`);
           hasAccess = true;
         }

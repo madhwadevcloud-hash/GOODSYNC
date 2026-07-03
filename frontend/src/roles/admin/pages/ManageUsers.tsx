@@ -1347,28 +1347,10 @@ const ManageUsers: React.FC = () => {
 
   // --- ADD TOGGLE FUNCTION ---
   const togglePasswordVisibility = (userId: string, userName: string) => {
-    try {
-      console.log(`Toggling visibility for user: ${userId}, Current state: ${!!passwordVisibility[userId]}`);
-      const isCurrentlyVisible = passwordVisibility[userId];
-
-      if (isCurrentlyVisible) {
-        console.log(`Hiding password for ${userId}`);
-        setPasswordVisibility(prev => {
-          const newState = { ...prev, [userId]: false };
-          console.log("New visibility state (hiding):", newState);
-          return newState;
-        });
-      } else {
-        console.log(`Requesting admin password to show password for ${userId} (${userName})`);
-        setSelectedTeacherId(userId);
-        setSelectedTeacherName(userName);
-        setPasswordModalType('single');
-        setShowPasswordModal(true);
-      }
-    } catch (error) {
-      console.error('Error in togglePasswordVisibility:', error);
-      toast.error('Failed to toggle password visibility');
-    }
+    setPasswordVisibility(prev => ({
+      ...prev,
+      [userId]: !prev[userId]
+    }));
   };
 
   // Handle showing/hiding all teacher passwords
@@ -1412,7 +1394,7 @@ const ManageUsers: React.FC = () => {
         return;
       }
 
-      const schoolCode = user?.schoolCode || school?.code || 'SB';
+      const schoolCode = user?.schoolCode || localStorage.getItem('erp.schoolCode') || '';
       console.log('Verifying admin password with school code:', schoolCode);
       console.log('Token available:', !!token);
 
@@ -2059,7 +2041,7 @@ const ManageUsers: React.FC = () => {
       // Use the same token retrieval method as Dashboard
       const authData = localStorage.getItem('erp.auth');
       const token = authData ? JSON.parse(authData).token : null;
-      const schoolCode = user?.schoolCode || localStorage.getItem('erp.schoolCode') || 'R'; // Use context schoolCode, then storage, fallback to 'R'
+      const schoolCode = user?.schoolCode || localStorage.getItem('erp.schoolCode') || ''; // Use context schoolCode, then storage, fallback to 'R'
 
       if (!token) {
         console.error('❌ No token found!');
@@ -2361,7 +2343,7 @@ const ManageUsers: React.FC = () => {
       // This ensures we catch any users that might not be in the current filtered list
       const authData = localStorage.getItem('erp.auth');
       const token = authData ? JSON.parse(authData).token : null;
-      const schoolCode = user?.schoolCode || 'P';
+      const schoolCode = user?.schoolCode || localStorage.getItem('erp.schoolCode') || '';
 
       if (token) {
         try {
@@ -2430,7 +2412,7 @@ const ManageUsers: React.FC = () => {
       // Use the same token retrieval method as Dashboard
       const authData = localStorage.getItem('erp.auth');
       const token = authData ? JSON.parse(authData).token : null;
-      const schoolCode = user?.schoolCode || localStorage.getItem('erp.schoolCode') || 'R';
+      const schoolCode = user?.schoolCode || localStorage.getItem('erp.schoolCode') || '';
 
       if (!token) {
         toast.error('Authentication required');
@@ -3678,7 +3660,7 @@ const ManageUsers: React.FC = () => {
       // Use the same token retrieval method as Dashboard
       const authData = localStorage.getItem('erp.auth');
       const token = authData ? JSON.parse(authData).token : null;
-      const schoolCode = user?.schoolCode || 'P';
+      const schoolCode = user?.schoolCode || localStorage.getItem('erp.schoolCode') || '';
 
       if (!token) {
         toast.error('Authentication required');
@@ -3969,7 +3951,7 @@ const ManageUsers: React.FC = () => {
     try {
       const authData = localStorage.getItem('erp.auth');
       const token = authData ? JSON.parse(authData).token : null;
-      const schoolCode = user?.schoolCode || 'P';
+      const schoolCode = user?.schoolCode || localStorage.getItem('erp.schoolCode') || '';
 
       if (!token) {
         toast.error('Authentication required');
@@ -4000,7 +3982,7 @@ const ManageUsers: React.FC = () => {
       console.log('Starting delete process...');
       const authData = localStorage.getItem('erp.auth');
       const token = authData ? JSON.parse(authData).token : null;
-      const schoolCode = user?.schoolCode || 'P';
+      const schoolCode = user?.schoolCode || localStorage.getItem('erp.schoolCode') || '';
 
       console.log('Delete request details:', { schoolCode, userId, hasToken: !!token });
 
@@ -4031,7 +4013,7 @@ const ManageUsers: React.FC = () => {
         return;
       }
 
-      const schoolCode = user?.schoolCode || school?.code || 'SB';
+      const schoolCode = user?.schoolCode || localStorage.getItem('erp.schoolCode') || '';
 
       const response = await schoolUserAPI.resetPassword(schoolCode, userId, token);
 
@@ -4096,7 +4078,7 @@ const ManageUsers: React.FC = () => {
         return;
       }
 
-      const schoolCode = user?.schoolCode || school?.code || 'SB';
+      const schoolCode = user?.schoolCode || localStorage.getItem('erp.schoolCode') || '';
 
       console.log('Calling changePassword API with:', { schoolCode, userId: selectedUserForPasswordChange.userId });
 
@@ -4441,7 +4423,7 @@ const ManageUsers: React.FC = () => {
 
   const exportUsers = async () => {
     try {
-      const schoolCode = user?.schoolCode || 'P';
+      const schoolCode = user?.schoolCode || localStorage.getItem('erp.schoolCode') || '';
       const response = await exportImportAPI.exportUsers(schoolCode, {
         role: activeTab,
         format: 'csv'
@@ -4470,7 +4452,7 @@ const ManageUsers: React.FC = () => {
   // CSV Template Generation Functions
   const generateTemplate = async (role: 'student' | 'teacher' | 'admin') => {
     try {
-      const schoolCode = user?.schoolCode || 'P';
+      const schoolCode = user?.schoolCode || localStorage.getItem('erp.schoolCode') || '';
       const response = await exportImportAPI.generateTemplate(schoolCode, role);
 
       // Create blob and download
@@ -5393,7 +5375,7 @@ const ManageUsers: React.FC = () => {
     }, 800);
 
     try {
-      const schoolCode = user?.schoolCode || 'SB';
+      const schoolCode = user?.schoolCode || localStorage.getItem('erp.schoolCode') || '';
       console.log('Starting import for school:', schoolCode);
 
       const response = await exportImportAPI.importUsers(schoolCode, importFile);
@@ -5502,7 +5484,7 @@ const ManageUsers: React.FC = () => {
 
         try {
           // Generate user ID and password
-          const schoolCode = user?.schoolCode || 'P';
+          const schoolCode = user?.schoolCode || localStorage.getItem('erp.schoolCode') || '';
           const userId = await generateUserId(activeTab, schoolCode);
 
           // Use DOB as password (format: DDMMYYYY)
@@ -5947,7 +5929,7 @@ const ManageUsers: React.FC = () => {
           // Create user via API
           const authData = localStorage.getItem('erp.auth');
           const token = authData ? JSON.parse(authData).token : '';
-          const userSchoolCode = user?.schoolCode || 'NPS';
+          const userSchoolCode = user?.schoolCode || localStorage.getItem('erp.schoolCode') || '';
           const response = await schoolUserAPI.addUser(userSchoolCode, userData, token);
 
           successResults.push({
@@ -6397,7 +6379,7 @@ const ManageUsers: React.FC = () => {
                       role: activeTab
                     }));
                     // Generate credentials automatically
-                    const schoolCode = user?.schoolCode || 'P';
+                    const schoolCode = user?.schoolCode || localStorage.getItem('erp.schoolCode') || '';
                     const userId = await generateUserId(activeTab, schoolCode);
                     // For students, don't generate password until DOB is entered
                     const password = activeTab === 'student' ? '' : generatePassword();

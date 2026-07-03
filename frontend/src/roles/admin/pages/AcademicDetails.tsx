@@ -57,6 +57,8 @@ interface Student {
   email?: string;
   admissionNumber?: string;
   academicYear?: string | number;
+  studentDetails?: any;
+  family?: any;
 }
 
 interface HallTicketData {
@@ -781,8 +783,8 @@ const AcademicDetails: React.FC = () => {
         className: idCardClass,
         section: idCardSection,
         profileImage: student.profileImage || student.profilePicture || null,
-        fatherName: student.studentDetails?.family?.father?.name || student.parentDetails?.fatherName || student.fatherName || student.parent?.father?.name || 'Not Available',
-        motherName: student.studentDetails?.family?.mother?.name || student.parentDetails?.motherName || student.motherName || student.parent?.mother?.name || 'Not Available',
+        fatherName: student.studentDetails?.family?.father?.name || student.family?.father?.name || student.parentDetails?.fatherName || student.fatherName || student.parent?.father?.name || 'Not Available',
+        motherName: student.studentDetails?.family?.mother?.name || student.family?.mother?.name || student.parentDetails?.motherName || student.motherName || student.parent?.mother?.name || 'Not Available',
         dateOfBirth: (() => {
           const dob = student.studentDetails?.personal?.dateOfBirth || student.personalDetails?.dateOfBirth || student.dateOfBirth || student.dob || student.personal?.dateOfBirth;
           if (dob) {
@@ -1630,8 +1632,8 @@ const AcademicDetails: React.FC = () => {
           profileImage: student.profileImage,
           dateOfBirth: student.dateOfBirth,
           bloodGroup: student.bloodGroup,
-          fatherName: student.fatherName,
-          motherName: student.motherName,
+          fatherName: student.studentDetails?.family?.father?.name || student.family?.father?.name || student.fatherName,
+          motherName: student.studentDetails?.family?.mother?.name || student.family?.mother?.name || student.motherName,
           address: student.address,
           phone: student.phone,
           email: student.email
@@ -2430,8 +2432,30 @@ const AcademicDetails: React.FC = () => {
                           : 'border-gray-200 hover:border-gray-300'
                           }`}
                       >
-                        <h4 className="font-semibold text-gray-800 mb-1">{theme.name}</h4>
-                        <p className="text-sm text-gray-500">{theme.description}</p>
+                        <div className="flex justify-center mb-4 overflow-hidden">
+                          <div
+                            style={{
+                              transform: 'scale(0.5)',
+                              transformOrigin: 'top center',
+                              height: (selectedOrientation || 'landscape') === 'landscape' ? '100px' : '160px',
+                              display: 'flex',
+                              justifyContent: 'center'
+                            }}
+                          >
+                            <NewIDCardTemplate
+                              settings={templateSettings}
+                              student={idCardStudents[0]}
+                              templateId={(selectedOrientation as 'landscape' | 'portrait') || 'landscape'}
+                              side="front"
+                              mode="preview"
+                              theme={theme.id}
+                            />
+                          </div>
+                        </div>
+                        <div className="text-center">
+                          <h4 className="font-semibold text-gray-800 mb-1">{theme.name}</h4>
+                          <p className="text-sm text-gray-500">{theme.description}</p>
+                        </div>
                       </div>
                     ))}
                   </div>

@@ -100,6 +100,47 @@ const uploadBufferToCloudinary = (buffer, folder, publicId) => {
   });
 };
 
+// Maps MIME types to the file extension Cloudinary should serve the raw file as.
+// Raw resource uploads on Cloudinary use the public_id literally as the delivered
+// filename - if it has no extension, the file is served with no extension, which
+// is exactly why downloaded CSV/PDF reports were opening in the wrong app / wrong
+// format (no extension for the OS or Excel to recognize).
+const MIME_EXTENSION_MAP = {
+  'application/pdf': '.pdf',
+  'text/csv': '.csv',
+  'application/vnd.ms-excel': '.xls',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
+  'text/plain': '.txt',
+  'application/json': '.json'
+};
+
+const ensureExtension = (publicId, mimeType) => {
+  const ext = MIME_EXTENSION_MAP[mimeType];
+  if (!ext) return publicId; // unknown mime type - leave as-is rather than guess wrong
+  return publicId.toLowerCase().endsWith(ext) ? publicId : `${publicId}${ext}`;
+};
+
+// -----------------------------------------------------------------------
+// THIS IS THE ACTUAL FIX for "file opens/displays in browser instead of
+// downloading as a proper .csv Excel can open".
+//
+// Extension handling (above) only fixes what the file is NAMED. Cloudinary
+// still serves 'raw' resources with a default Content-Disposition of
+// "inline" - so browsers render the CSV as plain text on screen instead of
+// prompting a download. To force an actual download/save, the delivery URL
+// needs the `fl_attachment` flag, which sets Content-Disposition: attachment.
+// That's the missing piece - once the link forces a download, the OS/browser
+// sees the .csv extension and opens it straight into Excel.
+// -----------------------------------------------------------------------
+const getDownloadUrl = (publicId, resourceType = 'raw') => {
+  return cloudinary.url(publicId, {
+    resource_type: resourceType,
+    type: 'upload',
+    flags: 'attachment',
+    secure: true
+  });
+};
+
 // ADD THIS NEW FUNCTION FOR PDFs/RAW FILES AND IMAGES
 const uploadPDFBufferToCloudinary = (buffer, folder, publicId, mimeType = 'application/pdf') => {
   return new Promise((resolve, reject) => {
@@ -124,12 +165,16 @@ const uploadPDFBufferToCloudinary = (buffer, folder, publicId, mimeType = 'appli
       };
       console.log(`📸 Uploading as IMAGE: ${publicId}`);
     } else {
-      // For PDFs and other documents
+      // For PDFs, CSVs and other raw documents: bake the extension into the
+      // public_id so Cloudinary serves/downloads it with the right file type,
+      // and the browser/Excel/OS know how to open it immediately.
+      const publicIdWithExt = ensureExtension(publicId, mimeType);
       uploadOptions = {
         ...uploadOptions,
+        public_id: publicIdWithExt,
         resource_type: 'raw'
       };
-      console.log(`📄 Uploading as RAW/DOCUMENT: ${publicId}`);
+      console.log(`📄 Uploading as RAW/DOCUMENT: ${publicIdWithExt}`);
     }
 
     const uploadStream = cloudinary.uploader.upload_stream(
@@ -139,8 +184,16 @@ const uploadPDFBufferToCloudinary = (buffer, folder, publicId, mimeType = 'appli
           console.error('❌ Cloudinary buffer upload error:', error.message);
           return reject(error);
         }
+
+        // Build the forced-download URL using the full public_id Cloudinary
+        // actually stored the resource under (result.public_id), so it
+        // always matches what was uploaded even if it got namespaced by folder.
+        const downloadUrl = getDownloadUrl(result.public_id, resourceType);
+
         console.log(`✅ Uploaded to Cloudinary (${resourceType}): ${result.secure_url}`);
-        resolve(result);
+        console.log(`⬇️ Forced-download URL: ${downloadUrl}`);
+
+        resolve({ ...result, downloadUrl });
       }
     );
     const stream = new Readable();
@@ -271,7 +324,7 @@ const uploadPDFToCloudinary = async (filePath, folder, publicId) => {
       deleteLocalFile(compressedPath);
 
       console.log(`✅ Uploaded compressed PDF to Cloudinary: ${result.secure_url}`);
-      return result;
+      return { ...result, downloadUrl: getDownloadUrl(result.public_id, 'raw') };
     } else {
       // Upload non-PDF files directly
       const result = await cloudinary.uploader.upload(filePath, {
@@ -282,7 +335,7 @@ const uploadPDFToCloudinary = async (filePath, folder, publicId) => {
       });
 
       console.log(`✅ Uploaded file to Cloudinary: ${result.secure_url}`);
-      return result;
+      return { ...result, downloadUrl: getDownloadUrl(result.public_id, 'raw') };
     }
   } catch (error) {
     console.error('❌ Cloudinary PDF upload error:', error.message);
@@ -323,10 +376,11 @@ module.exports = {
   cloudinary,
   uploadToCloudinary,
   uploadPDFToCloudinary,
-  uploadBufferToCloudinary,       // <-- ADD THIS
-  uploadPDFBufferToCloudinary,    // <-- ADD THIS
+  uploadBufferToCloudinary,
+  uploadPDFBufferToCloudinary,
   deleteFromCloudinary,
   deletePDFFromCloudinary,
   extractPublicId,
-  deleteLocalFile
+  deleteLocalFile,
+  getDownloadUrl              // <-- exported in case you need it elsewhere (e.g. re-generating a link for an old report)
 };

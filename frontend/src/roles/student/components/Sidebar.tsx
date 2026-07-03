@@ -7,7 +7,6 @@ import {
   IndianRupee,
   BarChart3,
   MessageSquare,
-  LogOut,
 } from "lucide-react";
 
 const menu = [
@@ -18,7 +17,6 @@ const menu = [
   { title: "Fees", icon: IndianRupee, path: "/student/fees" },
   { title: "Messages", icon: MessageSquare, path: "/student/messages" },
   { title: "Profile", icon: User, path: "/student/profile" },
-  
 ];
 
 export default function Sidebar() {
@@ -34,21 +32,22 @@ export default function Sidebar() {
 
           return (
             <NavLink
-  key={item.title}
-  to={item.path}
-  className={({ isActive }) =>
-    `w-full flex items-center gap-3 px-4 py-3 rounded-lg ${
-      isActive ? "bg-blue-100 text-blue-600" : "hover:bg-gray-100"
-    }`
-  }
->
+              key={item.title}
+              to={item.path}
+              className={({ isActive }) =>
+                `w-full flex items-center gap-3 px-4 py-3 rounded-lg ${
+                  isActive
+                    ? "bg-blue-100 text-blue-600"
+                    : "hover:bg-gray-100"
+                }`
+              }
+            >
               <Icon size={18} />
               <span>{item.title}</span>
             </NavLink>
           );
         })}
       </nav>
-
     </aside>
   );
 }

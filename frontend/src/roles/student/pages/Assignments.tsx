@@ -15,7 +15,6 @@ interface Assignment {
 
 export default function Assignments() {
   const [assignmentsData, setAssignmentsData] = useState<Assignment[]>([
-    //This is a demo data. The backend team will replace this with actual API response.
     {
       id: "1",
       title: "Quadratic Equations",
@@ -37,30 +36,14 @@ export default function Assignments() {
       totalMarks: 20,
     },
   ]);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     /*
-      ==========================
-      BACKEND INTEGRATION POINT
-      ==========================
-
-      const fetchAssignments = async () => {
-        try {
-          setLoading(true);
-
-          const response = await api.get("/student/assignments");
-
-          setAssignmentsData(response.data);
-        } catch (err) {
-          setError("Unable to load assignments");
-        } finally {
-          setLoading(false);
-        }
-      };
-
-      fetchAssignments();
+      Backend Integration:
+      Replace demo data with API response.
     */
   }, []);
 
@@ -68,16 +51,12 @@ export default function Assignments() {
     switch (status) {
       case "Pending":
         return "bg-yellow-100 text-yellow-700";
-
       case "Submitted":
         return "bg-blue-100 text-blue-700";
-
       case "Graded":
         return "bg-green-100 text-green-700";
-
       case "Late":
         return "bg-red-100 text-red-700";
-
       default:
         return "bg-gray-100 text-gray-700";
     }
@@ -101,7 +80,6 @@ export default function Assignments() {
 
   return (
     <div className="space-y-8">
-
       <div>
         <h1 className="text-4xl font-bold text-gray-900">
           Assignments
@@ -134,12 +112,9 @@ export default function Assignments() {
               className="bg-white rounded-xl shadow-sm border p-6"
             >
               <div className="flex justify-between items-start">
-
                 <div className="space-y-3">
-
                   <div className="flex items-center gap-3">
                     <BookOpen className="text-blue-600" />
-
                     <h2 className="text-xl font-semibold">
                       {assignment.title}
                     </h2>
@@ -154,30 +129,24 @@ export default function Assignments() {
                   </p>
 
                   <div className="flex gap-8 flex-wrap">
-
                     <div className="flex items-center gap-2 text-gray-600">
                       <CalendarDays size={18} />
-                      Assigned :
-                      {assignment.assignedDate}
+                      Assigned : {assignment.assignedDate}
                     </div>
 
                     <div className="flex items-center gap-2 text-gray-600">
                       <Clock size={18} />
-                      Due :
-                      {assignment.dueDate}
+                      Due : {assignment.dueDate}
                     </div>
 
                     {assignment.marks !== undefined &&
                       assignment.totalMarks !== undefined && (
                         <div className="flex items-center gap-2 text-gray-600">
                           <FileText size={18} />
-                          Marks :
-                          {assignment.marks}/{assignment.totalMarks}
+                          Marks : {assignment.marks}/{assignment.totalMarks}
                         </div>
                       )}
-
                   </div>
-
                 </div>
 
                 <span
@@ -187,7 +156,6 @@ export default function Assignments() {
                 >
                   {assignment.status}
                 </span>
-
               </div>
             </div>
           ))}
