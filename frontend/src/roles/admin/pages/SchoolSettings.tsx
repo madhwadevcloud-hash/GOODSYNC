@@ -8,6 +8,27 @@ import { normalizeAcademicYear, getDynamicFallbackYear } from '../../../utils/ac
 import PromotionTab from '../components/PromotionTab';
 import UniversalTemplate from '../components/UniversalTemplate';
 
+const getPreviousAcademicYear = (currentYear: string): string => {
+  if (!currentYear) return '';
+  const match = currentYear.match(/^(\d{4})-(\d{2})$/);
+  if (match) {
+    const start = parseInt(match[1]);
+    const end = parseInt(match[2]);
+    return `${start - 1}-${(end - 1).toString().padStart(2, '0')}`;
+  }
+  const matchLong = currentYear.match(/^(\d{4})-(\d{4})$/);
+  if (matchLong) {
+    const start = parseInt(matchLong[1]);
+    const end = parseInt(matchLong[2]);
+    return `${start - 1}-${end - 1}`;
+  }
+  const start = parseInt(currentYear);
+  if (!isNaN(start)) {
+    return `${start - 1}`;
+  }
+  return currentYear;
+};
+
 interface TestData {
   _id: string;
   testName: string;
@@ -184,12 +205,29 @@ const SchoolSettings: React.FC = () => {
       console.log('📡 Fetching classes from endpoint:', endpoint);
       console.log('📡 Using school code:', schoolCode, 'year:', yearToFetch);
 
-      const response = await api.get(endpoint);
+      let response = await api.get(endpoint);
 
       console.log('📥 Classes API Response:', response.data);
 
       if (response.data.success) {
-        const classes = response.data.data?.classes || response.data.classes || [];
+        let classes = response.data.data?.classes || response.data.classes || [];
+
+        // Fallback: if no classes are returned for the new year, fetch for the previous academic year
+        if (classes.length === 0) {
+          const prevYear = getPreviousAcademicYear(yearToFetch);
+          if (prevYear) {
+            const fallbackEndpoint = `/admin/classes/${schoolCode}/classes-sections?academicYear=${prevYear}`;
+            console.log('📡 Classes empty for current year, fetching from fallback year:', prevYear);
+            const fallbackResponse = await api.get(fallbackEndpoint);
+            if (fallbackResponse.data.success) {
+              const fallbackClasses = fallbackResponse.data.data?.classes || fallbackResponse.data.classes || [];
+              if (fallbackClasses.length > 0) {
+                classes = fallbackClasses;
+                response = fallbackResponse;
+              }
+            }
+          }
+        }
 
         // Fetch all students once (more efficient than per-class)
         let allStudents: any[] = [];
@@ -752,9 +790,9 @@ const SchoolSettings: React.FC = () => {
                 </div>
               ) : (
                 <PromotionTab
-                  fromYear={fromYear}
+                  fromYear={getPreviousAcademicYear(currentAcademicYear)}
                   setFromYear={setFromYear}
-                  toYear={toYear}
+                  toYear={currentAcademicYear}
                   classes={classes}
                   loading={loading}
                   currentAcademicYear={currentAcademicYear}

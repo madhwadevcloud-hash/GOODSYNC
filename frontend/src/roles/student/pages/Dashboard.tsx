@@ -25,6 +25,21 @@ interface DashboardData {
   announcements: Announcement[];
 }
 
+interface Announcement {
+  id: number;
+  title: string;
+  description: string;
+  date: string;
+}
+
+interface DashboardData {
+  attendancePercentage: number | null;
+  pendingAssignments: number | null;
+  latestGrade: string | null;
+  pendingFees: number | null;
+  announcements: Announcement[];
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
 
