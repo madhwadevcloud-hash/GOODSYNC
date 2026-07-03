@@ -21,6 +21,12 @@ router.post('/save',
   resultController.saveResults
 );
 
+// Get the logged-in student's own results (self-service, no query params needed)
+router.get('/my-results',
+  authMiddleware.authorize(['student']),
+  resultController.getMyResults
+);
+
 // Get existing results for a class and section
 // Students can view their results without permission check (controller handles filtering)
 // Teachers/Admins need viewResults permission
