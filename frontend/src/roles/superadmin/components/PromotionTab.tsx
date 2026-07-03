@@ -53,7 +53,7 @@ export function SuperAdminPromotionTab({ schoolCode }: PromotionTabProps) {
       if (resp.data.success) {
         let list = resp.data.data || [];
         if (schoolCode) {
-          list = list.filter((r: Request) => r.schoolCode?.toLowerCase() === schoolCode.toLowerCase());
+          list = list.filter((r: Request) => r.schoolCode?.trim().toLowerCase() === schoolCode.trim().toLowerCase());
         }
         // Only trigger a re-render if the data actually changed. The API
         // returns a brand-new array/object graph on every poll even when
@@ -88,6 +88,25 @@ export function SuperAdminPromotionTab({ schoolCode }: PromotionTabProps) {
       setNotifications(prev => prev.filter(n => n._id !== id));
     } catch (err) {
       console.error('Failed to mark notification as read:', err);
+    }
+  };
+
+  const handleDownloadReport = async (url: string, schoolCode: string, fromYear: string) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const excelBlob = new Blob([blob], { type: 'text/csv;charset=utf-8;' });
+      const blobUrl = window.URL.createObjectURL(excelBlob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.setAttribute('download', `promotion_report_${schoolCode}_${fromYear}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error('Error downloading report:', error);
+      window.open(url, '_blank');
     }
   };
 
@@ -314,16 +333,13 @@ export function SuperAdminPromotionTab({ schoolCode }: PromotionTabProps) {
                   <span className="text-xs text-green-700 bg-green-50 border border-green-200 px-3 py-1 rounded-full font-semibold">
                     Promotion Cycle Completed
                   </span>
-                  <a
-                    href={req.excelReportUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    download={`promotion_report_${req.schoolCode}_${req.fromYear}.csv`}
+                  <button
+                    onClick={() => handleDownloadReport(req.excelReportUrl!, req.schoolCode, req.fromYear)}
                     className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold text-xs transition-colors flex items-center gap-2"
                   >
                     <Download className="h-4 w-4" />
-                    Download Promotion Report (CSV)
-                  </a>
+                    Download Promotion Report (Excel)
+                  </button>
                 </div>
               )}
             </div>

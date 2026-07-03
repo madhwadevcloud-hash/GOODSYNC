@@ -757,6 +757,7 @@ const SchoolSettings: React.FC = () => {
                   toYear={toYear}
                   classes={classes}
                   loading={loading}
+                  currentAcademicYear={currentAcademicYear}
                 />
               )}
             </>
