@@ -412,6 +412,7 @@ const academicYearRoutes = require('./routes/academicYear');
 const migrationRoutes = require('./routes/migration');
 const leaveRoutes = require('./routes/leaveRoutes');
 const chalanRoutes = require('./routes/chalanRoutes');
+const studentPortalRoutes = require('./routes/studentPortal');
 
 // Route imports - some routes need upload middleware
 const schoolRoutes = require('./routes/schools');
@@ -439,6 +440,7 @@ app.use('/api/schools', schoolRoutes);
 app.use('/api/school-users', schoolUserRoutes);
 app.use('/api/admissions', admissionRoutes);
 app.use('/api/assignments', assignmentRoutes);
+app.use('/api/student', studentPortalRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/subjects', subjectRoutes);
 app.use('/api/timetables', timetableRoutes);
