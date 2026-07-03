@@ -1,20 +1,3 @@
-<<<<<<< HEAD
-import Dashboard from "./pages/Dashboard";
-import Layout from "./components/Layout";
-
-export function StudentApp() {
-
-    return (
-
-        <Layout>
-
-            <Dashboard />
-
-        </Layout>
-
-    );
-
-=======
 import { Routes, Route, Navigate } from "react-router-dom";
 
 import Layout from "./components/Layout";
@@ -45,7 +28,6 @@ export function StudentApp() {
       </Routes>
     </Layout>
   );
->>>>>>> student-portal
 }
 
 export default StudentApp;

@@ -11,5 +11,7 @@ router.get('/attendance', studentPortalController.getMyAttendanceOverview);
 router.get('/assignments', studentPortalController.getMyAssignmentsOverview);
 router.get('/messages', studentPortalController.getMyMessagesOverview);
 router.get('/profile', studentPortalController.getMyProfileOverview);
+router.get('/fees', studentPortalController.getMyFeesOverview);
+
 
 module.exports = router;

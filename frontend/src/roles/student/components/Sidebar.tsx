@@ -1,7 +1,4 @@
-<<<<<<< HEAD
-=======
 import { NavLink } from "react-router-dom";
->>>>>>> student-portal
 import {
   Home,
   User,
@@ -9,80 +6,67 @@ import {
   ClipboardList,
   IndianRupee,
   BarChart3,
-<<<<<<< HEAD
-=======
   MessageSquare,
->>>>>>> student-portal
+  Activity,
   LogOut,
 } from "lucide-react";
 
 const menu = [
-<<<<<<< HEAD
-  { title: "Dashboard", icon: Home },
-  { title: "Attendance", icon: ClipboardList },
-  { title: "Assignments", icon: BookOpen },
-  { title: "Results", icon: BarChart3 },
-  { title: "Fees", icon: IndianRupee },
-  { title: "Profile", icon: User },
-=======
-  { title: "Dashboard", icon: Home, path: "/student" },
+  { title: "Dashboard", icon: Home, path: "/student", end: true },
   { title: "Attendance", icon: ClipboardList, path: "/student/attendance" },
   { title: "Assignments", icon: BookOpen, path: "/student/assignments" },
   { title: "Results", icon: BarChart3, path: "/student/results" },
   { title: "Fees", icon: IndianRupee, path: "/student/fees" },
   { title: "Messages", icon: MessageSquare, path: "/student/messages" },
+  { title: "Activity", icon: Activity, path: "/student/activity" },
   { title: "Profile", icon: User, path: "/student/profile" },
-  
->>>>>>> student-portal
 ];
 
 export default function Sidebar() {
+  const handleLogout = () => {
+    console.log("Logging out...");
+  };
+
   return (
-    <aside className="w-64 bg-white border-r h-screen">
-      <div className="p-6 text-xl font-bold border-b">
-        Student Portal
+    <aside className="w-64 bg-white border-r h-screen flex flex-col justify-between">
+      <div>
+        <div className="p-6 text-xl font-bold border-b text-gray-800">
+          Student Portal
+        </div>
+
+        <nav className="p-4 space-y-2">
+          {menu.map((item) => {
+            const Icon = item.icon;
+
+            return (
+              <NavLink
+                key={item.title}
+                to={item.path}
+                end={item.end}
+                className={({ isActive }) =>
+                  `w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${isActive
+                    ? "bg-blue-50 text-blue-600"
+                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                  }`
+                }
+              >
+                <Icon size={18} />
+                <span>{item.title}</span>
+              </NavLink>
+            );
+          })}
+        </nav>
       </div>
 
-      <nav className="p-4 space-y-2">
-        {menu.map((item) => {
-          const Icon = item.icon;
-
-          return (
-<<<<<<< HEAD
-            <button
-              key={item.title}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-100"
-            >
-              <Icon size={18} />
-              <span>{item.title}</span>
-            </button>
-=======
-            <NavLink
-  key={item.title}
-  to={item.path}
-  className={({ isActive }) =>
-    `w-full flex items-center gap-3 px-4 py-3 rounded-lg ${
-      isActive ? "bg-blue-100 text-blue-600" : "hover:bg-gray-100"
-    }`
-  }
->
-              <Icon size={18} />
-              <span>{item.title}</span>
-            </NavLink>
->>>>>>> student-portal
-          );
-        })}
-      </nav>
-
-<<<<<<< HEAD
-      <div className="absolute bottom-5 left-4">
-        <button className="flex items-center gap-3 text-red-600">
+      <div className="p-4 border-t">
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium text-gray-600 hover:bg-red-50 hover:text-red-600 transition-colors"
+        >
           <LogOut size={18} />
-          Logout
+          <span>Logout</span>
         </button>
       </div>
-=======
->>>>>>> student-portal
     </aside>
   );
 }

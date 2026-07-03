@@ -23,6 +23,8 @@ const messagesController = require('./messagesController');
 const Submission = require('../models/Submission');
 const SchoolDatabaseManager = require('../utils/schoolDatabaseManager');
 const { ObjectId } = require('mongodb');
+const NodeCache = require('node-cache');
+
 
 /**
  * Invoke an existing Express controller function without an HTTP round-trip,
@@ -345,5 +347,180 @@ exports.getMyProfileOverview = async (req, res) => {
   } catch (err) {
     console.error('[STUDENT PORTAL] profile overview error:', err);
     res.status(500).json({ message: 'Unable to load profile' });
+  }
+};
+
+// Cache instance for student portal (TTL: 120 seconds)
+const portalCache = new NodeCache({ stdTTL: 120, checkperiod: 60 });
+
+// GET /api/student/fees
+exports.getMyFeesOverview = async (req, res) => {
+  try {
+    if (req.user.role !== 'student') {
+      return res.status(403).json({ message: 'This endpoint is only for students' });
+    }
+
+    const studentId = req.user.userId || req.user._id;
+    const schoolCode = req.user.schoolCode;
+
+    if (!schoolCode) {
+      return res.status(400).json({ message: 'School code not found' });
+    }
+
+    // Resolve connection
+    const schoolConnection = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
+    const db = schoolConnection.db || schoolConnection;
+
+    // 1. Resolve student object
+    const studentQuery = ObjectId.isValid(studentId)
+      ? { $or: [{ userId: studentId }, { _id: new ObjectId(studentId) }] }
+      : { userId: studentId };
+
+    const student = await db.collection('students').findOne(studentQuery);
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found in school database' });
+    }
+
+    const studentObjectId = student._id;
+
+    // 2. Get academic year
+    let academicYear = null;
+    try {
+      const School = require('../models/School');
+      const school = await School.findById(req.user.schoolId).select('settings.academicYear.currentYear name code').lean();
+      academicYear = school?.settings?.academicYear?.currentYear;
+    } catch (err) {
+      console.warn('[STUDENT PORTAL] Failed to fetch academic year from School settings, falling back to calculation:', err.message);
+    }
+
+    if (!academicYear) {
+      const currentYear = new Date().getFullYear();
+      const currentMonth = new Date().getMonth() + 1;
+      academicYear = currentMonth >= 4 ? `${currentYear}-${currentYear + 1}` : `${currentYear - 1}-${currentYear}`;
+    }
+
+    // 3. Cache lookup
+    const cacheKey = `fees:${schoolCode}:${studentObjectId.toString()}:${academicYear}`;
+    const cached = portalCache.get(cacheKey);
+    if (cached) {
+      console.log(`[STUDENT PORTAL] Returning cached fees for student ${studentObjectId}`);
+      return res.json(cached);
+    }
+
+    // 4. Fetch fee record
+    const feeRecord = await db.collection('studentfeerecords').findOne({
+      studentId: studentObjectId,
+      academicYear: academicYear
+    });
+
+    // 5. Fetch challans from chalans collection
+    const chalans = await db.collection('chalans').find({
+      studentId: studentObjectId,
+      academicYear: academicYear
+    }).sort({ dueDate: 1 }).toArray();
+
+    // 6. Fetch school bank info
+    const schoolInfo = await db.collection('school_info').findOne({});
+    const bankDetails = schoolInfo?.bankDetails || null;
+
+    // 7. Format & Merge Challans to prevent duplicates/missing ones
+    const chalanMap = new Map();
+    chalans.forEach(ch => {
+      chalanMap.set(ch._id.toString(), ch);
+    });
+
+    if (feeRecord && Array.isArray(feeRecord.challans)) {
+      feeRecord.challans.forEach(ch => {
+        const idStr = (ch.chalanId || ch._id)?.toString();
+        if (idStr && !chalanMap.has(idStr)) {
+          chalanMap.set(idStr, {
+            _id: ch.chalanId || ch._id,
+            chalanNumber: ch.chalanNumber,
+            installmentName: ch.installmentName,
+            amount: ch.amount,
+            paidAmount: ch.paidAmount,
+            dueDate: ch.dueDate,
+            status: ch.status,
+            createdAt: ch.createdAt || ch.issueDate,
+            updatedAt: ch.updatedAt || ch.issueDate
+          });
+        }
+      });
+    }
+
+    const now = new Date();
+    const formattedChalans = Array.from(chalanMap.values()).map(ch => {
+      let uiStatus = 'PENDING';
+      const statusLower = String(ch.status || 'unpaid').toLowerCase();
+      if (statusLower === 'paid') {
+        uiStatus = 'PAID';
+      } else {
+        const dueDate = ch.dueDate ? new Date(ch.dueDate) : null;
+        if (dueDate && dueDate < now) {
+          uiStatus = 'OVERDUE';
+        }
+      }
+
+      return {
+        id: ch._id ? ch._id.toString() : null,
+        chalanNumber: ch.chalanNumber || 'N/A',
+        installmentName: ch.installmentName || 'Fee Installment',
+        amount: ch.amount || 0,
+        paidAmount: ch.paidAmount || 0,
+        dueDate: ch.dueDate ? new Date(ch.dueDate).toISOString() : null,
+        status: uiStatus,
+        issueDate: ch.createdAt || ch.issueDate || null
+      };
+    });
+
+    // 8. Format Fee Record & its installments
+    let formattedFeeRecord = null;
+    if (feeRecord) {
+      formattedFeeRecord = {
+        totalAmount: feeRecord.totalAmount || 0,
+        totalPaid: feeRecord.totalPaid || 0,
+        totalPending: feeRecord.totalPending || 0,
+        status: feeRecord.status || 'pending',
+        academicYear: feeRecord.academicYear,
+        feeStructureName: feeRecord.feeStructureName || 'Fee Structure',
+        studentName: feeRecord.studentName,
+        studentClass: feeRecord.studentClass,
+        studentSection: feeRecord.studentSection,
+        installments: (feeRecord.installments || []).map(inst => {
+          let instStatus = 'PENDING';
+          const instStatusLower = String(inst.status || 'pending').toLowerCase();
+          if (instStatusLower === 'paid') {
+            instStatus = 'PAID';
+          } else {
+            const dueDate = inst.dueDate ? new Date(inst.dueDate) : null;
+            if (dueDate && dueDate < now) {
+              instStatus = 'OVERDUE';
+            }
+          }
+          return {
+            name: inst.name,
+            amount: inst.amount || 0,
+            dueDate: inst.dueDate ? new Date(inst.dueDate).toISOString() : null,
+            paidAmount: inst.paidAmount || 0,
+            status: instStatus
+          };
+        })
+      };
+    }
+
+    const result = {
+      feeRecord: formattedFeeRecord,
+      challans: formattedChalans,
+      bankDetails: bankDetails,
+      schoolName: schoolInfo?.name || 'School Name'
+    };
+
+    // Cache the result
+    portalCache.set(cacheKey, result);
+
+    res.json(result);
+  } catch (err) {
+    console.error('[STUDENT PORTAL] getMyFeesOverview error:', err);
+    res.status(500).json({ message: 'Unable to load fees information', error: err.message });
   }
 };
