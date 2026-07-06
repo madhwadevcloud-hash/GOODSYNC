@@ -480,11 +480,16 @@ const Results: React.FC = () => {
           <div className="flex flex-col">
             <label htmlFor="year-select" className="text-sm font-medium text-gray-700">Academic Year</label>
             <select
-              id="year-select"
-              value={viewingAcademicYear}
-              onChange={(e) => setViewingYear(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[150px]"
-            >
+  id="year-select"
+  value={viewingAcademicYear}
+  onChange={(e) => setViewingYear(e.target.value)}
+  disabled={user?.role !== "superadmin"}
+  className={`px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[150px] ${
+    user?.role !== "superadmin"
+      ? "bg-gray-100 cursor-not-allowed"
+      : ""
+  }`}
+>
               {[...new Set(availableYears)].map((year) => (
                 <option key={year} value={year}>
                   {year} {year === currentAcademicYear && '(Current)'}

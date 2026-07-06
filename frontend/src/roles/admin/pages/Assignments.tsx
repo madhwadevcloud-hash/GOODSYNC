@@ -356,6 +356,43 @@ const Assignments: React.FC = () => {
   // Allow editing only if today is on or before the due date
   return today <= due;
 };
+const getDueStatus = (dueDate: string) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const due = new Date(dueDate);
+  due.setHours(0, 0, 0, 0);
+
+  const diffDays = Math.ceil(
+    (due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+  );
+
+  if (diffDays < 0) {
+    return {
+      text: "Expired",
+      className: "bg-red-100 text-red-700",
+    };
+  }
+
+  if (diffDays === 0) {
+    return {
+      text: "Today",
+      className: "bg-orange-100 text-orange-700",
+    };
+  }
+
+  if (diffDays === 1) {
+    return {
+      text: "1 Day Left",
+      className: "bg-yellow-100 text-yellow-700",
+    };
+  }
+
+  return {
+    text: `${diffDays} Days Left`,
+    className: "bg-green-100 text-green-700",
+  };
+};
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -544,7 +581,10 @@ const Assignments: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                filteredAssignments.map((assignment) => (
+                filteredAssignments.map((assignment) => {
+  const dueStatus = getDueStatus(assignment.dueDate);
+
+  return (
                   <tr key={assignment._id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
                       <div className="text-sm font-medium text-gray-900">{assignment.title || 'Untitled Assignment'}</div>
@@ -574,6 +614,12 @@ const Assignments: React.FC = () => {
                           <Eye className="h-3.5 w-3.5" />
                           View
                         </button>
+                        <span
+  className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold ${dueStatus.className}`}
+>
+  <Calendar className="h-3.5 w-3.5" />
+  {dueStatus.text}
+</span>
                         {canEditAssignment(assignment.dueDate) && (
   <button
     onClick={() => handleEditAssignment(assignment._id)}
@@ -595,7 +641,8 @@ const Assignments: React.FC = () => {
                       </div>
                     </td>
                   </tr>
-                ))
+);
+})
               )}
             </tbody>
           </table>
