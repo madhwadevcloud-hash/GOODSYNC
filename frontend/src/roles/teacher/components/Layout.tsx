@@ -42,7 +42,6 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
   const [schoolInfo, setSchoolInfo] = useState<SchoolInfo | null>(null);
   const { hasPermission, showPermissionDenied, setShowPermissionDenied, deniedPermissionName, checkAndNavigate } = usePermissions();
 
-  // Fetch a lightweight notification count from recent messages
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -57,7 +56,6 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
     return () => { mounted = false; };
   }, []);
 
-  // Fetch the school's name/code/logo for branding in the sidebar & top bar
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -68,7 +66,6 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
           setSchoolInfo({ name: data.name, code: data.code, logoUrl: data.logoUrl });
         }
       } catch (err) {
-        // Fall back to the code we already have from the logged-in user
         if (mounted) setSchoolInfo({ code: user?.schoolCode, name: user?.schoolName });
       }
     })();
@@ -109,18 +106,10 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
     }
   };
 
-  const today = new Date().toLocaleDateString('en-US', {
-    weekday: 'long',
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric'
-  });
-
   const schoolLogoUrl = getLogoUrl(schoolInfo?.logoUrl);
 
   return (
     <div className="flex h-screen bg-gray-50">
-      {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 z-20 bg-black bg-opacity-50 lg:hidden"
@@ -131,26 +120,24 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
       {/* Sidebar */}
       <div className={`fixed inset-y-0 left-0 z-30 w-64 bg-white border-r border-gray-100 transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         } transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 flex flex-col`}>
-<div className="flex items-center justify-between h-20 px-5 border-b border-gray-100 flex-shrink-0"><div className="flex items-center gap-3 min-w-0">
-              {schoolLogoUrl ? (
+        <div className="flex items-center justify-between h-20 px-5 border-b border-gray-100 flex-shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            {schoolLogoUrl ? (
               <img
                 src={schoolLogoUrl}
                 alt={schoolInfo?.name || 'School logo'}
-className="w-10 h-10 rounded-lg object-cover mr-3 flex-shrink-0"              />
+                className="w-10 h-10 rounded-lg object-cover mr-3 flex-shrink-0"
+              />
             ) : (
               <div className="flex items-center justify-center w-9 h-9 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-xl mr-2.5 shadow-sm shadow-violet-200 flex-shrink-0">
                 <ShieldCheck className="h-5 w-5 text-white" />
               </div>
             )}
             <div className="min-w-0">
-  <h1 className="text-base font-medium text-gray-700 truncate">
-    {schoolInfo?.name || "School"}
-  </h1>
-
-  <p className="text-base font-semibold text-violet-600">
-    {schoolInfo?.code || user?.schoolCode || "—"}
-  </p>
-</div>
+              <p className="text-base font-semibold text-violet-600">
+                {schoolInfo?.code || user?.schoolCode || "—"}
+              </p>
+            </div>
           </div>
           <button
             onClick={() => setSidebarOpen(false)}
@@ -181,16 +168,20 @@ className="w-10 h-10 rounded-lg object-cover mr-3 flex-shrink-0"              />
             })}
           </nav>
 
-          {/* Sidebar footer callout */}
-          
-
-          {/* Powered by */}
           <div className="px-4 pb-2 text-center">
             <p className="text-[11px] text-gray-400 font-medium">Powered by <span className="text-violet-500 font-semibold">GoodSync ERP</span></p>
           </div>
 
           <div className="px-4 py-4 border-t border-gray-100">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={onLogout}
+                title="Logout"
+                className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors"
+              >
+                <LogOut className="h-4 w-4" />
+                Logout
+              </button>
               <div className="flex items-center min-w-0">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center mr-3 flex-shrink-0">
                   <span className="text-white font-bold text-sm">
@@ -202,28 +193,18 @@ className="w-10 h-10 rounded-lg object-cover mr-3 flex-shrink-0"              />
                   <p className="text-xs text-gray-500 truncate">{user?.userId || user?.email}</p>
                 </div>
               </div>
-              <button
-                onClick={onLogout}
-                title="Logout"
-                className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors flex-shrink-0"
-              >
-                <LogOut className="h-4 w-4" />
-              </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Permission Denied Modal */}
       <PermissionDeniedModal
         isOpen={showPermissionDenied}
         onClose={() => setShowPermissionDenied(false)}
         permissionName={deniedPermissionName}
       />
 
-      {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Top Bar */}
         <header className="bg-white border-b border-gray-100 flex-shrink-0">
           <div className="flex items-center justify-between h-16 px-4 lg:px-6 gap-4">
             <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -234,46 +215,54 @@ className="w-10 h-10 rounded-lg object-cover mr-3 flex-shrink-0"              />
                 <Menu className="h-5 w-5" />
               </button>
 
-             
-
               <h2 className="text-base font-semibold text-gray-900 capitalize sm:hidden truncate">
                 {currentPage.replace(/-/g, ' ')}
               </h2>
 
-              {/* Expanding search */}
-              {/* School name + Search */}
-<div className="flex items-center ml-2 gap-3">
+              <div className="flex items-center ml-2 gap-3 min-w-0">
 
-  <span className="text-base font-bold text-gray-900 whitespace-nowrap">
-    {schoolInfo?.name || "School"}
-  </span>
+                {schoolLogoUrl ? (
+                  <img
+                    src={schoolLogoUrl}
+                    alt={schoolInfo?.name || 'School logo'}
+                    className="w-11 h-11 rounded-lg object-cover flex-shrink-0"
+                  />
+                ) : (
+                  <div className="hidden sm:flex items-center justify-center w-11 h-11 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-lg shadow-sm shadow-violet-200 flex-shrink-0">
+                    <ShieldCheck className="h-6 w-6 text-white" />
+                  </div>
+                )}
 
-  <button
-    onMouseDown={(e) => e.preventDefault()}
-    onClick={() => setSearchOpen((o) => !o)}
-    className="p-2.5 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors flex-shrink-0"
-    title="Search"
-  >
-    {searchOpen ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
-  </button>
+                <span className="text-2xl sm:text-3xl font-bold text-gray-900 whitespace-nowrap truncate">
+                  {schoolInfo?.name || "School"}
+                </span>
 
-  <div
-    className={`flex items-center overflow-hidden transition-all duration-300 ease-in-out ${
-      searchOpen ? "w-56 sm:w-72 opacity-100" : "w-0 opacity-0"
-    }`}
-  >
-    <input
-      type="text"
-      autoFocus={searchOpen}
-      value={searchTerm}
-      onChange={(e) => setSearchTerm(e.target.value)}
-      onBlur={() => setSearchOpen(false)}
-      placeholder="Search students, classes, assignments..."
-      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 outline-none"
-    />
-  </div>
+                <button
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => setSearchOpen((o) => !o)}
+                  className="p-2.5 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors flex-shrink-0"
+                  title="Search"
+                >
+                  {searchOpen ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
+                </button>
 
-</div>
+                <div
+                  className={`flex items-center overflow-hidden transition-all duration-300 ease-in-out ${
+                    searchOpen ? "w-56 sm:w-72 opacity-100" : "w-0 opacity-0"
+                  }`}
+                >
+                  <input
+                    type="text"
+                    autoFocus={searchOpen}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onBlur={() => setSearchOpen(false)}
+                    placeholder="Search students, classes, assignments..."
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 outline-none"
+                  />
+                </div>
+
+              </div>
             </div>
 
             <div className="flex items-center gap-2 flex-shrink-0">
