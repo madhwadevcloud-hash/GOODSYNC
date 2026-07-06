@@ -5,6 +5,7 @@ import {
   XCircle,
   Clock,
 } from "lucide-react";
+import api from "../../../services/api";
 
 interface AttendanceSummary {
   attendancePercentage: number | null;
@@ -43,110 +44,22 @@ export default function Attendance() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    /*
-    ==========================================================
-    DEMO DATA (FRONTEND ONLY)
-    ----------------------------------------------------------
-    This block is ONLY for frontend development.
-    Backend team should REMOVE this block and replace it
-    with the API call shown below.
-    ==========================================================
-    */
-
-    setAttendanceData({
-      summary: {
-        attendancePercentage: 94,
-        totalWorkingDays: 118,
-        presentDays: 111,
-        absentDays: 7,
-      },
-
-      monthly: [
-        {
-          month: "January",
-          present: 21,
-          absent: 2,
-          percentage: 91,
-        },
-        {
-          month: "February",
-          present: 23,
-          absent: 1,
-          percentage: 96,
-        },
-        {
-          month: "March",
-          present: 22,
-          absent: 3,
-          percentage: 88,
-        },
-        {
-          month: "April",
-          present: 24,
-          absent: 0,
-          percentage: 100,
-        },
-        {
-          month: "May",
-          present: 21,
-          absent: 2,
-          percentage: 91,
-        },
-      ],
-
-      recentAttendance: [
-        {
-          date: "15 Jul 2026",
-          status: "Present",
-        },
-        {
-          date: "14 Jul 2026",
-          status: "Present",
-        },
-        {
-          date: "13 Jul 2026",
-          status: "Absent",
-        },
-        {
-          date: "12 Jul 2026",
-          status: "Leave",
-        },
-        {
-          date: "11 Jul 2026",
-          status: "Holiday",
-        },
-      ],
-    });
-
-    /*
-    ==========================================================
-    BACKEND API INTEGRATION
-    ----------------------------------------------------------
-    Replace the above demo data with this API call.
-
     const fetchAttendance = async () => {
-        try {
-            setLoading(true);
+      try {
+        setLoading(true);
+        setError("");
 
-            const response = await api.get("/student/attendance");
+        const response = await api.get("/student/attendance");
 
-            setAttendanceData(response.data);
-
-        } catch (err) {
-
-            setError("Unable to load attendance.");
-
-        } finally {
-
-            setLoading(false);
-
-        }
+        setAttendanceData(response.data);
+      } catch (err) {
+        setError("Unable to load attendance.");
+      } finally {
+        setLoading(false);
+      }
     };
 
     fetchAttendance();
-
-    ==========================================================
-    */
   }, []);
 
   const getStatusColor = (status: DailyAttendance["status"]) => {

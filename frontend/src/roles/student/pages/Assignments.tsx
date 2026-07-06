@@ -1,5 +1,7 @@
+
 import { useEffect, useState } from "react";
 import { BookOpen, CalendarDays, Clock, FileText } from "lucide-react";
+import api from "../../../services/api";
 
 interface Assignment {
   id: string;
@@ -14,49 +16,43 @@ interface Assignment {
 }
 
 export default function Assignments() {
-  const [assignmentsData, setAssignmentsData] = useState<Assignment[]>([
-    {
-      id: "1",
-      title: "Quadratic Equations",
-      subject: "Mathematics",
-      description: "Solve Exercise 4 (Questions 1–20).",
-      assignedDate: "10 Jul 2026",
-      dueDate: "15 Jul 2026",
-      status: "Pending",
-    },
-    {
-      id: "2",
-      title: "Photosynthesis",
-      subject: "Science",
-      description: "Prepare a chart on Photosynthesis.",
-      assignedDate: "08 Jul 2026",
-      dueDate: "13 Jul 2026",
-      status: "Graded",
-      marks: 18,
-      totalMarks: 20,
-    },
-  ]);
-
+  const [assignmentsData, setAssignmentsData] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    /*
-      Backend Integration:
-      Replace demo data with API response.
-    */
+    const fetchAssignments = async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        const response = await api.get("/student/assignments");
+
+        setAssignmentsData(response.data);
+      } catch (err) {
+        setError("Unable to load assignments");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAssignments();
   }, []);
 
   const getStatusColor = (status: Assignment["status"]) => {
     switch (status) {
       case "Pending":
         return "bg-yellow-100 text-yellow-700";
+
       case "Submitted":
         return "bg-blue-100 text-blue-700";
+
       case "Graded":
         return "bg-green-100 text-green-700";
+
       case "Late":
         return "bg-red-100 text-red-700";
+
       default:
         return "bg-gray-100 text-gray-700";
     }
@@ -80,6 +76,7 @@ export default function Assignments() {
 
   return (
     <div className="space-y-8">
+
       <div>
         <h1 className="text-4xl font-bold text-gray-900">
           Assignments
@@ -112,9 +109,12 @@ export default function Assignments() {
               className="bg-white rounded-xl shadow-sm border p-6"
             >
               <div className="flex justify-between items-start">
+
                 <div className="space-y-3">
+
                   <div className="flex items-center gap-3">
                     <BookOpen className="text-blue-600" />
+
                     <h2 className="text-xl font-semibold">
                       {assignment.title}
                     </h2>
@@ -129,24 +129,30 @@ export default function Assignments() {
                   </p>
 
                   <div className="flex gap-8 flex-wrap">
+
                     <div className="flex items-center gap-2 text-gray-600">
                       <CalendarDays size={18} />
-                      Assigned : {assignment.assignedDate}
+                      Assigned :
+                      {assignment.assignedDate}
                     </div>
 
                     <div className="flex items-center gap-2 text-gray-600">
                       <Clock size={18} />
-                      Due : {assignment.dueDate}
+                      Due :
+                      {assignment.dueDate}
                     </div>
 
                     {assignment.marks !== undefined &&
                       assignment.totalMarks !== undefined && (
                         <div className="flex items-center gap-2 text-gray-600">
                           <FileText size={18} />
-                          Marks : {assignment.marks}/{assignment.totalMarks}
+                          Marks :
+                          {assignment.marks}/{assignment.totalMarks}
                         </div>
                       )}
+
                   </div>
+
                 </div>
 
                 <span
@@ -156,6 +162,7 @@ export default function Assignments() {
                 >
                   {assignment.status}
                 </span>
+
               </div>
             </div>
           ))}
