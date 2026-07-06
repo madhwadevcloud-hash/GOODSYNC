@@ -10,14 +10,11 @@ import {
   UserCheck,
   BookOpen,
   BarChart3,
-  User,
   GraduationCap,
   MessageSquare,
   CreditCard,
   LogOut,
   Search,
-  Bell,
-  HelpCircle,
   ChevronDown,
   MapPin,
   Phone,
@@ -34,8 +31,16 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+
   const { user, logout } = useAuth();
   const { hasPermission, showPermissionDenied, setShowPermissionDenied, deniedPermissionName, checkAndNavigate } = usePermissions();
+
+  const handleLogout = async () => {
+    if (logout) {
+      await logout();
+    }
+    navigate('/login', { replace: true });
+  };
 
   // Define navigation with permission requirements
   const navigation = [
@@ -51,13 +56,6 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     { name: 'Fees', href: '/admin/fees/structure', icon: CreditCard },
     { name: 'Reports', href: '/admin/reports', icon: FileText },
   ];
-
-  const handleNavClick = (e: React.MouseEvent, href: string, permission: PermissionKey | null, name: string) => {
-    if (permission && !hasPermission(permission)) {
-      e.preventDefault();
-      checkAndNavigate(permission, name, () => navigate(href));
-    }
-  };
 
   const isActive = (href: string) => location.pathname === href || location.pathname.startsWith(href + '/');
 
@@ -101,7 +99,7 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
           <div className="p-4 mt-auto shrink-0 border-t border-slate-100 mb-2 space-y-2">
             <button
-              onClick={logout}
+              onClick={handleLogout}
               className="flex items-center w-full px-4 py-3 text-[15px] font-semibold text-slate-600 rounded-xl hover:bg-slate-50 hover:text-red-600 transition-colors group"
             >
               <LogOut className="mr-4 h-[22px] w-[22px] text-slate-500 group-hover:text-red-500 transition-colors" strokeWidth={2} />
@@ -167,7 +165,7 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
           <div className="p-4 mt-auto shrink-0 border-t border-slate-100 mb-2 space-y-2">
             <button
-              onClick={logout}
+              onClick={handleLogout}
               className="flex items-center w-full px-4 py-3 text-[15px] font-semibold text-slate-600 rounded-xl hover:bg-slate-50 hover:text-red-600 transition-colors group"
             >
               <LogOut className="mr-4 h-[22px] w-[22px] text-slate-500 group-hover:text-red-500 transition-colors" strokeWidth={2} />
@@ -203,7 +201,6 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             </button>
 
             <div className="flex-1 flex items-center justify-between overflow-hidden">
-
               {/* Left: School Details */}
               <div className={`flex items-center gap-3 group cursor-pointer rounded-xl hover:bg-slate-50/80 transition-all duration-500 ease-in-out overflow-hidden ${isSearchFocused ? 'max-w-0 opacity-0 invisible -translate-x-8 p-0 m-0' : 'max-w-2xl opacity-100 visible translate-x-0 p-1.5 -ml-1.5'}`}>
                 <div className="h-10 w-10 bg-gradient-to-br from-indigo-50 to-indigo-100/50 border border-indigo-100/80 rounded-xl hidden sm:flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:-rotate-3 group-hover:shadow-md group-hover:border-indigo-200 transition-all duration-300 ease-out">
@@ -245,8 +242,6 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 </div>
 
                 <div className="h-8 w-px bg-slate-200 hidden md:block mx-1"></div>
-
-
 
                 <div className="flex items-center space-x-3 cursor-pointer p-1.5 sm:p-2 -mr-2 rounded-xl transition-all duration-300 hover:bg-slate-50 group/profile">
                   <div className="h-9 w-9 bg-gradient-to-tr from-indigo-600 to-indigo-500 rounded-full flex items-center justify-center shadow-sm text-white font-bold text-[15px] transform group-hover/profile:scale-105 group-hover/profile:shadow-md group-hover/profile:ring-2 group-hover/profile:ring-indigo-100 group-hover/profile:ring-offset-1 transition-all duration-300 ease-out">

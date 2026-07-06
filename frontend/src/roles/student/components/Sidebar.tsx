@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import {
   Home,
   User,
@@ -10,6 +10,7 @@ import {
   Activity,
   LogOut,
 } from "lucide-react";
+import { useAuth } from "../../../auth/AuthContext";
 
 const menu = [
   { title: "Dashboard", icon: Home, path: "/student", end: true },
@@ -23,8 +24,12 @@ const menu = [
 ];
 
 export default function Sidebar() {
-  const handleLogout = () => {
-    console.log("Logging out...");
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/login", { replace: true });
   };
 
   return (
