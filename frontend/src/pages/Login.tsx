@@ -187,9 +187,27 @@ export default function Login() {
                   <input
                     type="email"
                     className="w-full border border-slate-200 rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 pr-10 focus:outline-none focus:ring-2 focus:ring-violet-200 focus:border-violet-400 text-sm sm:text-base"
+<<<<<<< Updated upstream
                     placeholder="your.email@school.com "
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+=======
+                    placeholder={
+                      selectedRole === "student"
+                        ? "Enter Student ID (e.g. VK-S-1208)"
+                        : "your.email@school.com"
+                    }
+                    value={identifier}
+                    onChange={(e) => {
+                      const value = e.target.value;
+
+                      setIdentifier(
+                        selectedRole === "student"
+                          ? value.toUpperCase()
+                          : value
+                      );
+                    }}
+>>>>>>> Stashed changes
                     required
                     autoComplete="username"
                   />

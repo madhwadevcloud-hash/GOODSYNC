@@ -1,7 +1,14 @@
+<<<<<<< Updated upstream
 import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, FileText, Download, Upload, CheckCircle, AlertTriangle, BookOpen } from 'lucide-react';
 import * as assignmentAPI from '../../../api/assignment';
 import api from '../../../api/axios';
+=======
+
+import { useEffect, useState } from "react";
+import { BookOpen, CalendarDays, Clock, FileText } from "lucide-react";
+import api from "../../../services/api";
+>>>>>>> Stashed changes
 
 interface Assignment {
   _id: string;
@@ -25,6 +32,7 @@ interface Assignment {
   totalStudents: number;
 }
 
+<<<<<<< Updated upstream
 interface Submission {
   _id: string;
   submissionText: string;
@@ -50,11 +58,16 @@ const StudentAssignments: React.FC = () => {
   const [submission, setSubmission] = useState<Submission | null>(null);
   const [submissionText, setSubmissionText] = useState('');
   const [submissionFiles, setSubmissionFiles] = useState<File[]>([]);
+=======
+export default function Assignments() {
+  const [assignmentsData, setAssignmentsData] = useState<Assignment[]>([]);
+>>>>>>> Stashed changes
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showSubmissionModal, setShowSubmissionModal] = useState(false);
 
   useEffect(() => {
+<<<<<<< Updated upstream
     fetchAssignments();
   }, []);
 
@@ -111,6 +124,42 @@ const StudentAssignments: React.FC = () => {
       setAssignments([]);
     } finally {
       setLoading(false);
+=======
+    const fetchAssignments = async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        const response = await api.get("/student/assignments");
+
+        setAssignmentsData(response.data);
+      } catch (err) {
+        setError("Unable to load assignments");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAssignments();
+  }, []);
+
+  const getStatusColor = (status: Assignment["status"]) => {
+    switch (status) {
+      case "Pending":
+        return "bg-yellow-100 text-yellow-700";
+
+      case "Submitted":
+        return "bg-blue-100 text-blue-700";
+
+      case "Graded":
+        return "bg-green-100 text-green-700";
+
+      case "Late":
+        return "bg-red-100 text-red-700";
+
+      default:
+        return "bg-gray-100 text-gray-700";
+>>>>>>> Stashed changes
     }
   };
 
@@ -240,6 +289,7 @@ const StudentAssignments: React.FC = () => {
   };
 
   return (
+<<<<<<< Updated upstream
     <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-8">
@@ -285,6 +335,24 @@ const StudentAssignments: React.FC = () => {
           </button>
         </nav>
       </div>
+=======
+    <div className="space-y-8">
+
+      <div>
+        <h1 className="text-4xl font-bold text-gray-900">
+          Assignments
+        </h1>
+
+        <p className="text-gray-500 mt-2">
+          View your assignments and submission status.
+        </p>
+      </div>
+
+      {assignmentsData.length === 0 ? (
+        <div className="bg-white rounded-xl border shadow-sm p-12 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
+          <div className="flex flex-col items-center justify-center text-gray-500">
+            <BookOpen size={48} className="mb-4 text-gray-300" />
+>>>>>>> Stashed changes
 
       {/* Assignments Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -352,7 +420,28 @@ const StudentAssignments: React.FC = () => {
           <h3 className="text-lg font-medium text-gray-900 mb-2">No assignments found</h3>
           <p className="text-gray-500">You don't have any assignments in this category.</p>
         </div>
+<<<<<<< Updated upstream
       )}
+=======
+      ) : (
+        <div className="grid gap-6">
+          {assignmentsData.map((assignment) => (
+            <div
+              key={assignment.id}
+              className="bg-white rounded-xl border shadow-sm p-6 transition-all duration-300 hover:shadow-lg hover:-translate-y-1"
+            >
+              <div className="flex justify-between items-start">
+
+                <div className="space-y-3">
+
+                  <div className="flex items-center gap-3">
+                    <BookOpen className="text-blue-600" />
+
+                    <h2 className="text-xl font-semibold">
+                      {assignment.title}
+                    </h2>
+                  </div>
+>>>>>>> Stashed changes
 
       {/* Assignment Details Modal */}
       {showSubmissionModal && selectedAssignment && (
@@ -375,6 +464,7 @@ const StudentAssignments: React.FC = () => {
                 </button>
               </div>
 
+<<<<<<< Updated upstream
               <div className="p-6 space-y-6">
                 {/* Assignment Instructions */}
                 <div>
@@ -383,9 +473,40 @@ const StudentAssignments: React.FC = () => {
                     <p className="text-gray-700 whitespace-pre-wrap">
                       {selectedAssignment.instructions || 'No detailed instructions provided.'}
                     </p>
+=======
+                  <p className="text-gray-600">
+                    {assignment.description}
+                  </p>
+
+                  <div className="flex gap-8 flex-wrap">
+
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <CalendarDays size={18} />
+                      Assigned :
+                      {assignment.assignedDate}
+                    </div>
+
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <Clock size={18} />
+                      Due :
+                      {assignment.dueDate}
+                    </div>
+
+                    {assignment.marks !== undefined &&
+                      assignment.totalMarks !== undefined && (
+                        <div className="flex items-center gap-2 text-gray-600">
+                          <FileText size={18} />
+                          Marks :
+                          {assignment.marks}/{assignment.totalMarks}
+                        </div>
+                      )}
+
+>>>>>>> Stashed changes
                   </div>
+
                 </div>
 
+<<<<<<< Updated upstream
                 {/* Assignment Attachments */}
                 {selectedAssignment.attachments && selectedAssignment.attachments.length > 0 && (
                   <div>
@@ -507,6 +628,16 @@ const StudentAssignments: React.FC = () => {
                     </div>
                   </div>
                 )}
+=======
+                <span
+                  className={`px-4 py-2 rounded-full text-sm font-medium ${getStatusColor(
+                    assignment.status
+                  )}`}
+                >
+                  {assignment.status}
+                </span>
+
+>>>>>>> Stashed changes
               </div>
             </div>
           </div>
@@ -520,6 +651,10 @@ const StudentAssignments: React.FC = () => {
       )}
     </div>
   );
+<<<<<<< Updated upstream
 };
 
 export default StudentAssignments;
+=======
+}
+>>>>>>> Stashed changes
