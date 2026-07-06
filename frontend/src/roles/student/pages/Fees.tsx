@@ -10,7 +10,10 @@ import {
   Building2,
   Calendar,
   ShieldCheck,
-  PlusCircle,
+  Eye,
+  Download,
+  Lock,
+  Receipt,
   X
 } from "lucide-react";
 import ViewChalan from "../../../components/fees/ViewChalan";
@@ -33,6 +36,15 @@ interface ChalanItem {
   dueDate: string | null;
   status: "PENDING" | "PAID" | "OVERDUE";
   issueDate: string | null;
+}
+
+interface PaymentRecord {
+  receiptNumber: string;
+  installmentName: string;
+  amount: number;
+  paymentDate: string | null;
+  paymentMethod: string;
+  paymentReference?: string;
 }
 
 interface BankDetails {
@@ -59,6 +71,7 @@ interface FeeRecord {
 interface FeesData {
   feeRecord: FeeRecord | null;
   challans: ChalanItem[];
+  payments: PaymentRecord[];
   bankDetails: BankDetails | null;
   schoolName: string;
 }
@@ -68,6 +81,7 @@ export default function Fees() {
   const [data, setData] = useState<FeesData>({
     feeRecord: null,
     challans: [],
+    payments: [],
     bankDetails: null,
     schoolName: "School Name"
   });
@@ -75,19 +89,16 @@ export default function Fees() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Modal state
+  // Printable challan modal state
   const [isChalanOpen, setIsChalanOpen] = useState(false);
   const [selectedChalanForView, setSelectedChalanForView] = useState<any>(null);
+
+  // Receipt modal state
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);
   const [receiptPayload, setReceiptPayload] = useState<any | null>(null);
 
-  // Add Payment modal state (for installments)
-  const [isAddPaymentOpen, setIsAddPaymentOpen] = useState(false);
-  const [selectedInstallment, setSelectedInstallment] = useState<Installment | null>(null);
-  const [paymentAmount, setPaymentAmount] = useState<string>("");
-  const [paymentMethod, setPaymentMethod] = useState<string>("Online");
-  const [submittingPayment, setSubmittingPayment] = useState(false);
-  const [paymentError, setPaymentError] = useState("");
+  const [loadingChalanFor, setLoadingChalanFor] = useState<string | null>(null);
+  const [downloadingChalanFor, setDownloadingChalanFor] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchFees = async () => {
@@ -96,7 +107,7 @@ export default function Fees() {
         setError("");
         const res = await api.get("/student/fees");
         if (res.data) {
-          setData(res.data);
+          setData({ ...res.data, payments: res.data.payments || [] });
         }
       } catch (err: any) {
         console.error("Error fetching student fees:", err);
@@ -134,15 +145,192 @@ export default function Fees() {
     }
   };
 
-  // Displays "COMPLETED" instead of "PAID" for a friendlier label, without touching the underlying data model
   const getDisplayStatus = (status: string) => {
     return String(status).toUpperCase() === "PAID" ? "COMPLETED" : String(status).toUpperCase();
+  };
+
+  const getCurrentPayableInstallmentName = (installments: Installment[]): string | null => {
+    const current = installments.find((inst) => String(inst.status).toUpperCase() !== "PAID");
+    return current ? current.name : null;
+  };
+
+  const refreshFees = async () => {
+    const res = await api.get("/student/fees");
+    if (res.data) setData({ ...res.data, payments: res.data.payments || [] });
+    return res.data;
+  };
+
+  const fetchInstallmentChalan = async (installmentName: string) => {
+    const res = await api.post("/student/fees/challan", { installmentName });
+    return res.data?.data;
+  };
+
+  const handleViewChalanForInstallment = async (inst: Installment) => {
+    try {
+      setLoadingChalanFor(inst.name);
+      setError("");
+
+      const chalanData = await fetchInstallmentChalan(inst.name);
+      if (!chalanData) return;
+
+      const chalanDetails = {
+        chalanNumber: chalanData.chalanNumber,
+        chalanDate: chalanData.issueDate || new Date().toISOString(),
+        installmentName: chalanData.installmentName,
+        amount: chalanData.amount,
+        dueDate: chalanData.dueDate || new Date().toISOString(),
+
+        studentName: chalanData.studentName,
+        studentId: chalanData.studentId || user?.id || "",
+        userId: chalanData.userId || user?.userId || "",
+        className: chalanData.className,
+        section: chalanData.section,
+        academicYear: chalanData.academicYear,
+
+        schoolName: chalanData.schoolName || data.schoolName,
+        schoolAddress: "",
+        schoolData: chalanData.schoolData,
+
+        bankDetails: chalanData.bankDetails || data.bankDetails || undefined,
+
+        status: chalanData.status === "paid" ? "paid" as const : "unpaid" as const
+      };
+
+      setSelectedChalanForView(chalanDetails);
+      setIsChalanOpen(true);
+
+      refreshFees().catch(() => {});
+    } catch (err: any) {
+      console.error("Error fetching challan:", err);
+      setError(err?.response?.data?.message || "Failed to load challan");
+    } finally {
+      setLoadingChalanFor(null);
+    }
+  };
+
+  // Builds the same colorful triple-copy challan HTML used elsewhere in the app,
+  // then opens the browser print dialog so the parent can "Save as PDF" with
+  // full styling — the plain PDFKit /pdf endpoint intentionally isn't used here.
+  const buildChalanPrintHtml = (chalanData: any) => {
+    const dueDate = chalanData.dueDate
+      ? new Date(chalanData.dueDate).toLocaleDateString("en-GB")
+      : "N/A";
+    const currentDate = new Date().toLocaleDateString("en-GB");
+    const academicYear = chalanData.academicYear || "";
+    const schoolName = chalanData.schoolName || data.schoolName || "School";
+    const bank = chalanData.bankDetails || data.bankDetails || {};
+    const amount = `₹${(chalanData.amount || 0).toLocaleString("en-IN")}`;
+    const studentId = chalanData.userId || chalanData.studentId || "N/A";
+    const classSection = `${chalanData.className || ""}${chalanData.section ? "-" + chalanData.section : ""}`;
+
+    const copyBlock = (copyType: string) => `
+      <div class="chalan-copy">
+        <div class="title-row">
+          <div class="school-name">${schoolName}</div>
+          <div class="challan-title">FEE PAYMENT CHALAN</div>
+          <div class="academic-year">Academic Year: ${academicYear}</div>
+          <span class="copy-type">${copyType}</span>
+          <div class="challan-number">Chalan: ${chalanData.chalanNumber || "N/A"}</div>
+        </div>
+        <div class="section">
+          <div class="section-title">Student Details</div>
+          <div class="row"><span class="label">Name:</span><span>${chalanData.studentName || "N/A"}</span></div>
+          <div class="row"><span class="label">Student ID:</span><span>${studentId}</span></div>
+          <div class="row"><span class="label">Class & Sec:</span><span>${classSection}</span></div>
+        </div>
+        <div class="section">
+          <div class="section-title">Payment Details</div>
+          <div class="row"><span class="label">Installment:</span><span>${chalanData.installmentName || "N/A"}</span></div>
+          <div class="row"><span class="label">Amount Due:</span><span class="amount">${amount}</span></div>
+          <div class="row"><span class="label">Due Date:</span><span>${dueDate}</span></div>
+          <div class="row"><span class="label">Date:</span><span>${currentDate}</span></div>
+        </div>
+        <div class="section">
+          <div class="section-title">Bank Details</div>
+          <div class="row"><span class="label">Bank:</span><span>${bank.bankName || "Not Available"}</span></div>
+          <div class="row"><span class="label">Account Holder:</span><span>${bank.accountHolderName || "Not Available"}</span></div>
+          <div class="row"><span class="label">A/c No:</span><span>${bank.accountNumber || "Not Available"}</span></div>
+          <div class="row"><span class="label">IFSC:</span><span>${bank.ifscCode || "Not Available"}</span></div>
+          <div class="row"><span class="label">Branch:</span><span>${bank.branch || "Not Available"}</span></div>
+        </div>
+        <div class="branding">GOODSYNK ERP - Institute Management System</div>
+      </div>
+    `;
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Fee Payment Challan - ${chalanData.chalanNumber || ""}</title>
+        <style>
+          @page { size: A4 portrait; margin: 10mm; }
+          body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: white; }
+          .container { display: flex; flex-direction: row; gap: 8mm; }
+          .chalan-copy { flex: 1; border: 2px solid #333; padding: 14px; border-radius: 4px; }
+          .title-row { text-align: center; margin-bottom: 10px; border-bottom: 1px solid #ddd; padding-bottom: 8px; }
+          .school-name { font-size: 13px; font-weight: bold; color: #2c3e50; }
+          .challan-title { font-size: 13px; font-weight: bold; color: #2c3e50; margin-top: 4px; }
+          .academic-year { font-size: 9px; color: #666; margin-top: 2px; }
+          .copy-type { display: inline-block; padding: 2px 8px; font-size: 8px; font-weight: bold; border-radius: 2px; color: white; margin-top: 4px; background: #3498db; }
+          .challan-number { font-weight: 600; font-size: 12px; color: #555; margin-top: 6px; }
+          .section { margin-bottom: 10px; }
+          .section-title { font-size: 12px; font-weight: bold; color: #2c3e50; border-bottom: 1px solid #eee; padding-bottom: 3px; margin-bottom: 5px; }
+          .row { display: flex; justify-content: space-between; font-size: 11px; padding: 2px 0; color: #333; }
+          .label { font-weight: 600; color: #555; }
+          .amount { font-weight: bold; color: #1d4ed8; }
+          .branding { text-align: center; font-size: 10px; color: #95a5a6; margin-top: 10px; padding-top: 6px; border-top: 1px solid #ecf0f1; }
+          @media print { body { margin: 0; padding: 0; } }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          ${copyBlock("STUDENT COPY")}
+          ${copyBlock("OFFICE COPY")}
+        </div>
+      </body>
+      </html>
+    `;
+  };
+
+  const handleDownloadChalanPdf = async (inst: Installment) => {
+    try {
+      setDownloadingChalanFor(inst.name);
+      setError("");
+
+      const chalanData = await fetchInstallmentChalan(inst.name);
+      if (!chalanData) {
+        setError("Challan is not ready yet.");
+        return;
+      }
+
+      const html = buildChalanPrintHtml(chalanData);
+      const printWindow = window.open("", "_blank", "width=900,height=900");
+      if (printWindow) {
+        printWindow.document.write(html);
+        printWindow.document.close();
+        printWindow.onload = () => {
+          setTimeout(() => {
+            printWindow.focus();
+            printWindow.print();
+          }, 300);
+        };
+      } else {
+        setError("Please allow popups to download the challan.");
+      }
+
+      refreshFees().catch(() => {});
+    } catch (err: any) {
+      console.error("Error preparing challan download:", err);
+      setError(err?.response?.data?.message || "Failed to prepare challan");
+    } finally {
+      setDownloadingChalanFor(null);
+    }
   };
 
   const handleViewChalan = (chalan: ChalanItem) => {
     if (!data.feeRecord) return;
 
-    // Map ChalanItem and FeeRecord info to the shape ViewChalan modal expects (ChalanDetails)
     const chalanDetails = {
       chalanNumber: chalan.chalanNumber,
       chalanDate: chalan.issueDate || new Date().toISOString(),
@@ -150,22 +338,18 @@ export default function Fees() {
       amount: chalan.amount,
       dueDate: chalan.dueDate || new Date().toISOString(),
 
-      // Student details
       studentName: data.feeRecord.studentName,
-      studentId: user?.id || user?.id || "",
+      studentId: user?.id || "",
       userId: user?.userId || "",
       className: data.feeRecord.studentClass,
       section: data.feeRecord.studentSection,
       academicYear: data.feeRecord.academicYear,
 
-      // School details
       schoolName: data.schoolName,
       schoolAddress: "",
 
-      // Bank details
       bankDetails: data.bankDetails || undefined,
 
-      // Status mapping
       status: chalan.status === "PAID" ? "paid" as const : "unpaid" as const
     };
 
@@ -173,213 +357,64 @@ export default function Fees() {
     setIsChalanOpen(true);
   };
 
-  const handlePayChalan = async (chalan: ChalanItem) => {
-    try {
-      setLoading(true);
-      setError("");
+  // Opens a receipt (payment already made) using the DualCopyReceipt component,
+  // which has its own built-in Print/Save-as-PDF button.
+  const handleViewReceipt = (payment: PaymentRecord) => {
+    if (!data.feeRecord) return;
 
-      // Try to record an offline/online payment for this student and installment
-      // The API expects studentId (use user id or fallback) and payment payload
-      const studentId = user?.id || user?.id || user?.id || '';
-      const paymentPayload = {
-        installmentName: chalan.installmentName,
-        amount: chalan.amount,
-        paymentMethod: 'Online',
-        paymentDate: new Date().toISOString(),
-        paymentReference: 'WEBPAY-' + String(Date.now()).slice(-6)
-      };
-
-      await recordPaymentAndRefresh(studentId, paymentPayload, chalan.installmentName);
-    } catch (err: any) {
-      console.error('Error recording payment:', err);
-      setError(err?.response?.data?.message || 'Failed to process payment');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Opens the "Add Payment" modal for a specific pending/overdue installment
-  const handleOpenAddPayment = (inst: Installment) => {
-    const remaining = Math.max(0, (inst.amount || 0) - (inst.paidAmount || 0));
-    setSelectedInstallment(inst);
-    setPaymentAmount(String(remaining || inst.amount || 0));
-    setPaymentMethod("Online");
-    setPaymentError("");
-    setIsAddPaymentOpen(true);
-  };
-
-  const handleCloseAddPayment = () => {
-    setIsAddPaymentOpen(false);
-    setSelectedInstallment(null);
-    setPaymentAmount("");
-    setPaymentError("");
-  };
-
-  // Shared logic: records a payment against the backend, refreshes fee data,
-  // then surfaces the matching challan/receipt for that specific payment.
-  const recordPaymentAndRefresh = async (
-    studentId: string,
-    paymentPayload: {
-      installmentName: string;
-      amount: number;
-      paymentMethod: string;
-      paymentDate: string;
-      paymentReference: string;
-    },
-    installmentNameForChalan: string
-  ) => {
-    // Use the API helper if available
-    // @ts-ignore
-    if (api.recordOfflinePayment) {
-      await (api as any).recordOfflinePayment(studentId, paymentPayload);
-    } else {
-      // fallback: attempt to POST to known endpoint
-      await api.post(`/fees/records/${studentId}/offline-payment`, paymentPayload);
-    }
-
-    // refresh fees and challans so the installment flips to PAID/COMPLETED
-    const res = await api.get('/student/fees');
-    if (res.data) setData(res.data);
-
-    const updatedFeeRecord = res.data?.feeRecord;
-    const updatedChallans: ChalanItem[] = res.data?.challans || [];
-
-    // Find the challan that matches this specific payment/installment
-    const matchingChalan = updatedChallans.find(
-      (c) => c.installmentName === installmentNameForChalan
-    );
-
-    if (matchingChalan) {
-      // Show that particular payment's challan template right away
-      handleViewChalanFromData(matchingChalan, updatedFeeRecord, res.data?.schoolName, res.data?.bankDetails);
-    }
-
-    // Also try to build a receipt if the backend returned payment history
-    const latestPayment = (updatedFeeRecord?.payments || []).slice(-1)[0];
-    if (latestPayment && latestPayment.receiptNumber) {
-      const paymentData = {
-        receiptNumber: latestPayment.receiptNumber,
-        paymentDate: latestPayment.paymentDate || new Date().toISOString(),
-        paymentMethod: latestPayment.paymentMethod || paymentPayload.paymentMethod,
-        paymentReference: latestPayment.paymentReference || paymentPayload.paymentReference,
-        amount: latestPayment.amount || paymentPayload.amount,
-        installmentName: latestPayment.installmentName || paymentPayload.installmentName
-      };
-
-      const studentData = {
-        name: updatedFeeRecord.studentName,
-        studentId: user?.id || user?.id || updatedFeeRecord.studentName || '',
-        userId: user?.userId || '',
-        class: updatedFeeRecord.studentClass,
-        section: updatedFeeRecord.studentSection,
-        academicYear: updatedFeeRecord.academicYear
-      };
-
-      const schoolData = {
-        schoolName: res.data?.schoolName || 'School Name',
-        schoolCode: '',
-        address: '',
-        phone: '',
-        email: '',
-        website: '',
-        hasSchoolLogo: false,
-        schoolLogo: undefined
-      };
-
-      const installments = (updatedFeeRecord?.installments || []).map((inst: any) => ({
-        name: inst.name,
-        amount: inst.amount,
-        paid: inst.paidAmount || 0,
-        remaining: Math.max(0, (inst.amount || 0) - (inst.paidAmount || 0)),
-        isCurrent: inst.name === paymentPayload.installmentName
-      }));
-
-      setReceiptPayload({
-        paymentData,
-        studentData,
-        schoolData,
-        installments,
-        totalAmount: updatedFeeRecord.totalAmount,
-        totalPaid: updatedFeeRecord.totalPaid,
-        totalRemaining: updatedFeeRecord.totalPending
-      });
-    }
-  };
-
-  // Same mapping as handleViewChalan, but works off freshly-fetched data
-  // instead of the (possibly stale) `data` state, so it can be called
-  // immediately after a payment refresh.
-  const handleViewChalanFromData = (
-    chalan: ChalanItem,
-    feeRecord: FeeRecord,
-    schoolName: string,
-    bankDetails: BankDetails | null
-  ) => {
-    if (!feeRecord) return;
-
-    const chalanDetails = {
-      chalanNumber: chalan.chalanNumber,
-      chalanDate: chalan.issueDate || new Date().toISOString(),
-      installmentName: chalan.installmentName,
-      amount: chalan.amount,
-      dueDate: chalan.dueDate || new Date().toISOString(),
-
-      studentName: feeRecord.studentName,
-      studentId: user?.id || user?.id || "",
+    const studentData = {
+      name: data.feeRecord.studentName,
+      studentId: user?.id || "",
       userId: user?.userId || "",
-      className: feeRecord.studentClass,
-      section: feeRecord.studentSection,
-      academicYear: feeRecord.academicYear,
-
-      schoolName: schoolName || "School Name",
-      schoolAddress: "",
-
-      bankDetails: bankDetails || undefined,
-
-      status: chalan.status === "PAID" ? "paid" as const : "unpaid" as const
+      class: data.feeRecord.studentClass,
+      section: data.feeRecord.studentSection,
+      academicYear: data.feeRecord.academicYear
     };
 
-    setSelectedChalanForView(chalanDetails);
-    setIsChalanOpen(true);
-  };
+    const schoolData = {
+      schoolName: data.schoolName || "School Name",
+      schoolCode: "",
+      address: "",
+      phone: "",
+      email: "",
+      website: "",
+      hasSchoolLogo: false,
+      schoolLogo: undefined
+    };
 
-  const handleSubmitAddPayment = async () => {
-    if (!selectedInstallment) return;
+    const paymentData = {
+      receiptNumber: payment.receiptNumber,
+      paymentDate: payment.paymentDate || new Date().toISOString(),
+      paymentMethod: payment.paymentMethod,
+      paymentReference: payment.paymentReference,
+      amount: payment.amount,
+      installmentName: payment.installmentName
+    };
 
-    const amountNum = Number(paymentAmount);
-    if (!amountNum || amountNum <= 0) {
-      setPaymentError("Please enter a valid amount.");
-      return;
-    }
+    const installments = data.feeRecord.installments.map((inst) => ({
+      name: inst.name,
+      amount: inst.amount,
+      paid: inst.paidAmount || 0,
+      remaining: Math.max(0, (inst.amount || 0) - (inst.paidAmount || 0)),
+      isCurrent: inst.name === payment.installmentName
+    }));
 
-    try {
-      setSubmittingPayment(true);
-      setPaymentError("");
-
-      const studentId = user?.id || '';
-      const paymentPayload = {
-        installmentName: selectedInstallment.name,
-        amount: amountNum,
-        paymentMethod,
-        paymentDate: new Date().toISOString(),
-        paymentReference: 'WEBPAY-' + String(Date.now()).slice(-6)
-      };
-
-      await recordPaymentAndRefresh(studentId, paymentPayload, selectedInstallment.name);
-
-      handleCloseAddPayment();
-    } catch (err: any) {
-      console.error('Error recording payment:', err);
-      setPaymentError(err?.response?.data?.message || 'Failed to process payment');
-    } finally {
-      setSubmittingPayment(false);
-    }
+    setReceiptPayload({
+      paymentData,
+      studentData,
+      schoolData,
+      installments,
+      totalAmount: data.feeRecord.totalAmount,
+      totalPaid: data.feeRecord.totalPaid,
+      totalRemaining: data.feeRecord.totalPending
+    });
+    setIsReceiptOpen(true);
   };
 
   if (loading) {
     return (
       <div className="flex justify-center items-center h-80 text-gray-500 font-medium">
-        <div className="animate-pulse mr-2">⏳</div> Loading Fees & Challans...
+        <div className="animate-pulse mr-2">⏳</div> Loading Fees & Receipts...
       </div>
     );
   }
@@ -393,14 +428,14 @@ export default function Fees() {
     );
   }
 
-  const { feeRecord, challans, bankDetails } = data;
+  const { feeRecord, challans, payments, bankDetails } = data;
 
   if (!feeRecord) {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-4xl font-bold text-gray-900">Fees & Challans</h1>
-          <p className="text-gray-500 mt-2">View your fee breakdown and download challan slips.</p>
+          <h1 className="text-4xl font-bold text-gray-900">Fees & Receipts</h1>
+          <p className="text-gray-500 mt-2">View your fee breakdown and download receipt slips.</p>
         </div>
         <div className="bg-white rounded-xl shadow-sm border p-12 text-center text-gray-500">
           <FileText size={48} className="mx-auto mb-4 text-gray-300" />
@@ -411,12 +446,14 @@ export default function Fees() {
     );
   }
 
+  const currentPayableInstallmentName = getCurrentPayableInstallmentName(feeRecord.installments);
+
   return (
     <div className="space-y-8">
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-4xl font-bold text-gray-900">Fees & Challans</h1>
+          <h1 className="text-4xl font-bold text-gray-900">Fees & Receipts</h1>
           <p className="text-gray-500 mt-2">
             Academic Year: <span className="font-semibold text-gray-700">{feeRecord.academicYear}</span> | Structure: <span className="font-semibold text-gray-700">{feeRecord.feeStructureName}</span>
           </p>
@@ -464,46 +501,111 @@ export default function Fees() {
           <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
             <div className="px-6 py-4 border-b bg-gray-50">
               <h2 className="text-lg font-semibold text-gray-800">Installment Breakdown</h2>
+              <p className="text-xs text-gray-500 mt-1">Payments are collected by the school office. Installments must be cleared in order.</p>
             </div>
             <div className="p-6 space-y-6">
-              {feeRecord.installments.map((inst, index) => (
-                <div key={index} className="flex flex-col md:flex-row md:items-center justify-between p-4 border rounded-xl hover:shadow-sm transition-all gap-4">
-                  <div className="flex items-start gap-3">
-                    <div className="bg-slate-100 p-2 rounded-lg text-slate-600 mt-1">
-                      <Calendar size={18} />
+              {feeRecord.installments.map((inst, index) => {
+                const isPaid = String(inst.status).toUpperCase() === "PAID";
+                const isCurrent = inst.name === currentPayableInstallmentName;
+                const isLocked = !isPaid && !isCurrent;
+
+                return (
+                  <div key={index} className="flex flex-col md:flex-row md:items-center justify-between p-4 border rounded-xl hover:shadow-sm transition-all gap-4">
+                    <div className="flex items-start gap-3">
+                      <div className="bg-slate-100 p-2 rounded-lg text-slate-600 mt-1">
+                        <Calendar size={18} />
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-gray-800 text-base">{inst.name}</h4>
+                        <p className="text-gray-500 text-xs mt-0.5">
+                          Due Date: <span className="font-medium text-gray-700">{inst.dueDate ? new Date(inst.dueDate).toLocaleDateString("en-GB") : "N/A"}</span>
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="font-semibold text-gray-800 text-base">{inst.name}</h4>
-                      <p className="text-gray-500 text-xs mt-0.5">
-                        Due Date: <span className="font-medium text-gray-700">{inst.dueDate ? new Date(inst.dueDate).toLocaleDateString("en-GB") : "N/A"}</span>
-                      </p>
+                    <div className="flex flex-wrap items-center gap-6">
+                      <div className="text-left md:text-right">
+                        <p className="text-xs text-gray-400 font-medium">Installment Amount</p>
+                        <p className="font-bold text-gray-900 text-base">{formatCurrency(inst.amount)}</p>
+                      </div>
+                      <div className="text-left md:text-right">
+                        <p className="text-xs text-gray-400 font-medium">Paid Amount</p>
+                        <p className="font-semibold text-green-600 text-base">{formatCurrency(inst.paidAmount)}</p>
+                      </div>
+                      <span className={`px-3 py-1 border text-xs font-semibold rounded-full ${getStatusBadge(inst.status)}`}>
+                        {getDisplayStatus(inst.status)}
+                      </span>
+
+                      {isCurrent && (
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleViewChalanForInstallment(inst)}
+                            disabled={loadingChalanFor === inst.name}
+                            className="flex items-center gap-1.5 border border-slate-200 hover:border-blue-200 hover:bg-blue-50 text-slate-700 hover:text-blue-600 font-semibold py-2 px-3 rounded-xl text-xs transition-all shadow-sm disabled:opacity-60"
+                          >
+                            <Eye size={14} />
+                            {loadingChalanFor === inst.name ? "Loading..." : "View Challan"}
+                          </button>
+                          <button
+                            onClick={() => handleDownloadChalanPdf(inst)}
+                            disabled={downloadingChalanFor === inst.name}
+                            className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-3 rounded-xl text-xs transition-colors shadow-sm disabled:opacity-60"
+                          >
+                            <Download size={14} />
+                            {downloadingChalanFor === inst.name ? "Preparing..." : "Download"}
+                          </button>
+                        </div>
+                      )}
+
+                      {isLocked && (
+                        <span className="flex items-center gap-1.5 text-gray-400 text-xs font-medium">
+                          <Lock size={14} />
+                          Complete earlier installment first
+                        </span>
+                      )}
                     </div>
                   </div>
-                  <div className="flex flex-wrap items-center gap-6">
-                    <div className="text-left md:text-right">
-                      <p className="text-xs text-gray-400 font-medium">Installment Amount</p>
-                      <p className="font-bold text-gray-900 text-base">{formatCurrency(inst.amount)}</p>
-                    </div>
-                    <div className="text-left md:text-right">
-                      <p className="text-xs text-gray-400 font-medium">Paid Amount</p>
-                      <p className="font-semibold text-green-600 text-base">{formatCurrency(inst.paidAmount)}</p>
-                    </div>
-                    <span className={`px-3 py-1 border text-xs font-semibold rounded-full ${getStatusBadge(inst.status)}`}>
-                      {getDisplayStatus(inst.status)}
-                    </span>
-                    {(inst.status === "PENDING" || inst.status === "OVERDUE") && (
-                      <button
-                        onClick={() => handleOpenAddPayment(inst)}
-                        className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-3 rounded-xl text-xs transition-colors shadow-sm"
-                      >
-                        <PlusCircle size={14} />
-                        Add Payment
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
+          </div>
+
+          {/* Payment Receipts */}
+          <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+            <div className="px-6 py-4 border-b bg-gray-50">
+              <h2 className="text-lg font-semibold text-gray-800">Payment Receipts</h2>
+              <p className="text-xs text-gray-500 mt-1">Receipts for payments already made — view or download anytime.</p>
+            </div>
+            {payments.length === 0 ? (
+              <div className="p-8 text-center text-gray-400 text-sm">No payments recorded yet.</div>
+            ) : (
+              <div className="divide-y">
+                {payments.map((p, idx) => (
+                  <div key={idx} className="p-4 flex items-center justify-between gap-4 hover:bg-slate-50 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-green-50 text-green-600 p-2 rounded-lg">
+                        <Receipt size={16} />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-800 text-sm">{p.receiptNumber}</p>
+                        <p className="text-xs text-gray-500">
+                          {p.installmentName} • {p.paymentDate ? new Date(p.paymentDate).toLocaleDateString("en-GB") : "N/A"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="font-bold text-gray-900 text-sm">{formatCurrency(p.amount)}</span>
+                      <button
+                        onClick={() => handleViewReceipt(p)}
+                        className="flex items-center gap-1.5 border border-slate-200 hover:border-blue-200 hover:bg-blue-50 text-slate-700 hover:text-blue-600 font-semibold py-1.5 px-3 rounded-xl text-xs transition-all"
+                      >
+                        <Eye size={13} />
+                        View
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Bank details instruction */}
@@ -514,7 +616,7 @@ export default function Fees() {
                 <div className="space-y-2">
                   <h3 className="text-lg font-semibold text-blue-900">Offline Bank Deposit Details</h3>
                   <p className="text-sm text-blue-800 leading-relaxed">
-                    To make fee payments offline, please deposit to the following bank account or present the printed challan slip at any branch of the designated bank.
+                    Fee payments are collected by the school office. Please refer to the challan for the bank account details, or contact the office directly.
                   </p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 pt-2 text-sm">
                     <p className="text-blue-800"><span className="font-semibold text-blue-900">Bank Name:</span> {bankDetails.bankName}</p>
@@ -528,63 +630,65 @@ export default function Fees() {
           )}
         </div>
 
-        {/* Challans column */}
+{/* Receipts column — now correctly shows actual payment receipts,
+            matching admin's transaction count + total amount, instead of
+            pending-installment challans */}
         <div className="space-y-6">
           <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
             <div className="px-6 py-4 border-b bg-gray-50 flex justify-between items-center">
-              <h2 className="text-lg font-semibold text-gray-800">Generated Challans</h2>
+              <h2 className="text-lg font-semibold text-gray-800">Receipts</h2>
               <span className="text-xs bg-slate-100 px-2.5 py-1 rounded-full font-medium text-slate-600 border border-slate-200">
-                {challans.length} slip(s)
+                {payments.length} transaction{payments.length === 1 ? '' : 's'}
               </span>
             </div>
 
-            {challans.length === 0 ? (
+            {payments.length > 0 && (
+              <div className="px-6 py-3 border-b bg-slate-50 flex justify-between items-center">
+                <span className="text-xs text-gray-500 font-medium">Total Amount Paid</span>
+                <span className="text-sm font-bold text-green-700">
+                  {formatCurrency(payments.reduce((sum, p) => sum + (p.amount || 0), 0))}
+                </span>
+              </div>
+            )}
+
+            {payments.length === 0 ? (
               <div className="p-8 text-center text-gray-400 text-sm">
-                No printable challan slips generated yet.
+                No receipts generated yet.
               </div>
             ) : (
               <div className="divide-y max-h-[460px] overflow-y-auto">
-                {challans.map((ch, index) => (
+                {payments.map((p, index) => (
                   <div key={index} className="p-5 hover:bg-slate-50 transition-colors space-y-3">
                     <div className="flex justify-between items-start">
                       <div>
-                        <h4 className="font-bold text-gray-800 text-sm">{ch.chalanNumber}</h4>
-                        <p className="text-xs text-gray-500 font-medium mt-0.5">{ch.installmentName}</p>
+                        <h4 className="font-bold text-gray-800 text-sm">{p.receiptNumber}</h4>
+                        <p className="text-xs text-gray-500 font-medium mt-0.5">{p.installmentName}</p>
                       </div>
-                      <span className={`px-2 py-0.5 border text-[10px] font-semibold rounded-full ${getStatusBadge(ch.status)}`}>
-                        {getDisplayStatus(ch.status)}
+                      <span className="px-2 py-0.5 border text-[10px] font-semibold rounded-full bg-green-100 text-green-700 border-green-200">
+                        PAID
                       </span>
                     </div>
 
                     <div className="flex justify-between items-center text-xs">
                       <div>
-                        <p className="text-gray-400 font-medium">Due Date</p>
-                        <p className="text-gray-700 font-semibold">{ch.dueDate ? new Date(ch.dueDate).toLocaleDateString("en-GB") : "N/A"}</p>
+                        <p className="text-gray-400 font-medium">Payment Date</p>
+                        <p className="text-gray-700 font-semibold">
+                          {p.paymentDate ? new Date(p.paymentDate).toLocaleDateString("en-GB") : "N/A"}
+                        </p>
                       </div>
                       <div className="text-right">
                         <p className="text-gray-400 font-medium">Amount</p>
-                        <p className="text-gray-900 font-bold text-sm">{formatCurrency(ch.amount)}</p>
+                        <p className="text-gray-900 font-bold text-sm">{formatCurrency(p.amount)}</p>
                       </div>
                     </div>
 
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleViewChalan(ch)}
-                        className="flex-1 flex items-center justify-center gap-2 border border-slate-200 hover:border-blue-200 hover:bg-blue-50 text-slate-700 hover:text-blue-600 font-semibold py-2 px-4 rounded-xl text-xs transition-all shadow-sm"
-                      >
-                        <Printer size={14} />
-                        Print / View Challan
-                      </button>
-
-                      {ch.status !== 'PAID' && (
-                        <button
-                          onClick={() => handlePayChalan(ch)}
-                          className="flex-none bg-green-600 text-white px-4 py-2 rounded-xl text-xs font-semibold hover:bg-green-700 transition-colors"
-                        >
-                          Pay
-                        </button>
-                      )}
-                    </div>
+                    <button
+                      onClick={() => handleViewReceipt(p)}
+                      className="w-full flex items-center justify-center gap-2 border border-slate-200 hover:border-blue-200 hover:bg-blue-50 text-slate-700 hover:text-blue-600 font-semibold py-2 px-4 rounded-xl text-xs transition-all shadow-sm"
+                    >
+                      <Eye size={14} />
+                      View / Download
+                    </button>
                   </div>
                 ))}
               </div>
@@ -604,70 +708,6 @@ export default function Fees() {
         </div>
       </div>
 
-      {/* Add Payment Modal */}
-      {isAddPaymentOpen && selectedInstallment && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-6 space-y-5">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold text-gray-800">Add Payment</h3>
-              <button onClick={handleCloseAddPayment} className="text-gray-400 hover:text-gray-600">
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="bg-slate-50 border rounded-lg p-3 text-sm">
-              <p className="text-gray-500">Installment</p>
-              <p className="font-semibold text-gray-800">{selectedInstallment.name}</p>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-gray-500">Amount</label>
-              <input
-                type="number"
-                min={1}
-                value={paymentAmount}
-                onChange={(e) => setPaymentAmount(e.target.value)}
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-gray-500">Payment Method</label>
-              <select
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="Online">Online</option>
-                <option value="Cash">Cash</option>
-                <option value="Cheque">Cheque</option>
-                <option value="Bank Transfer">Bank Transfer</option>
-              </select>
-            </div>
-
-            {paymentError && (
-              <p className="text-red-600 text-xs font-medium">{paymentError}</p>
-            )}
-
-            <div className="flex gap-3 pt-2">
-              <button
-                onClick={handleCloseAddPayment}
-                className="flex-1 border border-slate-200 text-slate-600 font-semibold py-2 rounded-xl text-sm hover:bg-slate-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSubmitAddPayment}
-                disabled={submittingPayment}
-                className="flex-1 bg-blue-600 text-white font-semibold py-2 rounded-xl text-sm hover:bg-blue-700 transition-colors disabled:opacity-60"
-              >
-                {submittingPayment ? "Processing..." : "Confirm Payment"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Printable Challan Modal */}
       {selectedChalanForView && (
         <ViewChalan
@@ -680,12 +720,14 @@ export default function Fees() {
         />
       )}
 
-      {/* Receipt Modal (after payment) */}
+      {/* Receipt Modal */}
       {isReceiptOpen && receiptPayload && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start sm:items-center justify-center z-50 p-4">
           <div className="w-full max-w-6xl bg-white rounded-lg shadow-lg p-4 overflow-auto max-h-[90vh]">
             <div className="flex justify-end mb-2">
-              <button onClick={() => setIsReceiptOpen(false)} className="text-sm px-3 py-1 rounded bg-gray-100">Close</button>
+              <button onClick={() => setIsReceiptOpen(false)} className="text-sm px-3 py-1 rounded bg-gray-100 flex items-center gap-1">
+                <X size={14} /> Close
+              </button>
             </div>
             <DualCopyReceipt
               schoolData={receiptPayload.schoolData}
