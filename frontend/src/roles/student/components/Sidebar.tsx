@@ -14,6 +14,14 @@ import {
 import api from "../../../services/api";
 import { useAuth } from "../../../auth/AuthContext";
 
+interface StudentProfile {
+  grade?: string;
+  section?: string;
+  class?: string;
+  currentClass?: string;
+  currentSection?: string;
+}
+
 const menu = [
   { title: "Dashboard", icon: Home, path: "/student", end: true },
   {
@@ -50,12 +58,13 @@ const menu = [
 
 export default function Sidebar() {
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
 
   const [schoolName, setSchoolName] = useState("School");
   const [schoolId, setSchoolId] = useState("");
   const [schoolLogo, setSchoolLogo] = useState("");
   const [unreadMessages, setUnreadMessages] = useState(0);
+  const [profile, setProfile] = useState<StudentProfile>({});
 
   useEffect(() => {
     loadSidebarData();
@@ -63,10 +72,15 @@ export default function Sidebar() {
 
   const loadSidebarData = async () => {
     try {
-      const [schoolRes, messageRes] = await Promise.all([
+      const [schoolRes, messageRes, profileRes] = await Promise.all([
         api.get("/schools/profile"),
         api.get("/messages/student"),
+        api.get("/users/my-profile").catch(() => null),
       ]);
+
+      if (profileRes) {
+        setProfile(profileRes.data?.data ?? {});
+      }
 
       //-----------------------------
       // School Details
@@ -159,6 +173,8 @@ export default function Sidebar() {
           </div>
 
         </div>
+        
+        {/* Navigation */}
 
         {/* Navigation */}
 
@@ -202,10 +218,18 @@ export default function Sidebar() {
         </nav>
 
       </div>
+      <div className="border-t border-gray-100 px-5 py-4">
+        <p className="text-center text-xs text-gray-400">
+          Powered by{" "}
+          <span className="font-semibold text-indigo-600">
+            GoodSync ERP
+          </span>
+        </p>
+      </div>
+      
+      {/* Logout + Profile */}
 
-      {/* Logout */}
-
-      <div className="border-t p-4">
+      <div className="border-t p-4 space-y-2">
 
         <button
           onClick={handleLogout}
@@ -214,6 +238,34 @@ export default function Sidebar() {
           <LogOut size={18} />
           Logout
         </button>
+
+        <div className="flex items-center min-w-0 rounded-xl bg-gray-50 px-2.5 py-2">
+
+          <div className="w-10 h-10 rounded-full bg-green-100 text-green-700 font-semibold flex items-center justify-center mr-3 flex-shrink-0">
+            {(user?.name ?? "S")
+              .split(" ")
+              .map((name) => name[0])
+              .join("")
+              .substring(0, 2)
+              .toUpperCase()}
+          </div>
+
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-gray-900 truncate">
+              {user?.name ?? "Student"}
+            </p>
+            <p className="text-xs text-gray-500 truncate">
+              {profile.grade || profile.class || profile.currentClass
+                ? `Grade ${profile.grade || profile.class || profile.currentClass}${
+                    profile.section || profile.currentSection
+                      ? ` • Section ${profile.section || profile.currentSection}`
+                      : ""
+                  }`
+                : (user?.userId || user?.email || "Student")}
+            </p>
+          </div>
+
+        </div>
 
       </div>
 

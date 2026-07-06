@@ -1,14 +1,7 @@
-<<<<<<< Updated upstream
 import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, FileText, Download, Upload, CheckCircle, AlertTriangle, BookOpen } from 'lucide-react';
 import * as assignmentAPI from '../../../api/assignment';
 import api from '../../../api/axios';
-=======
-
-import { useEffect, useState } from "react";
-import { BookOpen, CalendarDays, Clock, FileText } from "lucide-react";
-import api from "../../../services/api";
->>>>>>> Stashed changes
 
 interface Assignment {
   _id: string;
@@ -32,7 +25,6 @@ interface Assignment {
   totalStudents: number;
 }
 
-<<<<<<< Updated upstream
 interface Submission {
   _id: string;
   submissionText: string;
@@ -58,16 +50,12 @@ const StudentAssignments: React.FC = () => {
   const [submission, setSubmission] = useState<Submission | null>(null);
   const [submissionText, setSubmissionText] = useState('');
   const [submissionFiles, setSubmissionFiles] = useState<File[]>([]);
-=======
-export default function Assignments() {
-  const [assignmentsData, setAssignmentsData] = useState<Assignment[]>([]);
->>>>>>> Stashed changes
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showSubmissionModal, setShowSubmissionModal] = useState(false);
 
   useEffect(() => {
-<<<<<<< Updated upstream
     fetchAssignments();
   }, []);
 
@@ -124,42 +112,6 @@ export default function Assignments() {
       setAssignments([]);
     } finally {
       setLoading(false);
-=======
-    const fetchAssignments = async () => {
-      try {
-        setLoading(true);
-        setError("");
-
-        const response = await api.get("/student/assignments");
-
-        setAssignmentsData(response.data);
-      } catch (err) {
-        setError("Unable to load assignments");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAssignments();
-  }, []);
-
-  const getStatusColor = (status: Assignment["status"]) => {
-    switch (status) {
-      case "Pending":
-        return "bg-yellow-100 text-yellow-700";
-
-      case "Submitted":
-        return "bg-blue-100 text-blue-700";
-
-      case "Graded":
-        return "bg-green-100 text-green-700";
-
-      case "Late":
-        return "bg-red-100 text-red-700";
-
-      default:
-        return "bg-gray-100 text-gray-700";
->>>>>>> Stashed changes
     }
   };
 
@@ -288,23 +240,39 @@ export default function Assignments() {
     }
   };
 
+  if (loading && assignments.length === 0) {
+    return (
+      <div className="flex justify-center items-center h-80">
+        Loading assignments...
+      </div>
+    );
+  }
+
   return (
-<<<<<<< Updated upstream
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="space-y-8">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">My Assignments</h1>
-        <p className="text-gray-600">View and submit your assignments</p>
+      <div className="mb-6 rounded-2xl border border-gray-100 bg-white px-8 py-6 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">
+              Assignments
+            </h1>
+
+            <p className="mt-2 text-sm text-gray-500">
+              View your assignments, due dates, and submission status.
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Tabs */}
-      <div className="mb-6">
+      <div className="bg-white rounded-xl shadow-sm border px-6">
         <nav className="flex space-x-8">
           <button
             onClick={() => setSelectedTab('pending')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
               selectedTab === 'pending'
-                ? 'border-blue-500 text-blue-600'
+                ? 'border-blue-600 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -313,9 +281,9 @@ export default function Assignments() {
           </button>
           <button
             onClick={() => setSelectedTab('submitted')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
               selectedTab === 'submitted'
-                ? 'border-blue-500 text-blue-600'
+                ? 'border-blue-600 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -324,9 +292,9 @@ export default function Assignments() {
           </button>
           <button
             onClick={() => setSelectedTab('graded')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
               selectedTab === 'graded'
-                ? 'border-blue-500 text-blue-600'
+                ? 'border-blue-600 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -335,113 +303,76 @@ export default function Assignments() {
           </button>
         </nav>
       </div>
-=======
-    <div className="space-y-8">
-
-      <div>
-        <h1 className="text-4xl font-bold text-gray-900">
-          Assignments
-        </h1>
-
-        <p className="text-gray-500 mt-2">
-          View your assignments and submission status.
-        </p>
-      </div>
-
-      {assignmentsData.length === 0 ? (
-        <div className="bg-white rounded-xl border shadow-sm p-12 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
-          <div className="flex flex-col items-center justify-center text-gray-500">
-            <BookOpen size={48} className="mb-4 text-gray-300" />
->>>>>>> Stashed changes
 
       {/* Assignments Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredAssignments.map((assignment) => (
-          <div
-            key={assignment._id}
-            className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow cursor-pointer"
-            onClick={() => handleViewAssignment(assignment)}
-          >
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex-1">
-                <h3 className="font-semibold text-gray-900 mb-1">{assignment.subject || 'Unknown Subject'}</h3>
-                <p className="text-sm text-gray-600">
-                  {assignment.class || 'Unknown Class'} • 
-                  Section {assignment.section || 'A'}
-                </p>
-              </div>
-              <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full border ${getPriorityColor(assignment.priority || 'medium')}`}>
-                {assignment.priority || 'medium'}
-              </span>
-            </div>
-
-            <p className="text-gray-700 mb-4 line-clamp-2">
-              {assignment.instructions || assignment.title || 'No description available'}
-            </p>
-
-            <div className="space-y-2 mb-4">
-              <div className="flex items-center text-sm text-gray-500">
-                <Calendar className="w-4 h-4 mr-2" />
-                Due: {new Date(assignment.dueDate).toLocaleDateString('en-US', {
-                  weekday: 'short',
-                  month: 'short',
-                  day: 'numeric',
-                  hour: 'numeric',
-                  minute: '2-digit'
-                })}
-              </div>
-              <div className="flex items-center text-sm">
-                <Clock className="w-4 h-4 mr-2" />
-                <span className={new Date(assignment.dueDate) < new Date() ? 'text-red-600' : 'text-green-600'}>
-                  {getTimeRemaining(assignment.dueDate)}
+      {filteredAssignments.length === 0 ? (
+        <div className="bg-white rounded-xl shadow-sm border p-12">
+          <div className="flex flex-col items-center text-gray-500">
+            <BookOpen size={48} className="mb-4 text-gray-300" />
+            <h3 className="text-lg font-medium text-gray-700">No assignments found</h3>
+            <p className="mt-1 text-sm text-gray-500">You don't have any assignments in this category.</p>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredAssignments.map((assignment) => (
+            <div
+              key={assignment._id}
+              className="bg-white rounded-xl shadow-sm border p-6 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 cursor-pointer"
+              onClick={() => handleViewAssignment(assignment)}
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex-1">
+                  <h3 className="font-semibold text-gray-900 mb-1">{assignment.subject || 'Unknown Subject'}</h3>
+                  <p className="text-sm text-gray-500">
+                    {assignment.class || 'Unknown Class'} •{' '}
+                    Section {assignment.section || 'A'}
+                  </p>
+                </div>
+                <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full border ${getPriorityColor(assignment.priority || 'medium')}`}>
+                  {assignment.priority || 'medium'}
                 </span>
               </div>
-              {assignment.attachments.length > 0 && (
+
+              <p className="text-gray-600 mb-4 line-clamp-2">
+                {assignment.instructions || assignment.title || 'No description available'}
+              </p>
+
+              <div className="space-y-2 mb-4">
                 <div className="flex items-center text-sm text-gray-500">
-                  <FileText className="w-4 h-4 mr-2" />
-                  {assignment.attachments.length} attachment{assignment.attachments.length > 1 ? 's' : ''}
+                  <Calendar className="w-4 h-4 mr-2" />
+                  Due: {new Date(assignment.dueDate).toLocaleDateString('en-US', {
+                    weekday: 'short',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit'
+                  })}
                 </div>
-              )}
-            </div>
-
-            <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-              <span className="text-sm text-gray-500">Max: {assignment.maxMarks} marks</span>
-              <button className="text-blue-600 text-sm font-medium hover:text-blue-700">
-                View Assignment →
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {filteredAssignments.length === 0 && (
-        <div className="text-center py-12">
-          <BookOpen className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No assignments found</h3>
-          <p className="text-gray-500">You don't have any assignments in this category.</p>
-        </div>
-<<<<<<< Updated upstream
-      )}
-=======
-      ) : (
-        <div className="grid gap-6">
-          {assignmentsData.map((assignment) => (
-            <div
-              key={assignment.id}
-              className="bg-white rounded-xl border shadow-sm p-6 transition-all duration-300 hover:shadow-lg hover:-translate-y-1"
-            >
-              <div className="flex justify-between items-start">
-
-                <div className="space-y-3">
-
-                  <div className="flex items-center gap-3">
-                    <BookOpen className="text-blue-600" />
-
-                    <h2 className="text-xl font-semibold">
-                      {assignment.title}
-                    </h2>
+                <div className="flex items-center text-sm">
+                  <Clock className="w-4 h-4 mr-2 text-gray-500" />
+                  <span className={new Date(assignment.dueDate) < new Date() ? 'text-red-600' : 'text-green-600'}>
+                    {getTimeRemaining(assignment.dueDate)}
+                  </span>
+                </div>
+                {assignment.attachments.length > 0 && (
+                  <div className="flex items-center text-sm text-gray-500">
+                    <FileText className="w-4 h-4 mr-2" />
+                    {assignment.attachments.length} attachment{assignment.attachments.length > 1 ? 's' : ''}
                   </div>
->>>>>>> Stashed changes
+                )}
+              </div>
+
+              <div className="flex items-center justify-between pt-4 border-t">
+                <span className="text-sm text-gray-400">Max: {assignment.maxMarks} marks</span>
+                <button className="text-blue-600 text-sm font-medium hover:text-blue-700">
+                  View Assignment →
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Assignment Details Modal */}
       {showSubmissionModal && selectedAssignment && (
@@ -449,12 +380,12 @@ export default function Assignments() {
           <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center">
             <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={() => setShowSubmissionModal(false)}></div>
             
-            <div className="relative w-full max-w-4xl mx-auto bg-white rounded-lg shadow-xl">
+            <div className="relative w-full max-w-4xl mx-auto bg-white rounded-xl shadow-xl">
               {/* Header */}
-              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between p-6 border-b">
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900">{selectedAssignment.subject}</h2>
-                  <p className="text-gray-600">{selectedAssignment.class} • Section {selectedAssignment.section}</p>
+                  <p className="text-gray-500">{selectedAssignment.class} • Section {selectedAssignment.section}</p>
                 </div>
                 <button 
                   onClick={() => setShowSubmissionModal(false)}
@@ -464,7 +395,6 @@ export default function Assignments() {
                 </button>
               </div>
 
-<<<<<<< Updated upstream
               <div className="p-6 space-y-6">
                 {/* Assignment Instructions */}
                 <div>
@@ -473,40 +403,10 @@ export default function Assignments() {
                     <p className="text-gray-700 whitespace-pre-wrap">
                       {selectedAssignment.instructions || 'No detailed instructions provided.'}
                     </p>
-=======
-                  <p className="text-gray-600">
-                    {assignment.description}
-                  </p>
-
-                  <div className="flex gap-8 flex-wrap">
-
-                    <div className="flex items-center gap-2 text-gray-600">
-                      <CalendarDays size={18} />
-                      Assigned :
-                      {assignment.assignedDate}
-                    </div>
-
-                    <div className="flex items-center gap-2 text-gray-600">
-                      <Clock size={18} />
-                      Due :
-                      {assignment.dueDate}
-                    </div>
-
-                    {assignment.marks !== undefined &&
-                      assignment.totalMarks !== undefined && (
-                        <div className="flex items-center gap-2 text-gray-600">
-                          <FileText size={18} />
-                          Marks :
-                          {assignment.marks}/{assignment.totalMarks}
-                        </div>
-                      )}
-
->>>>>>> Stashed changes
                   </div>
 
                 </div>
 
-<<<<<<< Updated upstream
                 {/* Assignment Attachments */}
                 {selectedAssignment.attachments && selectedAssignment.attachments.length > 0 && (
                   <div>
@@ -628,16 +528,6 @@ export default function Assignments() {
                     </div>
                   </div>
                 )}
-=======
-                <span
-                  className={`px-4 py-2 rounded-full text-sm font-medium ${getStatusColor(
-                    assignment.status
-                  )}`}
-                >
-                  {assignment.status}
-                </span>
-
->>>>>>> Stashed changes
               </div>
             </div>
           </div>
@@ -645,16 +535,12 @@ export default function Assignments() {
       )}
 
       {error && (
-        <div className="fixed bottom-4 right-4 bg-red-500 text-white p-4 rounded-lg">
+        <div className="fixed bottom-4 right-4 bg-red-500 text-white p-4 rounded-xl shadow-lg">
           {error}
         </div>
       )}
     </div>
   );
-<<<<<<< Updated upstream
 };
 
 export default StudentAssignments;
-=======
-}
->>>>>>> Stashed changes

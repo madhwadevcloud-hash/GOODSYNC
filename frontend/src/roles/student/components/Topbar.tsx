@@ -108,15 +108,6 @@ export default function Topbar() {
     }
   };
 
-  const initials = (
-    user?.name ?? "S"
-  )
-    .split(" ")
-    .map((name) => name[0])
-    .join("")
-    .substring(0, 2)
-    .toUpperCase();
-
   const studentClass =
     profile.grade ||
     profile.class ||
@@ -158,7 +149,7 @@ export default function Topbar() {
 
         <p className="text-gray-500 mt-1">
 
-          Here's your academic overview.
+          {classSection !== "Student" ? classSection : "Here's your academic overview."}
 
         </p>
 
@@ -257,34 +248,6 @@ export default function Topbar() {
             </div>
 
           )}
-
-        </div>
-
-        {/* Student */}
-
-        <div className="flex items-center gap-3">
-
-          <div className="w-10 h-10 rounded-full bg-green-100 text-green-700 font-semibold flex items-center justify-center">
-
-            {initials}
-
-          </div>
-
-          <div>
-
-            <p className="font-semibold text-gray-900">
-
-              {user?.name}
-
-            </p>
-
-            <p className="text-xs text-gray-500">
-
-              {classSection}
-
-            </p>
-
-          </div>
 
         </div>
 

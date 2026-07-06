@@ -398,9 +398,18 @@ export default function Fees() {
   if (!feeRecord) {
     return (
       <div className="space-y-6">
-        <div>
-          <h1 className="text-4xl font-bold text-gray-900">Fees & Challans</h1>
-          <p className="text-gray-500 mt-2">View your fee breakdown and download challan slips.</p>
+        <div className="mb-6 rounded-2xl border border-gray-100 bg-white px-8 py-6 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">
+                Fees and Challans
+              </h1>
+
+              <p className="mt-2 text-sm text-gray-500">
+                View your fee details, payment history, and pending dues.
+              </p>
+            </div>
+          </div>
         </div>
         <div className="bg-white rounded-xl shadow-sm border p-12 text-center text-gray-500">
           <FileText size={48} className="mx-auto mb-4 text-gray-300" />

@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import api from "../../../services/api";
+import Topbar from "../components/Topbar";
 
 interface Announcement {
   id: number;
@@ -543,6 +544,8 @@ export default function Dashboard() {
   ];
 
   return (
+  <>
+    <Topbar />
     <div className="space-y-6">
       <div className="grid grid-cols-12 gap-6">
         {/* Top stat cards */}
@@ -910,5 +913,6 @@ export default function Dashboard() {
         </div>
       </div>
     </div>
+  </>
   );
 }

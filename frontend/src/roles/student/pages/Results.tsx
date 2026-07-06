@@ -89,16 +89,18 @@ export default function Results() {
 
       {/* Header */}
 
-      <div>
+      <div className="mb-6 rounded-2xl border border-gray-100 bg-white px-8 py-6 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">
+              Results
+            </h1>
 
-        <h1 className="text-4xl font-bold text-gray-900">
-          Results
-        </h1>
-
-        <p className="text-gray-500 mt-2">
-          View your examination performance and grades.
-        </p>
-
+            <p className="mt-2 text-sm text-gray-500">
+              Check your examination results and subject-wise performance.
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Summary */}

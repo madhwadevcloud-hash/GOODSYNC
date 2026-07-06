@@ -79,9 +79,6 @@ export default function Layout({ children }: Props) {
 
         </div>
 
-        {/* Topbar */}
-        <Topbar />
-
         {/* Page Content */}
         <main className="p-6 bg-gray-50 min-h-[calc(100vh-128px)] overflow-auto">
           {children}
