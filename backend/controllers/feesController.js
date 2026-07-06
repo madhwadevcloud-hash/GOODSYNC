@@ -5,6 +5,7 @@ const School = require('../models/School');
 const SchoolDatabaseManager = require('../utils/schoolDatabaseManager');
 const { ObjectId } = require('mongodb');
 const PDFDocument = require('pdfkit');
+const studentPortalController = require('./studentPortalController');
 
 // Helper function to generate challan number
 async function generateChalanNumber(schoolCode, db) {
@@ -1008,7 +1009,7 @@ exports.recordOfflinePayment = async (req, res) => {
   try {
     console.log('💳 Recording offline payment:', req.body);
 
-    const { studentId } = req.params; // can be fee record _id or studentId
+    const { studentId } = req.params;
     const {
       installmentName,
       amount,
@@ -1018,7 +1019,6 @@ exports.recordOfflinePayment = async (req, res) => {
       remarks
     } = req.body;
 
-    // Validate required fields
     if (!installmentName || amount === undefined || amount === null || !paymentMethod) {
       return res.status(400).json({
         success: false,
@@ -1033,7 +1033,6 @@ exports.recordOfflinePayment = async (req, res) => {
       });
     }
 
-    // Validate payment date is provided
     if (!paymentDate) {
       return res.status(400).json({
         success: false,
@@ -1046,8 +1045,6 @@ exports.recordOfflinePayment = async (req, res) => {
     const db = conn.db || conn;
     const studentFeeCol = db.collection('studentfeerecords');
 
-    // Find student fee record: accept either fee record _id or studentId
-    console.log('[Fees] recordOfflinePayment param studentId:', studentId, 'schoolId:', req.user.schoolId);
     let feeRecord = null;
     try {
       const objId = new ObjectId(studentId);
@@ -1058,27 +1055,22 @@ exports.recordOfflinePayment = async (req, res) => {
         ],
         schoolId: new ObjectId(req.user.schoolId)
       };
-      console.log('[Fees] Lookup with ObjectId using query:', JSON.stringify(query));
       feeRecord = await studentFeeCol.findOne(query);
     } catch (e) {
-      // Not a valid ObjectId, fallback to string match on rollNumber (unlikely)
       const altQuery = {
         schoolId: new ObjectId(req.user.schoolId),
         rollNumber: studentId
       };
-      console.log('[Fees] Non-ObjectId param, fallback query:', JSON.stringify(altQuery));
       feeRecord = await studentFeeCol.findOne(altQuery);
     }
 
     if (!feeRecord) {
-      console.warn('[Fees] Student fee record not found for param:', studentId);
       return res.status(404).json({
         success: false,
         message: 'Student fee record not found'
       });
     }
 
-    // Check if installment exists
     const installment = (feeRecord.installments || []).find(inst => inst.name === installmentName);
     if (!installment) {
       return res.status(400).json({
@@ -1087,8 +1079,30 @@ exports.recordOfflinePayment = async (req, res) => {
       });
     }
 
-    // Generate sequential receipt number per-school and per-academicYear
-    // Use atomic counter in per-school DB to avoid collisions under concurrency
+    // Queue enforcement: installments must be paid in order
+    const orderedInstallments = feeRecord.installments || [];
+    const targetIndex = orderedInstallments.findIndex(i => i.name === installmentName);
+    if (targetIndex > 0) {
+      const priorUnpaid = orderedInstallments
+        .slice(0, targetIndex)
+        .find(i => (i.paidAmount || 0) < (i.amount || 0));
+
+      if (priorUnpaid) {
+        return res.status(400).json({
+          success: false,
+          message: `Please fully pay "${priorUnpaid.name}" before recording a payment for "${installmentName}".`
+        });
+      }
+    }
+
+    const installmentPending = Math.max(0, (installment.amount || 0) - (installment.paidAmount || 0));
+    if (parseFloat(amount) > installmentPending + 0.01) {
+      return res.status(400).json({
+        success: false,
+        message: `Amount exceeds pending balance for "${installmentName}" (pending: ${installmentPending}).`
+      });
+    }
+
     const countersCol = db.collection('counters');
     const counterKey = `receipt:${String(req.user.schoolId)}:${String(feeRecord.academicYear || '')}`;
     const seqDoc = await countersCol.findOneAndUpdate(
@@ -1104,7 +1118,6 @@ exports.recordOfflinePayment = async (req, res) => {
       },
       { upsert: true, returnDocument: 'after', returnOriginal: false }
     );
-    // Fallback in case driver option didn't return the updated doc
     let seqVal = (seqDoc && seqDoc.value && typeof seqDoc.value.seq === 'number') ? seqDoc.value.seq : undefined;
     if (typeof seqVal !== 'number') {
       const doc = await countersCol.findOne({ _id: counterKey });
@@ -1116,18 +1129,12 @@ exports.recordOfflinePayment = async (req, res) => {
     const academicYear = feeRecord.academicYear || 'AY';
     const receiptNumber = `RCP-${schoolCodeStr}-${academicYear}-${seqPadded}`;
 
-    // Create payment record
-    // Parse payment date correctly to avoid timezone issues
-    // If paymentDate is in YYYY-MM-DD format, treat it as local date at noon to avoid timezone conversion issues
     let parsedPaymentDate;
     if (paymentDate) {
-      // Check if it's a date-only string (YYYY-MM-DD)
       if (/^\d{4}-\d{2}-\d{2}$/.test(paymentDate)) {
-        // Parse as local date at noon to avoid timezone issues
         const [year, month, day] = paymentDate.split('-').map(Number);
         parsedPaymentDate = new Date(year, month - 1, day, 12, 0, 0);
       } else {
-        // Parse as-is if it includes time
         parsedPaymentDate = new Date(paymentDate);
       }
     } else {
@@ -1147,10 +1154,8 @@ exports.recordOfflinePayment = async (req, res) => {
       isVerified: false
     };
 
-    // Push payment and recompute fields
     const updatedPayments = [...(feeRecord.payments || []), payment];
 
-    // Recompute totals and installment statuses
     const totalPaid = updatedPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
     const totalPending = Math.max(0, (feeRecord.totalAmount || 0) - totalPaid);
 
@@ -1165,13 +1170,11 @@ exports.recordOfflinePayment = async (req, res) => {
       return { ...inst, paidAmount: paid, status };
     });
 
-    // Overall status
     let status = 'pending';
     if (totalPaid >= (feeRecord.totalAmount || 0)) status = 'paid';
     else if (totalPaid > 0) status = 'partial';
     else if (installments.some(i => i.status === 'overdue')) status = 'overdue';
 
-    // Overdue days and nextDueDate
     const overdueInst = installments.filter(i => i.status === 'overdue');
     let overdueDays = feeRecord.overdueDays || 0;
     if (overdueInst.length > 0) {
@@ -1201,31 +1204,15 @@ exports.recordOfflinePayment = async (req, res) => {
 
     console.log(`✅ Payment recorded: ${receiptNumber}`);
 
-    // Handle challan generation and updates
-    console.log('\n🔍 === CHALLAN MANAGEMENT ===');
+    // Reconcile chalan (both the standalone 'chalans' collection AND the
+    // embedded feeRecord.challans[] array — the latter was previously left
+    // stale, which is why "View Challan" could show the old full amount).
     const chalansCol = db.collection('chalans');
     const paidInstallment = installments.find(i => i.name === installmentName);
 
-    console.log('Payment details:', {
-      installmentName,
-      paymentAmount: amount,
-      allInstallments: installments.map(i => ({
-        name: i.name,
-        amount: i.amount,
-        paidAmount: i.paidAmount,
-        status: i.status,
-        dueDate: i.dueDate
-      }))
-    });
-
     if (paidInstallment) {
       const remainingAmount = paidInstallment.amount - paidInstallment.paidAmount;
-      console.log(`Paid installment: ${paidInstallment.name}`);
-      console.log(`Installment amount: ${paidInstallment.amount}`);
-      console.log(`Paid amount: ${paidInstallment.paidAmount}`);
-      console.log(`Remaining amount: ${remainingAmount}`);
 
-      // Check if there's an existing challan for this installment
       const existingChalan = await chalansCol.findOne({
         feeRecordId: feeRecord._id,
         installmentName: paidInstallment.name,
@@ -1233,35 +1220,26 @@ exports.recordOfflinePayment = async (req, res) => {
       });
 
       if (existingChalan) {
-        // Update existing challan with remaining amount or mark as paid
-        if (remainingAmount > 0) {
-          console.log(` Updating existing challan for ${paidInstallment.name} with remaining amount: ${remainingAmount}`);
+        if (remainingAmount > 0.01) {
           await chalansCol.updateOne(
             { _id: existingChalan._id },
-            {
-              $set: {
-                amount: remainingAmount,
-                updatedAt: new Date()
-              }
-            }
+            { $set: { amount: remainingAmount, paidAmount: paidInstallment.paidAmount, updatedAt: new Date() } }
+          );
+          await studentFeeCol.updateOne(
+            { _id: feeRecord._id, 'challans.chalanId': existingChalan._id },
+            { $set: { 'challans.$.amount': remainingAmount, 'challans.$.paidAmount': paidInstallment.paidAmount, 'challans.$.updatedAt': new Date() } }
           );
         } else {
-          console.log(`✅ Marking challan for ${paidInstallment.name} as paid`);
           await chalansCol.updateOne(
             { _id: existingChalan._id },
-            {
-              $set: {
-                status: 'paid',
-                paidDate: new Date(),
-                updatedAt: new Date()
-              }
-            }
+            { $set: { status: 'paid', paidAmount: paidInstallment.amount, paymentDate: new Date(), updatedAt: new Date() } }
+          );
+          await studentFeeCol.updateOne(
+            { _id: feeRecord._id, 'challans.chalanId': existingChalan._id },
+            { $set: { 'challans.$.status': 'paid', 'challans.$.paidAmount': paidInstallment.amount, 'challans.$.updatedAt': new Date() } }
           );
         }
       } else if (remainingAmount > 0) {
-        // If no existing challan and still remaining amount, create a new one
-        console.log(`💰 Generating new challan for remaining amount: ${remainingAmount}`);
-        const Chalan = require('../models/Chalan');
         const chalanNumber = await generateChalanNumber(schoolCode, db);
 
         const chalanDoc = {
@@ -1272,7 +1250,7 @@ exports.recordOfflinePayment = async (req, res) => {
           class: feeRecord.studentClass,
           section: feeRecord.studentSection,
           amount: remainingAmount,
-          paidAmount: 0,
+          paidAmount: paidInstallment.paidAmount,
           dueDate: paidInstallment.dueDate,
           status: 'unpaid',
           installmentName: paidInstallment.name,
@@ -1283,7 +1261,6 @@ exports.recordOfflinePayment = async (req, res) => {
 
         const chalanResult = await chalansCol.insertOne(chalanDoc);
 
-        // Add challan to fee record's challans array
         await studentFeeCol.updateOne(
           { _id: feeRecord._id },
           {
@@ -1293,7 +1270,7 @@ exports.recordOfflinePayment = async (req, res) => {
                 chalanNumber,
                 installmentName,
                 amount: remainingAmount,
-                paidAmount: 0,
+                paidAmount: paidInstallment.paidAmount,
                 dueDate: paidInstallment.dueDate,
                 issueDate: new Date(),
                 status: 'unpaid',
@@ -1305,37 +1282,19 @@ exports.recordOfflinePayment = async (req, res) => {
         );
 
         console.log(`✅ Auto-generated challan ${chalanNumber} for remaining amount: ${remainingAmount}`);
-      } else if (Math.abs(remainingAmount) < 0.01) {  // Handle floating point precision
-        console.log(`✅ Installment ${installmentName} is FULLY PAID!`);
-        console.log('Looking for next pending installment...');
-
-        // Find all pending installments (excluding current one)
+      } else if (Math.abs(remainingAmount) < 0.01) {
         const pendingInstallments = installments.filter(i => {
           const isPending = i.status === 'pending' || i.status === 'overdue';
           const isDifferent = i.name !== installmentName;
           const hasUnpaidAmount = !i.paidAmount || i.paidAmount < i.amount;
-
-          console.log(`Checking installment ${i.name}:`, {
-            status: i.status,
-            isPending,
-            isDifferent,
-            hasUnpaidAmount,
-            willInclude: isPending && isDifferent && hasUnpaidAmount
-          });
-
           return isPending && isDifferent && hasUnpaidAmount;
         });
 
-        console.log(`Found ${pendingInstallments.length} pending installments`);
-
-        // Get the next one by due date
         const nextPendingInstallment = pendingInstallments.length > 0
           ? pendingInstallments.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))[0]
           : null;
 
         if (nextPendingInstallment) {
-          console.log(`📋 Generating challan for next installment: ${nextPendingInstallment.name}`);
-
           const chalanNumber = await generateChalanNumber(schoolCode, db);
 
           const chalanDoc = {
@@ -1378,17 +1337,16 @@ exports.recordOfflinePayment = async (req, res) => {
           );
 
           console.log(`✅ Auto-generated challan ${chalanNumber} for next installment: ${nextPendingInstallment.name}`);
-        } else {
-          console.log(`ℹ️ No more pending installments found. All fees paid!`);
         }
-      } else {
-        console.log(`⚠️ Unexpected remaining amount: ${remainingAmount}`);
       }
-    } else {
-      console.log(`❌ Could not find paid installment: ${installmentName}`);
     }
 
-    console.log('=== AUTO-CHALLAN GENERATION CHECK COMPLETE ===\n');
+    // Invalidate the student's cached fee overview so they see this update immediately
+    try {
+      studentPortalController.invalidateFeesCache(schoolCode, feeRecord.studentId, feeRecord.academicYear);
+    } catch (cacheErr) {
+      console.warn('[Fees] Failed to invalidate student fees cache:', cacheErr.message);
+    }
 
     res.json({
       success: true,
@@ -1396,7 +1354,6 @@ exports.recordOfflinePayment = async (req, res) => {
       data: {
         receiptNumber: payment.receiptNumber,
         paymentId: payment.paymentId,
-        // Return recalculated values
         totalPaid,
         totalPending,
         status

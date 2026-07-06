@@ -13,6 +13,15 @@ interface Installment {
   description: string;
 }
 
+// Returns today's date as YYYY-MM-DD (local time), used as the floor for due-date pickers
+const getTodayDateString = (): string => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const FeeStructureTab: React.FC = () => {
   const { user } = useAuth();
   const { currentAcademicYear, availableYears, loading: academicYearLoading } = useAcademicYear();
@@ -104,6 +113,13 @@ const FeeStructureTab: React.FC = () => {
 
   // Update installment
   const handleInstallmentChange = (index: number, field: keyof Installment, value: string | number) => {
+    if (field === 'dueDate' && typeof value === 'string' && value) {
+      const today = getTodayDateString();
+      if (value < today) {
+        setError('Due date cannot be in the past. Please select today or a future date.');
+        return;
+      }
+    }
     const newInstallments = [...installments];
     newInstallments[index] = { ...newInstallments[index], [field]: value };
     setInstallments(newInstallments);
@@ -155,6 +171,12 @@ const FeeStructureTab: React.FC = () => {
 
     if (!name || !totalAmount || installments.some(inst => !inst.name || !inst.amount || !inst.dueDate)) {
       setError('Please fill all required fields');
+      return;
+    }
+
+    const today = getTodayDateString();
+    if (installments.some(inst => inst.dueDate && inst.dueDate < today)) {
+      setError('All installment due dates must be today or a future date.');
       return;
     }
 
@@ -437,6 +459,7 @@ const FeeStructureTab: React.FC = () => {
                       <input
                         type="date"
                         value={installment.dueDate}
+                        min={getTodayDateString()}
                         onChange={(e) => handleInstallmentChange(index, 'dueDate', e.target.value)}
                         className="px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                       />

@@ -1259,6 +1259,7 @@ hasSchoolLogo: !!(data.logoUrl || data.logo || schoolData.schoolLogo),
 
     const chalanData = {
       ...installment,
+      amount: Math.max(0, (installment.amount || 0) - (installment.paidAmount || 0)),
       studentName: student.name,
       studentId: student.mongoId || student.studentId, // MongoDB ObjectId
       userId: student.userId || student.studentId, // User-friendly ID like KVS-S-0003
@@ -1784,8 +1785,9 @@ return (
                                 chalanStatus: chalanInstallment.chalanStatus || 'generated',
                                 
                                 // Installment Details
+                                // Installment Details
                                 installmentName: chalanInstallment.name || 'Fee Installment',
-                                amount: chalanInstallment.amount || 0,
+                                amount: Math.max(0, (chalanInstallment.amount || 0) - (chalanInstallment.paidAmount || 0)),
                                 dueDate: chalanInstallment.dueDate || ''
                               };
                               
