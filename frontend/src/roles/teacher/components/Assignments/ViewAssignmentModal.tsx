@@ -50,7 +50,7 @@ const ViewAssignmentModal: React.FC<ViewAssignmentModalProps> = ({
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'active': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'active': return 'bg-violet-100 text-violet-800 border-violet-200';
       case 'completed': return 'bg-green-100 text-green-800 border-green-200';
       case 'overdue': return 'bg-red-100 text-red-800 border-red-200';
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
@@ -65,8 +65,8 @@ const ViewAssignmentModal: React.FC<ViewAssignmentModalProps> = ({
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-gray-50 to-white">
           <div className="flex items-center gap-3">
-            <div className="bg-blue-100 p-2 rounded-lg">
-              <FileText className="h-5 w-5 text-blue-600" />
+            <div className="bg-violet-100 p-2 rounded-lg">
+              <FileText className="h-5 w-5 text-violet-600" />
             </div>
             <h2 className="text-xl font-semibold text-gray-900">Assignment Overview</h2>
           </div>
@@ -82,7 +82,7 @@ const ViewAssignmentModal: React.FC<ViewAssignmentModalProps> = ({
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {loading ? (
             <div className="py-20 text-center">
-              <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-blue-600/20 border-t-blue-600"></div>
+              <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-violet-600/20 border-t-violet-600"></div>
               <p className="mt-4 text-gray-500 font-medium">Loading details...</p>
             </div>
           ) : error ? (
@@ -129,12 +129,12 @@ const ViewAssignmentModal: React.FC<ViewAssignmentModalProps> = ({
               </div>
 
               {/* Teacher Info */}
-              <div className="flex items-center gap-3 p-4 bg-blue-50/50 rounded-2xl border border-blue-100">
-                <div className="bg-blue-600 p-2 rounded-full">
+              <div className="flex items-center gap-3 p-4 bg-violet-50/50 rounded-2xl border border-violet-100">
+                <div className="bg-violet-600 p-2 rounded-full">
                   <User className="h-5 w-5 text-white" />
                 </div>
                 <div>
-                  <p className="text-[10px] text-blue-600 font-medium uppercase tracking-wider">Assigned By</p>
+                  <p className="text-[10px] text-violet-600 font-medium uppercase tracking-wider">Assigned By</p>
                   <p className="text-sm font-semibold text-gray-900">
                     {typeof assignment.teacher === 'object' ? assignment.teacher.name : assignment.teacher || 'Teacher'}
                   </p>
@@ -211,17 +211,17 @@ const ViewAssignmentModal: React.FC<ViewAssignmentModalProps> = ({
                         <button
                           key={index}
                           onClick={(e) => handleDownload(e, file)}
-                          className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-xl hover:border-blue-400 hover:shadow-md transition-all group w-full text-left"
+                          className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-xl hover:border-violet-400 hover:shadow-md transition-all group w-full text-left"
                         >
                           <div className="flex items-center gap-3 min-w-0">
-                            <div className="bg-gray-100 p-2 rounded-lg group-hover:bg-blue-50 transition-colors">
-                              <FileText className="h-4 w-4 text-gray-500 group-hover:text-blue-600" />
+                            <div className="bg-gray-100 p-2 rounded-lg group-hover:bg-violet-50 transition-colors">
+                              <FileText className="h-4 w-4 text-gray-500 group-hover:text-violet-600" />
                             </div>
                             <span className="text-sm font-medium text-gray-700 truncate">
                               {file.originalName || file.filename}
                             </span>
                           </div>
-                          <Download className="h-4 w-4 text-gray-400 group-hover:text-blue-600 flex-shrink-0" />
+                          <Download className="h-4 w-4 text-gray-400 group-hover:text-violet-600 flex-shrink-0" />
                         </button>
                       );
                     })}

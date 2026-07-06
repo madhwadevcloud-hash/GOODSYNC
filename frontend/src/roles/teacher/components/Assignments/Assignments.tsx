@@ -50,7 +50,7 @@ const Assignments: React.FC<AssignmentsProps> = ({ onNavigate }) => {
               onClick={() => setActiveTab('view')}
               className={`flex items-center space-x-2 py-4 border-b-2 transition-colors ${
                 activeTab === 'view'
-                  ? 'border-blue-600 text-blue-600'
+                  ? 'border-violet-600 text-violet-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
@@ -61,7 +61,7 @@ const Assignments: React.FC<AssignmentsProps> = ({ onNavigate }) => {
               onClick={() => setActiveTab('add')}
               className={`flex items-center space-x-2 py-4 border-b-2 transition-colors ${
                 activeTab === 'add'
-                  ? 'border-blue-600 text-blue-600'
+                  ? 'border-violet-600 text-violet-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >

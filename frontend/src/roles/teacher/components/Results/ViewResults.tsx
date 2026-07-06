@@ -453,7 +453,7 @@ const ViewResults: React.FC = () => {
   value={viewingAcademicYear}
   onChange={(e) => setViewingYear(e.target.value)}
   disabled={user?.role !== "superadmin"}
-  className={`px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[150px] ${
+  className={`px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent min-w-[150px] ${
     user?.role !== "superadmin"
       ? "bg-gray-100 cursor-not-allowed"
       : ""
@@ -474,7 +474,7 @@ const ViewResults: React.FC = () => {
               id="class-select"
               value={selectedClass}
               onChange={(e) => setSelectedClass(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[150px]"
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent min-w-[150px]"
               disabled={classesLoading || !hasClasses()}
             >
               <option value="">{classesLoading ? 'Loading...' : 'Select Class'}</option>
@@ -491,7 +491,7 @@ const ViewResults: React.FC = () => {
               id="section-select"
               value={selectedSection}
               onChange={(e) => setSelectedSection(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[150px]"
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent min-w-[150px]"
               disabled={!selectedClass || availableSections.length === 0}
             >
               <option value="">{!selectedClass ? 'Select Class First' : 'Select Section'}</option>
@@ -508,7 +508,7 @@ const ViewResults: React.FC = () => {
               id="test-type-select"
               value={selectedTestType}
               onChange={(e) => setSelectedTestType(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[180px]"
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent min-w-[180px]"
               disabled={!selectedClass || loadingTestTypes}
             >
               <option value="">
@@ -527,7 +527,7 @@ const ViewResults: React.FC = () => {
           {/* Search Button */}
           <button
             onClick={fetchResultsOrStudents}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg flex items-center transition-colors self-end shadow-sm font-medium"
+            className="bg-violet-600 hover:bg-violet-700 text-white px-5 py-2 rounded-lg flex items-center transition-colors self-end shadow-sm font-medium"
             disabled={loading}
           >
             {loading ? (
@@ -604,7 +604,7 @@ const ViewResults: React.FC = () => {
                                 }
                               }}
                               disabled={isFrozen}
-                              className="w-20 px-2 py-1 text-center border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed font-medium"
+                              className="w-20 px-2 py-1 text-center border border-gray-300 rounded focus:ring-2 focus:ring-violet-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed font-medium"
                               placeholder="-"
                               min="0"
                               max={configuredMaxMarks ?? 100}
@@ -612,7 +612,7 @@ const ViewResults: React.FC = () => {
                             {score !== null && (
                               <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
                                 ['A1', 'A2', 'A+'].includes(grade) ? 'bg-green-50 text-green-700' :
-                                ['B1', 'B2', 'B'].includes(grade) ? 'bg-blue-50 text-blue-700' :
+                                ['B1', 'B2', 'B'].includes(grade) ? 'bg-violet-50 text-violet-700' :
                                 ['C1', 'C2', 'C'].includes(grade) ? 'bg-yellow-50 text-yellow-700 font-medium' :
                                 grade === 'D' ? 'bg-orange-50 text-orange-700' :
                                 'bg-red-50 text-red-700'

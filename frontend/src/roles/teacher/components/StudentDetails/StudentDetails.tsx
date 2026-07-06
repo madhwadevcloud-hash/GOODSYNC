@@ -72,13 +72,13 @@ const StudentDetails: React.FC = () => {
         </div>
         
         <div className="relative group w-full md:w-80">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-violet-500 transition-colors" />
           <input
             type="text"
             placeholder="Search Class or Section..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none text-sm"
+            className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-xl shadow-sm focus:ring-2 focus:ring-violet-500/10 focus:border-violet-500 transition-all outline-none text-sm"
           />
         </div>
       </div>
@@ -86,7 +86,7 @@ const StudentDetails: React.FC = () => {
       {/* Grid of Classes */}
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20 space-y-4">
-          <div className="h-10 w-10 rounded-full border-2 border-blue-600 border-t-transparent animate-spin"></div>
+          <div className="h-10 w-10 rounded-full border-2 border-violet-600 border-t-transparent animate-spin"></div>
           <p className="text-sm font-medium text-gray-500">Loading Class Records...</p>
         </div>
       ) : error ? (
@@ -115,15 +115,15 @@ const StudentDetails: React.FC = () => {
             <button
               key={`${item.className}-${item.section}`}
               onClick={() => setSelectedClass({ className: item.className, section: item.section })}
-              className="group relative bg-white p-4 rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-blue-300 transition-all text-left flex items-center justify-between gap-4"
+              className="group relative bg-white p-4 rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-violet-300 transition-all text-left flex items-center justify-between gap-4"
             >
               <div className="flex items-center gap-4">
-                <div className="p-3 bg-blue-50 rounded-xl text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-all flex-shrink-0">
+                <div className="p-3 bg-violet-50 rounded-xl text-violet-600 group-hover:bg-violet-600 group-hover:text-white transition-all flex-shrink-0">
                   <GraduationCap className="h-6 w-6" />
                 </div>
                 
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+                  <h3 className="text-lg font-semibold text-gray-900 group-hover:text-violet-600 transition-colors">
                     Class {item.className}
                   </h3>
                   <div className="flex items-center gap-2">
@@ -134,9 +134,9 @@ const StudentDetails: React.FC = () => {
                 </div>
               </div>
 
-              <div className="bg-blue-600 min-w-[60px] px-2 py-1.5 rounded-lg flex flex-col items-center justify-center">
+              <div className="bg-violet-600 min-w-[60px] px-2 py-1.5 rounded-lg flex flex-col items-center justify-center">
                 <div className="text-lg font-bold text-white leading-none">{item.count}</div>
-                <div className="text-[8px] font-medium text-blue-100 uppercase tracking-wider mt-0.5">Students</div>
+                <div className="text-[8px] font-medium text-violet-100 uppercase tracking-wider mt-0.5">Students</div>
               </div>
             </button>
           ))}
