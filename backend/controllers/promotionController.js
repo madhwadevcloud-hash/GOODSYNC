@@ -1241,6 +1241,50 @@ exports.submitPromotionRequest = async (req, res) => {
       });
     }
 
+    // Verify Promotion Date and Effective Date are within the Destination Academic Year (toYear)
+    const acadStart = school.settings.academicYear.startDate;
+    const acadEnd = school.settings.academicYear.endDate;
+
+    if (!acadStart || !acadEnd) {
+      return res.status(400).json({
+        success: false,
+        message: 'Academic year start and end dates are not configured for the destination year.'
+      });
+    }
+
+    const getIsoDateOnly = (dateInput) => {
+      if (!dateInput) return null;
+      const d = new Date(dateInput);
+      if (isNaN(d.getTime())) return null;
+      return d.toISOString().split('T')[0];
+    };
+
+    const promoStr = getIsoDateOnly(promotionDate);
+    const effStr = getIsoDateOnly(effectiveDate);
+    const startStr = getIsoDateOnly(acadStart);
+    const endStr = getIsoDateOnly(acadEnd);
+
+    if (!promoStr || !effStr || !startStr || !endStr) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid date formats provided.'
+      });
+    }
+
+    if (promoStr < startStr || promoStr > endStr) {
+      return res.status(400).json({
+        success: false,
+        message: `Promotion Date (${promoStr}) must fall within the Destination Academic Year (${toYear}) range: ${startStr} to ${endStr}.`
+      });
+    }
+
+    if (effStr < startStr || effStr > endStr) {
+      return res.status(400).json({
+        success: false,
+        message: `Effective Date (${effStr}) must fall within the Destination Academic Year (${toYear}) range: ${startStr} to ${endStr}.`
+      });
+    }
+
     // Check for any existing request (pending, approved, or already completed)
     const existingActive = await PromotionRequest.findOne({
       schoolCode: schoolCode,

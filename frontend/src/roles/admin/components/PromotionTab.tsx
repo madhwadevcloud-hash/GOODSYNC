@@ -54,6 +54,8 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
   const [reqToYear, setReqToYear] = useState('');
   const [promotionDate, setPromotionDate] = useState('');
   const [effectiveDate, setEffectiveDate] = useState('');
+  const [destYearStart, setDestYearStart] = useState('');
+  const [destYearEnd, setDestYearEnd] = useState('');
 
   const [selectedClass, setSelectedClass] = useState('');
   const [selectedSection, setSelectedSection] = useState('');
@@ -157,13 +159,55 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
     return () => clearInterval(interval);
   }, [fetchActiveRequest, fetchNotifications]);
 
-  // Always sync request years from the parent-supplied dynamic props
-  // fromYear = previous academic year (source), toYear = current academic year (destination)
-  // These are computed from the Super Admin's active academic year and must never be manually editable
   useEffect(() => {
     if (fromYear) setReqFromYear(fromYear);
     if (toYear) setReqToYear(toYear);
   }, [fromYear, toYear]);
+
+  // Fetch destination academic year start and end dates dynamically
+  useEffect(() => {
+    const fetchDestYearDates = async () => {
+      const { schoolCode } = getAuthData();
+      if (!schoolCode || !reqToYear) return;
+      try {
+        const resp = await api.get(`/admin/academic-year/${schoolCode}`);
+        if (resp.data.success) {
+          const { currentYear, startDate, endDate } = resp.data.data || {};
+          if (currentYear === reqToYear) {
+            setDestYearStart(startDate ? startDate.split('T')[0] : '');
+            setDestYearEnd(endDate ? endDate.split('T')[0] : '');
+          } else {
+            deriveFallbackDates(reqToYear);
+          }
+        } else {
+          deriveFallbackDates(reqToYear);
+        }
+      } catch (err) {
+        console.error('Failed to load destination academic year dates:', err);
+        deriveFallbackDates(reqToYear);
+      }
+    };
+
+    const deriveFallbackDates = (yearStr: string) => {
+      const match = yearStr.match(/^(\d{4})-(\d{2})$/);
+      if (match) {
+        const startYearNum = parseInt(match[1]);
+        const endYearNum = startYearNum + 1;
+        setDestYearStart(`${startYearNum}-04-01`);
+        setDestYearEnd(`${endYearNum}-03-31`);
+      }
+    };
+
+    fetchDestYearDates();
+  }, [reqToYear]);
+
+  // Reset selected dates if they are out of range of the new destination year range when range changes
+  useEffect(() => {
+    if (destYearStart && destYearEnd) {
+      setPromotionDate(prev => (prev && (prev < destYearStart || prev > destYearEnd) ? '' : prev));
+      setEffectiveDate(prev => (prev && (prev < destYearStart || prev > destYearEnd) ? '' : prev));
+    }
+  }, [destYearStart, destYearEnd]);
 
   // Resolve a student's actual current class/section, since different records
   // store this under different field paths (academicInfo.class, studentDetails.academic.currentClass,
@@ -368,6 +412,16 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
 
     if (!reqFromYear || !reqToYear || !promotionDate || !effectiveDate) {
       alert('Please fill in all request fields.');
+      return;
+    }
+
+    if (destYearStart && (promotionDate < destYearStart || promotionDate > destYearEnd)) {
+      alert(`Promotion Date must fall within the Destination Academic Year (${reqToYear}) range: ${destYearStart} to ${destYearEnd}.`);
+      return;
+    }
+
+    if (destYearStart && (effectiveDate < destYearStart || effectiveDate > destYearEnd)) {
+      alert(`Effective Date must fall within the Destination Academic Year (${reqToYear}) range: ${destYearStart} to ${destYearEnd}.`);
       return;
     }
 
@@ -599,6 +653,8 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
                 <input
                   type="date"
                   value={promotionDate}
+                  min={destYearStart}
+                  max={destYearEnd}
                   onChange={(e) => setPromotionDate(e.target.value)}
                   required
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
@@ -609,6 +665,8 @@ const PromotionTab: React.FC<PromotionTabProps> = ({
                 <input
                   type="date"
                   value={effectiveDate}
+                  min={destYearStart}
+                  max={destYearEnd}
                   onChange={(e) => setEffectiveDate(e.target.value)}
                   required
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"

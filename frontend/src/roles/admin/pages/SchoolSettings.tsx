@@ -1001,11 +1001,10 @@ const SchoolSettings: React.FC = () => {
                                   <input
                                     type="number"
                                     min="0"
-                                    max="100"
                                     value={scale.minPercentage}
                                     onChange={(e) => {
                                       const updated = [...gradingSystem];
-                                      updated[index].minPercentage = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
+                                      updated[index].minPercentage = Math.max(0, parseFloat(e.target.value) || 0);
                                       setGradingSystem(updated);
                                     }}
                                     className="w-full text-sm text-center border border-gray-300 rounded px-1.5 py-1 focus:ring-1 focus:ring-blue-500"
@@ -1017,11 +1016,10 @@ const SchoolSettings: React.FC = () => {
                                   <input
                                     type="number"
                                     min="0"
-                                    max="100"
                                     value={scale.maxPercentage}
                                     onChange={(e) => {
                                       const updated = [...gradingSystem];
-                                      updated[index].maxPercentage = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
+                                      updated[index].maxPercentage = Math.max(0, parseFloat(e.target.value) || 0);
                                       setGradingSystem(updated);
                                     }}
                                     className="w-full text-sm text-center border border-gray-300 rounded px-1.5 py-1 focus:ring-1 focus:ring-blue-500"
