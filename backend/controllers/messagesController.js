@@ -832,8 +832,12 @@ exports.getStudentMessages = async (req, res) => {
     const messagesCollection = db.collection('messages');
     
     // Get student's class and section
-    const studentClass = req.user.studentDetails?.currentClass || req.user.class;
-    const studentSection = req.user.studentDetails?.currentSection || req.user.section;
+    const studentClass = req.user.studentDetails?.academic?.currentClass ||
+                          req.user.studentDetails?.currentClass ||
+                          req.user.class;
+    const studentSection = req.user.studentDetails?.academic?.currentSection ||
+                            req.user.studentDetails?.currentSection ||
+                            req.user.section;
     
     console.log('📚 Student class/section:', { studentClass, studentSection });
     
@@ -886,8 +890,11 @@ exports.getStudentMessages = async (req, res) => {
       title: msg.title,
       subject: msg.subject,
       message: msg.message,
+      content: msg.message, // Alias used by the student portal UI
+      sender: 'Admin',
       createdAt: msg.createdAt,
-      messageAge: calculateMessageAge(msg.createdAt)
+      messageAge: calculateMessageAge(msg.createdAt),
+      isRead: true // No per-student read tracking yet; messages are shown as read once fetched
     }));
     
     res.json({

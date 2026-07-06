@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useAuth } from "../../../auth/AuthContext";
 import {
@@ -7,6 +8,22 @@ import {
   IndianRupee,
   Bell,
 } from "lucide-react";
+import api from "../../../services/api";
+
+interface Announcement {
+  id: number;
+  title: string;
+  description: string;
+  date: string;
+}
+
+interface DashboardData {
+  attendancePercentage: number | null;
+  pendingAssignments: number | null;
+  latestGrade: string | null;
+  pendingFees: number | null;
+  announcements: Announcement[];
+}
 
 interface Announcement {
   id: number;
@@ -24,118 +41,102 @@ interface DashboardData {
 }
 
 export default function Dashboard() {
-  // Temporary frontend state.
-  // Backend team will replace these values using API responses.
   const { user } = useAuth();
-  
+
   const [dashboardData, setDashboardData] = useState<DashboardData>({
-    attendancePercentage: null as number | null,
-    pendingAssignments: null as number | null,
-    latestGrade: null as string | null,
-    pendingFees: null as number | null,
-    announcements: [] as {
-      id: number;
-      title: string;
-      description: string;
-      date: string;
-    }[],
+    attendancePercentage: null,
+    pendingAssignments: null,
+    latestGrade: null,
+    pendingFees: null,
+    announcements: [],
   });
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-
-    /*
-    ==========================================================
-    DEMO DATA (FRONTEND ONLY)
-
-    This data is ONLY for frontend development.
-
-    Backend team should REMOVE this block and
-    replace it with the API call shown below.
-
-    ==========================================================
-    */
-
-    setDashboardData({
-
-      attendancePercentage: 94,
-
-      pendingAssignments: 3,
-
-      latestGrade: "A+",
-
-      pendingFees: 2500,
-
-      announcements: [
-
-        {
-          id: 1,
-          title: "Unit Test Schedule Released",
-          description:
-            "Unit Test-I will begin from 22 July 2026. Please check the timetable.",
-          date: "15 Jul 2026",
-        },
-
-        {
-          id: 2,
-          title: "Science Exhibition",
-          description:
-            "Students are requested to register for the Annual Science Exhibition.",
-          date: "13 Jul 2026",
-        },
-
-        {
-          id: 3,
-          title: "Parent-Teacher Meeting",
-          description:
-            "PTM will be conducted on Saturday from 10:00 AM to 1:00 PM.",
-          date: "10 Jul 2026",
-        },
-
-      ],
-
-    });
-
-    /*
-    ==========================================================
-
-    BACKEND API INTEGRATION
-
-    Replace the above demo data with the API call below.
-
     const fetchDashboard = async () => {
+      try {
+        setLoading(true);
+        setError("");
 
-        try {
+        // Fetch everything in parallel. Each call is handled independently
+        // (via allSettled) so one missing/empty section (e.g. no fee
+        // record yet) doesn't block the rest of the dashboard.
+        const [attendanceRes, feesRes, assignmentsRes, resultsRes, messagesRes] =
+          await Promise.allSettled([
+            api.get("/attendance/my-attendance"),
+            api.get("/fees/my-fees"),
+            api.get("/assignments", { params: { limit: 100 } }),
+            api.get("/results/my-results"),
+            api.get("/messages/student", { params: { limit: 5 } }),
+          ]);
 
-            setLoading(true);
-
-            const response = await api.get("/student/dashboard");
-
-            setDashboardData(response.data);
-
+        // Attendance %
+        let attendancePercentage: number | null = null;
+        if (attendanceRes.status === "fulfilled") {
+          attendancePercentage =
+            attendanceRes.value.data?.data?.summary?.attendancePercentage ?? null;
         }
 
-        catch (err) {
-
-            setError("Unable to load dashboard");
-
+        // Pending fees
+        let pendingFees: number | null = null;
+        if (feesRes.status === "fulfilled") {
+          pendingFees = feesRes.value.data?.data?.totalPending ?? null;
         }
 
-        finally {
-
-            setLoading(false);
-
+        // Pending assignments: active assignments whose due date hasn't passed yet.
+        // (There's no per-student submission tracking wired up yet, so this
+        // counts "not yet due" rather than "not yet submitted".)
+        let pendingAssignments: number | null = null;
+        if (assignmentsRes.status === "fulfilled") {
+          const list = assignmentsRes.value.data?.assignments ?? [];
+          const now = new Date();
+          pendingAssignments = list.filter((a: any) => {
+            if (!a.dueDate) return true;
+            return new Date(a.dueDate) >= now;
+          }).length;
         }
 
+        // Latest overall grade
+        let latestGrade: string | null = null;
+        if (resultsRes.status === "fulfilled") {
+          latestGrade = resultsRes.value.data?.data?.summary?.overallGrade ?? null;
+        }
+
+        // Announcements (reuse the messages feed)
+        let announcements: Announcement[] = [];
+        if (messagesRes.status === "fulfilled") {
+          const msgs = messagesRes.value.data?.data ?? [];
+          announcements = msgs.map((m: any, index: number) => ({
+            id: index,
+            title: m.title,
+            description: m.content || m.message,
+            date: m.createdAt
+              ? new Date(m.createdAt).toLocaleDateString("en-GB", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                })
+              : "",
+          }));
+        }
+
+        setDashboardData({
+          attendancePercentage,
+          pendingAssignments,
+          latestGrade,
+          pendingFees,
+          announcements,
+        });
+      } catch (err) {
+        setError("Unable to load dashboard");
+      } finally {
+        setLoading(false);
+      }
     };
 
     fetchDashboard();
-
-    ==========================================================
-    */
-
   }, []);
 
   const cards = [
