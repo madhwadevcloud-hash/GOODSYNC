@@ -432,18 +432,32 @@ const getDueStatus = (dueDate: string) => {
   });
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900">Assignments</h1>
-        <div className="flex space-x-3">
-  <button
-    onClick={handleAddAssignment}
-    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
-  >
-    <Plus className="h-4 w-4 mr-2" />
-    Add Assignment
-  </button>
-</div>
+    <div className="space-y-6 relative">
+      <div className="sticky top-[72px] z-20 flex flex-col gap-6 pt-4 pb-2 -mt-4 bg-[#f8fafc]">
+        {/* Header */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sm:p-8 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50 rounded-full blur-3xl opacity-60 -mr-20 -mt-20 pointer-events-none"></div>
+          <div className="flex items-center justify-between relative z-10">
+            <div className="flex items-center space-x-4">
+              <div className="bg-indigo-600 p-3 rounded-xl flex items-center justify-center shadow-sm">
+                <FileText className="h-7 w-7 text-white" strokeWidth={2} />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Assignments</h1>
+                <p className="text-sm font-medium text-slate-500 mt-1">Manage and track student assignments</p>
+              </div>
+            </div>
+            <div className="flex space-x-3">
+              <button
+                onClick={handleAddAssignment}
+                className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl hover:bg-indigo-700 flex items-center gap-2 font-semibold shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5"
+              >
+                <Plus className="h-5 w-5" />
+                Add Assignment
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Error Message */}
@@ -462,58 +476,56 @@ const getDueStatus = (dueDate: string) => {
       )}
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-          <div className="flex items-center">
-            <div className="bg-blue-500 p-3 rounded-lg">
-              <FileText className="h-6 w-6 text-white" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Total Assignments</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
-            </div>
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between hover:shadow-md transition-shadow">
+          <div>
+            <p className="text-sm font-bold text-slate-500">Total Assignments</p>
+            <p className="text-3xl font-black text-slate-800 mt-1">{stats.total}</p>
+          </div>
+          <div className="bg-gradient-to-tr from-blue-500 to-indigo-500 p-4 rounded-2xl shadow-sm text-white">
+            <FileText className="h-7 w-7" />
           </div>
         </div>
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-          <div className="flex items-center">
-            <div className="bg-purple-500 p-3 rounded-lg">
-              <Calendar className="h-6 w-6 text-white" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Due This Week</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.dueThisWeek}</p>
-            </div>
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between hover:shadow-md transition-shadow">
+          <div>
+            <p className="text-sm font-bold text-slate-500">Due This Week</p>
+            <p className="text-3xl font-black text-slate-800 mt-1">{stats.dueThisWeek}</p>
+          </div>
+          <div className="bg-gradient-to-tr from-purple-500 to-pink-500 p-4 rounded-2xl shadow-sm text-white">
+            <Calendar className="h-7 w-7" />
           </div>
         </div>
       </div>
 
       {/* Search and Filters */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+      {/* Search and Filters */}
+      <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
         <div className="flex flex-col md:flex-row gap-4">
-          <div className="relative w-full md:w-64">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+          <div className="relative w-full md:w-72 shrink-0">
+            <Search className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 h-5 w-5" />
             <input
               type="text"
               placeholder="Search assignments..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 focus:bg-white transition-all text-sm font-medium text-slate-700 placeholder:text-slate-400"
             />
           </div>
-          <div className="flex flex-1 gap-3">
+          <div className="flex flex-1 gap-3 overflow-x-auto pb-1 md:pb-0 custom-scrollbar">
             <select
               value={viewingAcademicYear}
               onChange={(e) => setViewingYear(e.target.value)}
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              disabled
+              title="Super Admin access required to change the academic year"
+              className="min-w-[140px] flex-1 px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm font-medium text-slate-500 cursor-not-allowed opacity-80 hover:bg-slate-200 transition-all"
             >
-              <option value={currentAcademicYear}>
-  {currentAcademicYear} (Current)
-</option>
+              <option value={currentAcademicYear}>{currentAcademicYear} (Current)</option>
             </select>
             <select
               value={selectedClass}
               onChange={(e) => setSelectedClass(e.target.value)}
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="min-w-[140px] flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 focus:bg-white transition-all text-sm font-medium text-slate-700"
             >
               <option value="">All Classes</option>
               {getClassOptions().map((cls) => (
@@ -523,7 +535,7 @@ const getDueStatus = (dueDate: string) => {
             <select
               value={selectedSection}
               onChange={(e) => setSelectedSection(e.target.value)}
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="min-w-[140px] flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 focus:bg-white transition-all text-sm font-medium text-slate-700"
             >
               <option value="">All Sections</option>
               {(selectedClass ? getSectionsByClass(selectedClass) : []).map((section) => (
@@ -533,7 +545,7 @@ const getDueStatus = (dueDate: string) => {
             <select
               value={selectedSubject}
               onChange={(e) => setSelectedSubject(e.target.value)}
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="min-w-[140px] flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 focus:bg-white transition-all text-sm font-medium text-slate-700"
             >
               <option value="">All Subjects</option>
               {subjects.map((subject) => (
@@ -545,34 +557,38 @@ const getDueStatus = (dueDate: string) => {
       </div>
       
 {/* Due Date Information */}
-<div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm">
-  <div className="flex items-center gap-2 text-gray-600">
-    <Calendar className="h-4 w-4 text-gray-400" />
-    <span>Assignments cannot be edited after the due date.</span>
-  </div>
-</div>
+      {/* Due Date Information */}
+      <div className="flex items-center justify-between rounded-xl border border-blue-100 bg-blue-50/50 px-5 py-3 text-sm">
+        <div className="flex items-center gap-3 text-blue-700 font-medium">
+          <Calendar className="h-5 w-5 text-blue-500" />
+          <span>Assignments cannot be edited after their due date passes.</span>
+        </div>
+      </div>
+
       {/* Assignments Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mx-2 sm:mx-0">
+        <div className="overflow-x-auto custom-scrollbar">
+          <table className="min-w-full divide-y divide-slate-100">
+            <thead className="bg-slate-50/50 backdrop-blur-md border-b border-slate-100">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assignment</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Class</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Section</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subject</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Assignment</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Class</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Section</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Subject</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Due Date</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white divide-y divide-slate-50">
               {filteredAssignments.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center">
+                  <td colSpan={6} className="px-6 py-16 text-center">
                     <div className="flex flex-col items-center justify-center">
-                      <FileText className="h-12 w-12 text-gray-400 mb-3" />
-                      <p className="text-gray-500 text-lg font-medium">No assignments found</p>
-                      <p className="text-gray-400 text-sm mt-1">
+                      <div className="h-20 w-20 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+                        <FileText className="h-10 w-10 text-slate-300" />
+                      </div>
+                      <p className="text-slate-800 text-lg font-bold">No assignments found</p>
+                      <p className="text-slate-500 text-sm mt-1 font-medium">
                         {searchTerm || selectedClass || selectedSection || selectedSubject || selectedFilter !== 'all'
                           ? 'Try adjusting your filters'
                           : 'Create your first assignment to get started'}
@@ -585,22 +601,22 @@ const getDueStatus = (dueDate: string) => {
   const dueStatus = getDueStatus(assignment.dueDate);
 
   return (
-                  <tr key={assignment._id} className="hover:bg-gray-50">
+                  <tr key={assignment._id} className="hover:bg-slate-50/80 transition-colors duration-150 border-b border-slate-50 last:border-0 group/row">
                     <td className="px-6 py-4">
-                      <div className="text-sm font-medium text-gray-900">{assignment.title || 'Untitled Assignment'}</div>
+                      <div className="text-[15px] font-bold text-slate-800">{assignment.title || 'Untitled Assignment'}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-700">
                       {assignment.class || 'N/A'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-700">
                       {assignment.section || 'N/A'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-700">
                       {assignment.subject || 'N/A'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-600">
                       <div className="flex items-center">
-                        <Calendar className="h-4 w-4 mr-1 text-gray-400" />
+                        <Calendar className="h-4 w-4 mr-2 text-indigo-400" />
                         {assignment.dueDate ? new Date(assignment.dueDate).toLocaleDateString() : 'No due date'}
                       </div>
                     </td>
@@ -608,34 +624,34 @@ const getDueStatus = (dueDate: string) => {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => handleViewAssignment(assignment._id)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg font-semibold text-xs hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
+                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-100 text-slate-600 rounded-xl font-bold text-xs hover:bg-emerald-500 hover:text-white hover:shadow-md hover:shadow-emerald-200/50 hover:scale-105 transition-all duration-300"
                           title="View assignment details"
                         >
-                          <Eye className="h-3.5 w-3.5" />
+                          <Eye className="h-3.5 w-3.5" strokeWidth={2.5} />
                           View
                         </button>
                         <span
-  className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold ${dueStatus.className}`}
->
-  <Calendar className="h-3.5 w-3.5" />
-  {dueStatus.text}
-</span>
+                          className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold ${dueStatus.className}`}
+                        >
+                          <Calendar className="h-3.5 w-3.5" />
+                          {dueStatus.text}
+                        </span>
                         {canEditAssignment(assignment.dueDate) && (
-  <button
-    onClick={() => handleEditAssignment(assignment._id)}
-    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg font-semibold text-xs hover:bg-blue-600 hover:text-white transition-all shadow-sm"
-    title="Edit assignment"
-  >
-    <Edit className="h-3.5 w-3.5" />
-    Edit
-  </button>
-)}
+                          <button
+                            onClick={() => handleEditAssignment(assignment._id)}
+                            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-100 text-slate-600 rounded-xl font-bold text-xs hover:bg-blue-500 hover:text-white hover:shadow-md hover:shadow-blue-200/50 hover:scale-105 transition-all duration-300"
+                            title="Edit assignment"
+                          >
+                            <Edit className="h-3.5 w-3.5" strokeWidth={2.5} />
+                            Edit
+                          </button>
+                        )}
                         <button
                           onClick={() => handleDeleteAssignment(assignment._id, assignment.title)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-700 rounded-lg font-semibold text-xs hover:bg-red-600 hover:text-white transition-all shadow-sm"
+                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-100 text-slate-600 rounded-xl font-bold text-xs hover:bg-rose-500 hover:text-white hover:shadow-md hover:shadow-rose-200/50 hover:scale-105 transition-all duration-300"
                           title="Delete assignment"
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
+                          <Trash2 className="h-3.5 w-3.5" strokeWidth={2.5} />
                           Delete
                         </button>
                       </div>

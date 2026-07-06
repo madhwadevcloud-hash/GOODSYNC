@@ -631,10 +631,24 @@ const MessagesPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 p-6 bg-white rounded-lg shadow">
-      <h1 className="text-3xl font-bold text-gray-900 flex items-center">
-        <MessageSquare className="mr-3 h-8 w-8 text-blue-600" /> Messages
-      </h1>
+    <div className="space-y-6 relative">
+      <div className="sticky top-[72px] z-20 flex flex-col gap-6 pt-4 pb-2 -mt-4 bg-[#f8fafc]">
+        {/* Header */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sm:p-8 relative overflow-hidden mx-2 sm:mx-0">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50 rounded-full blur-3xl opacity-60 -mr-20 -mt-20 pointer-events-none"></div>
+          <div className="flex items-center justify-between relative z-10">
+            <div className="flex items-center space-x-4">
+              <div className="bg-indigo-600 p-3 rounded-xl flex items-center justify-center shadow-sm">
+                <MessageSquare className="h-7 w-7 text-white" strokeWidth={2} />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Messages</h1>
+                <p className="text-sm font-medium text-slate-500 mt-1">Send and manage announcements</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Alerts */}
       {error && (
@@ -651,23 +665,26 @@ const MessagesPage: React.FC = () => {
       )}
 
       {/* Send New Message Section */}
-      <div className="border-b pb-4 mb-4">
-        <h2 className="text-2xl font-semibold text-gray-800 mb-4">Send New Message</h2>
+      <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-100 mb-6 mx-2 sm:mx-0">
+        <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center">
+          <Send className="h-5 w-5 mr-2 text-indigo-500" strokeWidth={2.5} />
+          Compose New Message
+        </h2>
 
         {/* Class and Section Selection */}
         <div className="mb-6">
           {renderClassSectionSelector()}
         </div>
 
-        <div className="grid grid-cols-1 gap-4 mb-4">
+        <div className="grid grid-cols-1 gap-5 mb-6">
           <div>
-            <label htmlFor="title" className="block text-sm font-medium text-gray-700">
-              Title <span className="text-red-500">*</span>
+            <label htmlFor="title" className="block text-sm font-semibold text-slate-700 mb-1.5">
+              Title <span className="text-rose-500">*</span>
             </label>
             <input
               type="text"
               id="title"
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 focus:bg-white transition-all text-sm font-medium text-slate-700 placeholder:text-slate-400"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Enter message title"
@@ -675,13 +692,13 @@ const MessagesPage: React.FC = () => {
             />
           </div>
           <div>
-            <label htmlFor="subject" className="block text-sm font-medium text-gray-700">
-              Subject <span className="text-red-500">*</span>
+            <label htmlFor="subject" className="block text-sm font-semibold text-slate-700 mb-1.5">
+              Subject <span className="text-rose-500">*</span>
             </label>
             <input
               type="text"
               id="subject"
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 focus:bg-white transition-all text-sm font-medium text-slate-700 placeholder:text-slate-400"
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
               placeholder="Enter message subject"
@@ -689,13 +706,13 @@ const MessagesPage: React.FC = () => {
             />
           </div>
           <div>
-            <label htmlFor="message" className="block text-sm font-medium text-gray-700">
-              Message Body <span className="text-red-500">*</span>
+            <label htmlFor="message" className="block text-sm font-semibold text-slate-700 mb-1.5">
+              Message Body <span className="text-rose-500">*</span>
             </label>
             <textarea
               id="message"
               rows={5}
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 focus:bg-white transition-all text-sm font-medium text-slate-700 placeholder:text-slate-400 resize-y"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Type your message here..."
@@ -708,19 +725,20 @@ const MessagesPage: React.FC = () => {
           <button
             onClick={handlePreview}
             disabled={!hasClasses() || classList.length === 0 || !title || !message || !selectedClass || selectedSections.length === 0}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center px-5 py-2.5 bg-slate-100 text-slate-600 rounded-xl font-bold text-sm hover:bg-slate-200 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Eye className="h-5 w-5 mr-2" /> Preview
+            <Eye className="h-4 w-4 mr-2" strokeWidth={2.5} /> Preview
           </button>
           <button
             onClick={handleSendMessage}
             disabled={loading || !hasClasses() || classList.length === 0 || !title || !message || !selectedClass || selectedSections.length === 0}
-            className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${loading || !hasClasses() || classList.length === 0 || !title || !message || !selectedClass || selectedSections.length === 0
-              ? 'bg-blue-400 cursor-not-allowed'
-              : 'bg-blue-600 hover:bg-blue-700'
-              } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors`}
+            className={`inline-flex items-center px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 shadow-sm ${
+              loading || !hasClasses() || classList.length === 0 || !title || !message || !selectedClass || selectedSections.length === 0
+                ? 'bg-indigo-300 text-white cursor-not-allowed'
+                : 'bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-md hover:shadow-indigo-200/50 hover:-translate-y-0.5'
+            }`}
           >
-            {loading ? 'Sending...' : <><Send className="h-5 w-5 mr-2" />Send Message</>}
+            {loading ? 'Sending...' : <><Send className="h-4 w-4 mr-2" strokeWidth={2.5} />Send Message</>}
           </button>
         </div>
       </div>

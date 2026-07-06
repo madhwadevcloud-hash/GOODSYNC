@@ -812,85 +812,95 @@ const ReportsPage: React.FC = () => {
   }, [selectedClass, selectedSection, searchTerm, statusFilter, activeTab]);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <TrendingUp className="h-8 w-8 text-blue-600" />
-          <h1 className="text-3xl font-bold text-gray-900">School Reports</h1>
+    <div className="space-y-6 relative">
+      <div className="sticky top-[72px] z-20 flex flex-col gap-6 pt-4 pb-2 -mt-4 bg-[#f8fafc]">
+        {/* Header */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sm:p-8 relative overflow-hidden mx-2 sm:mx-0">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50 rounded-full blur-3xl opacity-60 -mr-20 -mt-20 pointer-events-none"></div>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between relative z-10 gap-4">
+            <div className="flex items-center space-x-4">
+              <div className="bg-indigo-600 p-3 rounded-xl flex items-center justify-center shadow-sm">
+                <TrendingUp className="h-7 w-7 text-white" strokeWidth={2} />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-slate-900 tracking-tight">School Reports</h1>
+                <p className="text-sm font-medium text-slate-500 mt-1">View insights and dues</p>
+              </div>
+            </div>
+            
+            {/* Actions */}
+            {activeTab === 'overview' && (
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleExportOverview}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-600 hover:shadow-md hover:shadow-emerald-200/50 hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50"
+                  disabled={classWiseCounts.length === 0}
+                >
+                  <Download className="h-4 w-4" strokeWidth={2.5} />
+                  Export CSV
+                </button>
+                <button
+                  onClick={fetchSchoolSummary}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 hover:shadow-md hover:shadow-indigo-200/50 hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50"
+                  disabled={summaryLoading}
+                >
+                  {summaryLoading ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Loading...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                      </svg>
+                      Refresh
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Alerts and Refresh Button */}
-      <div className="flex justify-between items-center mb-4">
+        {/* Alerts outside the header inner */}
         {error && (
-          <div className="flex-1 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg flex items-center">
+          <div className="flex-1 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl flex items-center mx-2 sm:mx-0">
             <AlertCircle className="h-5 w-5 mr-2" />
             {error}
           </div>
         )}
-        {activeTab === 'overview' && (
-          <div className="flex gap-2">
-            <button
-              onClick={handleExportOverview}
-              className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 flex items-center whitespace-nowrap"
-              disabled={classWiseCounts.length === 0}
-            >
-              <Download className="w-4 h-4 mr-2" />
-              Export CSV
-            </button>
-            <button
-              onClick={fetchSchoolSummary}
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center whitespace-nowrap"
-              disabled={summaryLoading}
-            >
-              {summaryLoading ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Loading...
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                  </svg>
-                  Refresh Stats
-                </>
-              )}
-            </button>
-          </div>
-        )}
-      </div>
 
-      {/* Tab Navigation */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8 px-6">
+        {/* Tab Navigation */}
+        <div className="bg-slate-100/80 p-1.5 rounded-2xl mx-2 sm:mx-0 overflow-x-auto custom-scrollbar border border-slate-200/60">
+          <nav className="flex space-x-1 min-w-max">
             <button
               onClick={() => setActiveTab('overview')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'overview'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              className={`flex items-center space-x-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 ${activeTab === 'overview'
+                ? 'bg-white text-indigo-600 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
                 }`}
             >
-              Overview
+              <span>Overview</span>
             </button>
             <button
               onClick={() => setActiveTab('dues')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'dues'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              className={`flex items-center space-x-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 ${activeTab === 'dues'
+                ? 'bg-white text-indigo-600 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
                 }`}
             >
-              Dues List
+              <span>Dues List</span>
             </button>
           </nav>
         </div>
+      </div>
 
-        <div className="p-6">
+      <div className="mx-2 sm:mx-0">
+        <div className="bg-transparent">
           {/* Academic Year Warning Banner */}
           {isViewingHistoricalYear && (
             <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-4 mb-6">
