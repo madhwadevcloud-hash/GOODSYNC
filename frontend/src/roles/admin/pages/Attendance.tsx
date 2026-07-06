@@ -333,44 +333,55 @@ const saveAttendance = async () => {
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
-      {/* Header */}
-      <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mx-2 sm:mx-0">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 sm:mb-6">
-          <div>
-            <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Attendance Management</h2>
-            <p className="text-sm sm:text-base text-gray-600 mt-1">Mark and manage student attendance</p>
-          </div>
-          <div className="flex items-center space-x-2 text-xs sm:text-sm text-gray-500">
-            <Users className="h-4 w-4 sm:h-5 sm:w-5" />
-            <span>{filteredRecords.length} students</span>
+    <div className="space-y-6 relative">
+      <div className="sticky top-[72px] z-20 flex flex-col gap-6 pt-4 pb-2 -mt-4 bg-[#f8fafc]">
+        {/* Header */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sm:p-8 relative overflow-hidden mx-2 sm:mx-0">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50 rounded-full blur-3xl opacity-60 -mr-20 -mt-20 pointer-events-none"></div>
+          <div className="flex items-center justify-between relative z-10">
+            <div className="flex items-center space-x-4">
+              <div className="bg-indigo-600 p-3 rounded-xl flex items-center justify-center shadow-sm">
+                <Users className="h-7 w-7 text-white" strokeWidth={2} />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Attendance Management</h1>
+                <p className="text-sm font-medium text-slate-500 mt-1">Mark and manage student attendance</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-2 text-sm font-semibold bg-indigo-50 text-indigo-700 px-4 py-2 rounded-xl border border-indigo-100">
+              <Users className="h-4 w-4" />
+              <span>{filteredRecords.length} students</span>
+            </div>
           </div>
         </div>
 
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mx-2 sm:mx-0">
+          <div className="p-6">
+
         {/* Date and Class Selection */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-4 sm:mb-6">
           <div>
-            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Date</label>
+            <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-1.5 sm:mb-2">Date</label>
             <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Calendar className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
               <input
-  type="date"
-  value={selectedDate}
-  max={new Date().toISOString().split('T')[0]}
-  onChange={(e) => setSelectedDate(e.target.value)}
-  className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs sm:text-sm"
-/>
+                type="date"
+                value={selectedDate}
+                max={new Date().toISOString().split('T')[0]}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 focus:bg-white transition-all text-sm font-medium text-slate-700"
+              />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+            <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-1.5 sm:mb-2">
               Select Class
             </label>
             <select
               value={selectedClass}
               onChange={(e) => setSelectedClass(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs sm:text-sm"
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 focus:bg-white transition-all text-sm font-medium text-slate-700"
             >
               <option value="">Choose Class</option>
               {classList.map(cls => (
@@ -380,16 +391,16 @@ const saveAttendance = async () => {
               ))}
             </select>
             {!classesLoading && !hasClasses() && (
-              <span className="text-xs text-red-500 mt-1">No classes configured</span>
+              <span className="text-xs font-semibold text-red-500 mt-1.5">No classes configured</span>
             )}
           </div>
 
           <div>
-            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Section</label>
+            <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-1.5 sm:mb-2">Section</label>
             <select
               value={selectedSection}
               onChange={(e) => setSelectedSection(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs sm:text-sm"
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 focus:bg-white transition-all text-sm font-medium text-slate-700 disabled:opacity-50"
               disabled={!selectedClass || availableSections.length === 0}
             >
               <option value="">{!selectedClass ? 'Select Class First' : 'Select Section'}</option>
@@ -400,30 +411,30 @@ const saveAttendance = async () => {
           </div>
 
           <div>
-            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Session</label>
-            <div className="flex bg-gray-100 rounded-lg p-1">
-  <button
-    disabled={activeSession !== 'morning'}
-    className={`flex-1 px-3 py-2 rounded text-sm font-medium transition-colors ${
-      activeSession === 'morning'
-        ? 'bg-white text-blue-600 shadow-sm'
-        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-    }`}
-  >
-    Morning
-  </button>
+            <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-1.5 sm:mb-2">Session</label>
+            <div className="flex bg-slate-100/80 p-1.5 rounded-xl border border-slate-200/60">
+              <button
+                disabled={activeSession !== 'morning'}
+                className={`flex-1 px-4 py-2 rounded-lg text-sm font-bold transition-all duration-200 ${
+                  activeSession === 'morning'
+                    ? 'bg-white text-indigo-600 shadow-sm'
+                    : 'text-slate-400 cursor-not-allowed opacity-60'
+                }`}
+              >
+                Morning
+              </button>
 
-  <button
-    disabled={activeSession !== 'afternoon'}
-    className={`flex-1 px-3 py-2 rounded text-sm font-medium transition-colors ${
-      activeSession === 'afternoon'
-        ? 'bg-white text-blue-600 shadow-sm'
-        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-    }`}
-  >
-    Afternoon
-  </button>
-</div>
+              <button
+                disabled={activeSession !== 'afternoon'}
+                className={`flex-1 px-4 py-2 rounded-lg text-sm font-bold transition-all duration-200 ${
+                  activeSession === 'afternoon'
+                    ? 'bg-white text-indigo-600 shadow-sm'
+                    : 'text-slate-400 cursor-not-allowed opacity-60'
+                }`}
+              >
+                Afternoon
+              </button>
+            </div>
           </div>
         </div>
 
@@ -497,119 +508,129 @@ const saveAttendance = async () => {
           </div>
         )}
       </div>
+      </div>
+      </div>
 
       {/* Attendance Table */}
       {selectedClass && selectedSection && (
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
-            <h3 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 break-words">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mx-2 sm:mx-0">
+          <div className="px-4 sm:px-6 py-5 border-b border-slate-100 bg-slate-50/50 backdrop-blur-md">
+            <h3 className="text-sm sm:text-base lg:text-lg font-bold text-slate-800 break-words">
               Class {selectedClass} - Section {selectedSection}
             </h3>
-            <p className="text-xs sm:text-sm text-gray-600 mt-1">
-    {new Date(selectedDate).toLocaleDateString()} | 
-    <span className="font-semibold text-blue-600 ml-1">
-      {activeSession.charAt(0).toUpperCase() + activeSession.slice(1)} Session (Auto-detected)
-    </span>
-  </p>
+            <p className="text-xs sm:text-sm text-slate-500 mt-1 font-medium">
+              {new Date(selectedDate).toLocaleDateString()} | 
+              <span className="font-bold text-indigo-600 ml-1">
+                {activeSession.charAt(0).toUpperCase() + activeSession.slice(1)} Session (Auto-detected)
+              </span>
+            </p>
           </div>
 
           {loading ? (
             <div className="flex items-center justify-center py-8 sm:py-12">
-              <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-blue-600"></div>
-              <span className="ml-3 text-sm sm:text-base text-gray-600">Loading students...</span>
+              <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-indigo-600"></div>
+              <span className="ml-3 text-sm sm:text-base text-slate-600 font-medium">Loading students...</span>
             </div>
           ) : filteredRecords.length === 0 ? (
             <div className="text-center py-8 sm:py-12">
-              <Users className="h-8 w-8 sm:h-12 sm:w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-sm sm:text-base text-gray-600">No students found for the selected class and section.</p>
+              <Users className="h-8 w-8 sm:h-12 sm:w-12 text-slate-300 mx-auto mb-4" />
+              <p className="text-sm sm:text-base text-slate-500 font-medium">No students found for the selected class and section.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+            <div className="overflow-x-auto custom-scrollbar">
+              <table className="min-w-full divide-y divide-slate-100">
+                <thead className="bg-slate-50 border-b border-slate-100">
                   <tr>
-                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                    <th className="px-4 sm:px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">
                       Student Details
                     </th>
-                    <th className="px-3 sm:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                    <th className="px-4 sm:px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">
                       Morning Status
                     </th>
-                    <th className="px-3 sm:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                    <th className="px-4 sm:px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">
                       Afternoon Status
                     </th>
-                    <th className="px-3 sm:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                    <th className="px-4 sm:px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">
                       {activeSession.charAt(0).toUpperCase() + activeSession.slice(1)} Actions
                     </th>
-                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                    <th className="px-4 sm:px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">
                       Remarks
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white divide-y divide-slate-50">
                   {filteredRecords.map((record) => (
-                    <tr key={record.studentId} className="hover:bg-gray-50">
-                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
-                        <div className="flex flex-col">
-                          <div className="text-sm font-medium text-gray-900">{record.name}</div>
-                          <div className="text-xs sm:text-sm text-gray-500">
-                            {record.userId} | Class {record.class}-{record.section}
-                            {record.rollNumber && ` | Roll: ${record.rollNumber}`}
+                    <tr key={record.studentId} className="hover:bg-slate-50/80 transition-colors duration-150 border-b border-slate-50 last:border-0 group/row">
+                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-4">
+                          <div className="h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-500 flex items-center justify-center text-white font-black text-sm sm:text-base shadow-sm border-2 border-white shrink-0 group-hover/row:scale-105 transition-transform duration-300">
+                            {record.name ? record.name.charAt(0).toUpperCase() : 'S'}
+                          </div>
+                          <div className="flex flex-col">
+                            <div className="text-sm sm:text-[15px] font-bold text-slate-800">{record.name}</div>
+                            <div className="text-xs font-medium text-slate-500 mt-0.5">
+                              {record.userId} • Class {record.class}-{record.section}
+                              {record.rollNumber && ` • Roll: ${record.rollNumber}`}
+                            </div>
                           </div>
                         </div>
                       </td>
-                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-center">
-                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(record.morningStatus)}`}>
+                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-center">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border shadow-sm ${getStatusColor(record.morningStatus)}`}>
                           {getStatusIcon(record.morningStatus)}
-                          <span className="ml-1 capitalize">{record.morningStatus}</span>
+                          <span className="ml-1.5 capitalize">{record.morningStatus}</span>
                         </span>
                       </td>
-                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-center">
-                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(record.afternoonStatus)}`}>
+                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-center">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border shadow-sm ${getStatusColor(record.afternoonStatus)}`}>
                           {getStatusIcon(record.afternoonStatus)}
-                          <span className="ml-1 capitalize">{record.afternoonStatus}</span>
+                          <span className="ml-1.5 capitalize">{record.afternoonStatus}</span>
                         </span>
                       </td>
-                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-center">
-                        <div className="flex justify-center space-x-1">
+                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-center">
+                        <div className="flex justify-center items-center bg-slate-100/80 p-1.5 rounded-xl w-max mx-auto shadow-inner border border-slate-200/60 gap-0.5">
                           <button
                             onClick={() => updateAttendanceStatus(record.studentId, activeSession, 'present')}
-                            className={`p-1 sm:p-2 rounded ${record[activeSession === 'morning' ? 'morningStatus' : 'afternoonStatus'] === 'present'
-                              ? 'bg-green-100 text-green-600'
-                              : 'bg-gray-100 text-gray-400 hover:bg-green-100 hover:text-green-600'
+                            className={`flex items-center space-x-1 px-3.5 py-2 rounded-lg text-xs font-black transition-all duration-300 ${record[activeSession === 'morning' ? 'morningStatus' : 'afternoonStatus'] === 'present'
+                              ? 'bg-emerald-500 text-white shadow-md shadow-emerald-200/50 scale-[1.02]'
+                              : 'text-slate-400 hover:text-emerald-600 hover:bg-white'
                               }`}
                             title="Present"
                           >
-                            <Check className="h-3 w-3 sm:h-4 sm:w-4" />
+                            <Check className="h-4 w-4" strokeWidth={record[activeSession === 'morning' ? 'morningStatus' : 'afternoonStatus'] === 'present' ? 3 : 2} />
+                            <span className="hidden lg:inline">Present</span>
                           </button>
                           <button
                             onClick={() => updateAttendanceStatus(record.studentId, activeSession, 'half-day')}
-                            className={`p-1 sm:p-2 rounded ${record[activeSession === 'morning' ? 'morningStatus' : 'afternoonStatus'] === 'half-day'
-                              ? 'bg-yellow-100 text-yellow-600'
-                              : 'bg-gray-100 text-gray-400 hover:bg-yellow-100 hover:text-yellow-600'
+                            className={`flex items-center space-x-1 px-3.5 py-2 rounded-lg text-xs font-black transition-all duration-300 ${record[activeSession === 'morning' ? 'morningStatus' : 'afternoonStatus'] === 'half-day'
+                              ? 'bg-amber-500 text-white shadow-md shadow-amber-200/50 scale-[1.02]'
+                              : 'text-slate-400 hover:text-amber-600 hover:bg-white'
                               }`}
                             title="Half Day"
                           >
-                            <Minus className="h-3 w-3 sm:h-4 sm:w-4" />
+                            <Minus className="h-4 w-4" strokeWidth={record[activeSession === 'morning' ? 'morningStatus' : 'afternoonStatus'] === 'half-day' ? 3 : 2} />
+                            <span className="hidden lg:inline">Half Day</span>
                           </button>
                           <button
                             onClick={() => updateAttendanceStatus(record.studentId, activeSession, 'absent')}
-                            className={`p-1 sm:p-2 rounded ${record[activeSession === 'morning' ? 'morningStatus' : 'afternoonStatus'] === 'absent'
-                              ? 'bg-red-100 text-red-600'
-                              : 'bg-gray-100 text-gray-400 hover:bg-red-100 hover:text-red-600'
+                            className={`flex items-center space-x-1 px-3.5 py-2 rounded-lg text-xs font-black transition-all duration-300 ${record[activeSession === 'morning' ? 'morningStatus' : 'afternoonStatus'] === 'absent'
+                              ? 'bg-rose-500 text-white shadow-md shadow-rose-200/50 scale-[1.02]'
+                              : 'text-slate-400 hover:text-rose-600 hover:bg-white'
                               }`}
                             title="Absent"
                           >
-                            <X className="h-3 w-3 sm:h-4 sm:w-4" />
+                            <X className="h-4 w-4" strokeWidth={record[activeSession === 'morning' ? 'morningStatus' : 'afternoonStatus'] === 'absent' ? 3 : 2} />
+                            <span className="hidden lg:inline">Absent</span>
                           </button>
                         </div>
                       </td>
-                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
                         <input
                           type="text"
                           value={record.remarks || ''}
                           onChange={(e) => updateRemarks(record.studentId, e.target.value)}
                           placeholder="Add remarks..."
-                          className="w-full min-w-[120px] text-xs sm:text-sm border border-gray-300 rounded px-2 py-1 focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                          className="w-full min-w-[140px] text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-medium focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 focus:bg-white transition-all text-slate-700 placeholder:text-slate-400 group-hover/row:bg-white group-hover/row:border-slate-300"
                         />
                       </td>
                     </tr>
