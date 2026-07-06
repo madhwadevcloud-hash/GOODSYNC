@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Calendar, GraduationCap, Clock, Users, Award, BookOpen, ChevronDown, ChevronRight, FileText, CheckCircle, X } from 'lucide-react';
+import { Save, Calendar, GraduationCap, Clock, Users, Award, BookOpen, ChevronDown, ChevronRight, FileText, CheckCircle, X, Settings } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import api from '../../../services/api';
 import { useAuth } from '../../../auth/AuthContext';
@@ -663,49 +663,64 @@ const SchoolSettings: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900">School Settings</h1>
-        {activeTab === 'scoring' && (
-          <button
-            onClick={handleSaveScoring}
-            disabled={isWeightageInvalid}
-            className={`px-4 py-2 rounded-lg flex items-center transition-colors ${isWeightageInvalid
-              ? 'bg-gray-400 text-gray-200 cursor-not-allowed opacity-60'
-              : 'bg-blue-600 hover:bg-blue-700 text-white'
-              }`}
-          >
-            <Save className="h-4 w-4 mr-2" />
-            Save Scoring
-          </button>
-        )}
-      </div>
+    <div className="space-y-6 relative">
+      <div className="sticky top-[72px] z-20 flex flex-col gap-6 pt-4 pb-2 -mt-4 bg-[#f8fafc]">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sm:p-8 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50 rounded-full blur-3xl opacity-60 -mr-20 -mt-20 pointer-events-none"></div>
+          <div className="flex items-center justify-between relative z-10">
+            <div className="flex items-center space-x-4">
+              <div className="bg-indigo-600 p-3 rounded-xl flex items-center justify-center shadow-sm">
+                <Settings className="h-7 w-7 text-white" strokeWidth={2} />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-slate-900 tracking-tight">School Settings</h1>
+                <p className="text-sm font-medium text-slate-500 mt-1">Configure academic years, promotion rules, and templates</p>
+              </div>
+            </div>
+            {activeTab === 'scoring' && (
+              <button
+                onClick={handleSaveScoring}
+                disabled={isWeightageInvalid}
+                className={`px-5 py-2.5 rounded-xl flex items-center font-semibold text-sm transition-all ${isWeightageInvalid
+                  ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                  : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-md hover:shadow-lg hover:-translate-y-0.5'
+                  }`}
+              >
+                <Save className="h-4 w-4 mr-2" />
+                Save Scoring
+              </button>
+            )}
+          </div>
+        </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        {/* Tabs */}
-        <div className="border-b border-gray-200">
-          <nav className="flex space-x-8 px-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          {/* Tabs */}
+          <div className="p-6">
+          <nav className="inline-flex bg-slate-100/80 p-1.5 rounded-2xl w-full sm:w-auto overflow-x-auto custom-scrollbar">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => !tab.disabled && setActiveTab(tab.id)}
                 disabled={tab.disabled}
-                className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center transition-colors ${activeTab === tab.id
-                  ? 'border-blue-500 text-blue-600'
+                className={`flex items-center justify-center space-x-2 py-2.5 px-6 rounded-xl font-semibold text-sm transition-all duration-200 whitespace-nowrap ${activeTab === tab.id
+                  ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/50'
                   : tab.disabled
-                    ? 'border-transparent text-gray-400 cursor-not-allowed'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                    ? 'text-slate-400 cursor-not-allowed opacity-60'
+                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
                   }`}
                 title={tab.disabled ? 'Please save Academic Year first' : ''}
               >
-                <tab.icon className="h-4 w-4 mr-2" />
-                {tab.name}
+                <tab.icon className="h-4 w-4" />
+                <span>{tab.name}</span>
                 {tab.disabled && <span className="ml-1 text-xs">🔒</span>}
               </button>
             ))}
           </nav>
         </div>
+      </div>
+      </div>
 
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
         {/* Tab Content */}
         <div className="p-6">
           {activeTab === 'academic' && (
@@ -762,15 +777,17 @@ const SchoolSettings: React.FC = () => {
                   />
                 </div>
               </div>
-              <span title={user?.role !== 'superadmin' ? "Only super admins have the access to use this" : ""}>
-                <button
-                  onClick={handleSaveAcademicYear}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors disabled:bg-blue-400 disabled:cursor-not-allowed"
-                  disabled={user?.role !== 'superadmin'}
-                >
-                  Save Academic Year
-                </button>
-              </span>
+              <div className="mt-6">
+                <span title={user?.role !== 'superadmin' ? "Only super admins have the access to use this" : ""}>
+                  <button
+                    onClick={handleSaveAcademicYear}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors disabled:bg-blue-400 disabled:cursor-not-allowed"
+                    disabled={user?.role !== 'superadmin'}
+                  >
+                    Save Academic Year
+                  </button>
+                </span>
+              </div>
             </div>
           )}
 

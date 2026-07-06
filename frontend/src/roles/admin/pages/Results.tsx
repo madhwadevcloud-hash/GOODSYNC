@@ -449,47 +449,59 @@ const Results: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900">Academic Results</h1>
-        {showResultsTable && !isFrozen && (
-          <button
-            onClick={handleSaveAll}
-            disabled={loading}
-            className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-5 py-2 rounded-lg flex items-center transition-colors shadow-sm font-medium"
-          >
-            <Save className="h-4 w-4 mr-2" />
-            Save All Changes
-          </button>
-        )}
-      </div>
+    <div className="space-y-6 relative">
+      <div className="sticky top-[72px] z-20 flex flex-col gap-6 pt-4 pb-2 -mt-4 bg-[#f8fafc]">
+        {/* Header */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sm:p-8 relative overflow-hidden mx-2 sm:mx-0">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50 rounded-full blur-3xl opacity-60 -mr-20 -mt-20 pointer-events-none"></div>
+          <div className="flex items-center justify-between relative z-10">
+            <div className="flex items-center space-x-4">
+              <div className="bg-indigo-600 p-3 rounded-xl flex items-center justify-center shadow-sm">
+                <ShieldAlert className="h-7 w-7 text-white" strokeWidth={2} />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Academic Results</h1>
+                <p className="text-sm font-medium text-slate-500 mt-1">Manage student marks and academic performance</p>
+              </div>
+            </div>
+            {showResultsTable && !isFrozen && (
+              <button
+                onClick={handleSaveAll}
+                disabled={loading}
+                className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl hover:bg-indigo-700 disabled:bg-slate-300 flex items-center font-semibold shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5"
+              >
+                <Save className="h-5 w-5 mr-2" />
+                Save All Changes
+              </button>
+            )}
+          </div>
+        </div>
 
       {isViewingHistoricalYear && (
-        <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-4">
-          <p className="text-sm text-yellow-800">
-            <strong>📚 Viewing Historical Data:</strong> You are viewing data from {viewingAcademicYear}. This data is read-only.
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 mx-2 sm:mx-0 shadow-sm">
+          <p className="text-sm text-amber-800 font-medium">
+            <strong className="text-amber-900">📚 Viewing Historical Data:</strong> You are viewing data from {viewingAcademicYear}. This data is read-only.
           </p>
         </div>
       )}
 
       {/* Filters */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 mx-2 sm:mx-0">
         <div className="flex flex-wrap gap-4">
           {/* Academic Year Selection */}
           <div className="flex flex-col">
-            <label htmlFor="year-select" className="text-sm font-medium text-gray-700">Academic Year</label>
+            <label htmlFor="year-select" className="text-xs sm:text-sm font-semibold text-slate-700 mb-1.5">Academic Year</label>
             <select
-  id="year-select"
-  value={viewingAcademicYear}
-  onChange={(e) => setViewingYear(e.target.value)}
-  disabled={user?.role !== "superadmin"}
-  className={`px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[150px] ${
-    user?.role !== "superadmin"
-      ? "bg-gray-100 cursor-not-allowed"
-      : ""
-  }`}
->
+              id="year-select"
+              value={viewingAcademicYear}
+              onChange={(e) => setViewingYear(e.target.value)}
+              disabled={user?.role !== "superadmin"}
+              className={`px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 focus:bg-white transition-all text-sm font-medium text-slate-700 min-w-[150px] ${
+                user?.role !== "superadmin"
+                  ? "opacity-60 cursor-not-allowed"
+                  : ""
+              }`}
+            >
               {[...new Set(availableYears)].map((year) => (
                 <option key={year} value={year}>
                   {year} {year === currentAcademicYear && '(Current)'}
@@ -500,12 +512,12 @@ const Results: React.FC = () => {
 
           {/* Class Selection */}
           <div className="flex flex-col">
-            <label htmlFor="class-select" className="text-sm font-medium text-gray-700">Class</label>
+            <label htmlFor="class-select" className="text-xs sm:text-sm font-semibold text-slate-700 mb-1.5">Class</label>
             <select
               id="class-select"
               value={selectedClass}
               onChange={(e) => setSelectedClass(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[150px]"
+              className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 focus:bg-white transition-all text-sm font-medium text-slate-700 min-w-[150px]"
               disabled={classesLoading || !hasClasses()}
             >
               <option value="">{classesLoading ? 'Loading...' : 'Select Class'}</option>
@@ -517,12 +529,12 @@ const Results: React.FC = () => {
 
           {/* Section Selection */}
           <div className="flex flex-col">
-            <label htmlFor="section-select" className="text-sm font-medium text-gray-700">Section</label>
+            <label htmlFor="section-select" className="text-xs sm:text-sm font-semibold text-slate-700 mb-1.5">Section</label>
             <select
               id="section-select"
               value={selectedSection}
               onChange={(e) => setSelectedSection(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[150px]"
+              className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 focus:bg-white transition-all text-sm font-medium text-slate-700 min-w-[150px]"
               disabled={!selectedClass || availableSections.length === 0}
             >
               <option value="">{!selectedClass ? 'Select Class First' : 'Select Section'}</option>
@@ -534,12 +546,12 @@ const Results: React.FC = () => {
 
           {/* Test Type Selection */}
           <div className="flex flex-col">
-            <label htmlFor="test-type-select" className="text-sm font-medium text-gray-700">Test Type</label>
+            <label htmlFor="test-type-select" className="text-xs sm:text-sm font-semibold text-slate-700 mb-1.5">Test Type</label>
             <select
               id="test-type-select"
               value={selectedTestType}
               onChange={(e) => setSelectedTestType(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[180px]"
+              className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 focus:bg-white transition-all text-sm font-medium text-slate-700 min-w-[180px]"
               disabled={!selectedClass || loadingTestTypes}
             >
               <option value="">
@@ -556,34 +568,39 @@ const Results: React.FC = () => {
           </div>
 
           {/* Search Button */}
+          <div className="flex flex-col justify-end">
           <button
             onClick={fetchResultsOrStudents}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg flex items-center transition-colors self-end shadow-sm font-medium"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl flex items-center transition-all shadow-sm font-semibold disabled:opacity-50"
             disabled={loading}
           >
             {loading ? (
-              <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
             ) : (
-              <Search className="h-4 w-4 mr-2" />
+              <Search className="h-4 w-4 mr-2" strokeWidth={2.5} />
             )}
             Search
           </button>
+          </div>
 
           {/* Freeze Results Button */}
           {showResultsTable && !isFrozen && (
+            <div className="flex flex-col justify-end ml-auto">
             <button
               onClick={handleFreezeResults}
               disabled={freezing || loading}
-              className="bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded-lg flex items-center transition-colors self-end shadow-sm font-medium"
+              className="bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-600 hover:text-white px-5 py-2.5 rounded-xl flex items-center transition-all shadow-sm font-semibold disabled:opacity-50"
             >
-              <ShieldAlert className="h-4 w-4 mr-2" />
+              <ShieldAlert className="h-4 w-4 mr-2" strokeWidth={2.5} />
               Freeze Results
             </button>
+            </div>
           )}
         </div>
+      </div>
       </div>
 
       {/* Error Message */}
@@ -595,45 +612,50 @@ const Results: React.FC = () => {
 
       {/* Tabular Input Table */}
       {showResultsTable && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mx-2 sm:mx-0">
           {isFrozen && (
-            <div className="px-6 py-3 bg-red-50 border-b border-red-200 flex items-center gap-2">
-              <ShieldAlert className="h-5 w-5 text-red-600" />
-              <span className="text-red-700 font-semibold">Results are FROZEN - Editing is disabled</span>
+            <div className="px-6 py-4 bg-rose-50/50 border-b border-rose-100 flex items-center gap-2 backdrop-blur-md">
+              <ShieldAlert className="h-5 w-5 text-rose-600" />
+              <span className="text-rose-700 font-bold text-sm">Results are FROZEN - Editing is disabled</span>
             </div>
           )}
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
-              <thead className="bg-gray-50">
-                <tr className="border-b border-gray-200">
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    User ID
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Student Name
+          <div className="overflow-x-auto custom-scrollbar">
+            <table className="min-w-full divide-y divide-slate-100">
+              <thead className="bg-slate-50/50 backdrop-blur-md border-b border-slate-100">
+                <tr>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">
+                    Student Details
                   </th>
                   {subjects.map((subj) => (
-                    <th key={subj} className="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider border-l border-gray-100">
-                      {subj} <span className="text-gray-400 font-normal">({configuredMaxMarks ? `/${configuredMaxMarks}` : ''})</span>
+                    <th key={subj} className="px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap border-l border-slate-100">
+                      {subj} <span className="text-slate-400 font-medium">({configuredMaxMarks ? `/${configuredMaxMarks}` : ''})</span>
                     </th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white divide-y divide-slate-50">
                 {studentResults.map((student) => (
-                  <tr key={student.id} className={isFrozen ? "bg-gray-50/50" : "hover:bg-gray-50"}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {student.userId || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                      {student.name}
+                  <tr key={student.id} className={isFrozen ? "bg-slate-50/30" : "hover:bg-slate-50/80 transition-colors duration-150 group/row"}>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-4">
+                        <div className="h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-500 flex items-center justify-center text-white font-black text-sm sm:text-base shadow-sm border-2 border-white shrink-0 group-hover/row:scale-105 transition-transform duration-300">
+                          {student.name ? student.name.charAt(0).toUpperCase() : 'S'}
+                        </div>
+                        <div className="flex flex-col">
+                          <div className="text-sm sm:text-[15px] font-bold text-slate-800">{student.name}</div>
+                          <div className="text-xs font-medium text-slate-500 mt-0.5">
+                            ID: {student.userId || '-'}
+                            {student.rollNumber && ` • Roll: ${student.rollNumber}`}
+                          </div>
+                        </div>
+                      </div>
                     </td>
                     {subjects.map((subj) => {
                       const score = student.subjectMarks[subj];
                       const grade = calculateGrade(score, configuredMaxMarks);
                       return (
-                        <td key={subj} className="px-6 py-4 whitespace-nowrap text-sm border-l border-gray-100 align-middle">
-                          <div className="flex flex-col items-center gap-1">
+                        <td key={subj} className="px-6 py-4 whitespace-nowrap text-sm border-l border-slate-100 align-middle">
+                          <div className="flex flex-col items-center gap-1.5">
                             <input
                               type="number"
                               value={score !== null ? score : ''}
@@ -645,18 +667,18 @@ const Results: React.FC = () => {
                                 }
                               }}
                               disabled={isFrozen}
-                              className="w-20 px-2 py-1 text-center border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed font-medium"
+                              className="w-20 px-3 py-1.5 text-center bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 focus:bg-white transition-all disabled:bg-slate-100 disabled:cursor-not-allowed font-bold text-slate-700"
                               placeholder="-"
                               min="0"
                               max={configuredMaxMarks ?? 100}
                             />
                             {score !== null && (
-                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                                ['A1', 'A2', 'A+'].includes(grade) ? 'bg-green-50 text-green-700' :
-                                ['B1', 'B2', 'B'].includes(grade) ? 'bg-blue-50 text-blue-700' :
-                                ['C1', 'C2', 'C'].includes(grade) ? 'bg-yellow-50 text-yellow-700 font-medium' :
-                                grade === 'D' ? 'bg-orange-50 text-orange-700' :
-                                'bg-red-50 text-red-700'
+                              <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold shadow-sm border ${
+                                ['A1', 'A2', 'A+'].includes(grade) ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                                ['B1', 'B2', 'B'].includes(grade) ? 'bg-indigo-50 text-indigo-700 border-indigo-100' :
+                                ['C1', 'C2', 'C'].includes(grade) ? 'bg-amber-50 text-amber-700 border-amber-100' :
+                                grade === 'D' ? 'bg-orange-50 text-orange-700 border-orange-100' :
+                                'bg-rose-50 text-rose-700 border-rose-100'
                               }`}>
                                 {grade}
                               </span>

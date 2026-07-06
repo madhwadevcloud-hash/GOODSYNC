@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { motion } from 'framer-motion';
 import {
   Search, Plus, Edit, Trash2, Download, Upload, Filter, X,
   UserCheck, UserX, Eye, EyeOff, Lock, Unlock, Building, // Added Eye, EyeOff, X
@@ -6137,8 +6138,17 @@ const ManageUsers: React.FC = () => {
   }
 
   try {
-    return (
-      <div className="space-y-6">
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1, transition: { staggerChildren: 0.1 } }
+  };
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
+  };
+
+  return (
+    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
         {/* Academic Year Warning */}
         {isViewingHistoricalYear && activeTab === 'student' && (
           <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-4">
@@ -6148,94 +6158,105 @@ const ManageUsers: React.FC = () => {
           </div>
         )}
 
-        {/* Header */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex justify-between items-center mb-4">
-            <div className="flex items-center space-x-3">
-              <Building className="h-8 w-8 text-blue-600" />
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Manage Users</h1>
-                <p className="text-gray-600">Add, edit, and manage system users</p>
-              </div>
-            </div>
-            {school && (
-              <div className="flex items-center space-x-3">
-                {school.logoUrl && (
-                  <img src={school.logoUrl} alt={school.name} className="h-12 w-12 rounded-lg object-cover" />
-                )}
-                <div className="text-right">
-                  <h3 className="font-semibold text-gray-900">{school.name}</h3>
-                  <p className="text-sm text-gray-500">School Code: {school.code}</p>
+        {/* Header & Tabs - Sticky */}
+        <div className="sticky top-[72px] z-20 flex flex-col gap-6 pt-4 pb-2 -mt-4 bg-[#f8fafc]">
+          <motion.div variants={itemVariants} className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sm:p-8 relative overflow-hidden mx-2 sm:mx-0">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50 rounded-full blur-3xl opacity-60 -mr-20 -mt-20 pointer-events-none"></div>
+            <div className="flex justify-between items-center relative z-10">
+              <div className="flex items-center space-x-4">
+                <div className="bg-indigo-600 p-3 rounded-xl flex items-center justify-center shadow-sm">
+                  <Users className="h-7 w-7 text-white" strokeWidth={2} />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Manage Users</h1>
+                  <p className="text-sm font-medium text-slate-500 mt-1">Add, edit, and manage system users seamlessly</p>
                 </div>
               </div>
-            )}
-          </div>
+              {school && (
+                <div className="flex items-center space-x-3">
+                  {school.logoUrl && (
+                    <img src={school.logoUrl} alt={school.name} className="h-12 w-12 rounded-lg object-cover" />
+                  )}
+                  <div className="text-right hidden sm:block">
+                    <h3 className="font-semibold text-gray-900">{school.name}</h3>
+                    <p className="text-sm text-gray-500">School Code: {school.code}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </motion.div>
 
           {/* Role Tabs */}
-          <div className="border-b border-gray-200 mb-6">
-            <nav className="-mb-px flex space-x-8">
+          <div className="bg-slate-100/80 p-1.5 rounded-2xl mx-2 sm:mx-0 overflow-x-auto custom-scrollbar border border-slate-200/60 inline-flex w-max max-w-full">
+            <nav className="flex space-x-1 min-w-max">
               <button
                 onClick={() => {
                   console.log('🔄 Switching to Student tab');
                   setActiveTab('student');
-                  // If modal is open, update the role immediately
-                  if (showAddModal) {
-                    handleRoleChange('student');
-                  }
+                  if (showAddModal) handleRoleChange('student');
                 }}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'student'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                className={`flex items-center justify-center space-x-2 py-2.5 px-6 rounded-xl font-semibold text-sm transition-all duration-300 whitespace-nowrap ${activeTab === 'student'
+                  ? 'bg-white text-indigo-600 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
                   }`}
               >
-                Students ({users.filter(u => u.role === 'student').length})
+                <GraduationCap className="h-4 w-4" strokeWidth={activeTab === 'student' ? 3 : 2} />
+                <span>Students</span>
+                <span className={`ml-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide transition-colors ${activeTab === 'student' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200 text-slate-500 group-hover:bg-slate-300'}`}>
+                  {users.filter(u => u.role === 'student').length}
+                </span>
               </button>
               <button
                 onClick={() => {
                   console.log('🔄 Switching to Teacher tab');
                   setActiveTab('teacher');
-                  // If modal is open, update the role immediately
-                  if (showAddModal) {
-                    handleRoleChange('teacher');
-                  }
+                  if (showAddModal) handleRoleChange('teacher');
                 }}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'teacher'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                className={`flex items-center justify-center space-x-2 py-2.5 px-6 rounded-xl font-semibold text-sm transition-all duration-300 whitespace-nowrap ${activeTab === 'teacher'
+                  ? 'bg-white text-indigo-600 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
                   }`}
               >
-                Teachers ({users.filter(u => u.role === 'teacher').length})
+                <UserCheck className="h-4 w-4" strokeWidth={activeTab === 'teacher' ? 3 : 2} />
+                <span>Teachers</span>
+                <span className={`ml-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide transition-colors ${activeTab === 'teacher' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200 text-slate-500 group-hover:bg-slate-300'}`}>
+                  {users.filter(u => u.role === 'teacher').length}
+                </span>
               </button>
               <button
                 onClick={() => {
                   console.log('🔄 Switching to Admin tab');
                   setActiveTab('admin');
-                  // If modal is open, update the role immediately
-                  if (showAddModal) {
-                    handleRoleChange('admin');
-                  }
+                  if (showAddModal) handleRoleChange('admin');
                 }}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'admin'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                className={`flex items-center justify-center space-x-2 py-2.5 px-6 rounded-xl font-semibold text-sm transition-all duration-300 whitespace-nowrap ${activeTab === 'admin'
+                  ? 'bg-white text-indigo-600 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
                   }`}
               >
-                Admins ({users.filter(u => u.role === 'admin').length})
+                <Shield className="h-4 w-4" strokeWidth={activeTab === 'admin' ? 3 : 2} />
+                <span>Admins</span>
+                <span className={`ml-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide transition-colors ${activeTab === 'admin' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200 text-slate-500 group-hover:bg-slate-300'}`}>
+                  {users.filter(u => u.role === 'admin').length}
+                </span>
               </button>
             </nav>
           </div>
+        </div>
 
           {/* Controls */}
           <div className="flex flex-col md:flex-row gap-4 items-center justify-between mb-4">
-            <div className="flex flex-col md:flex-row gap-4 flex-1">
-              <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+            <div className="flex flex-col md:flex-row gap-4 flex-1 w-full">
+              <div className="relative flex-1 max-w-md group">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Search className="h-5 w-5 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+                </div>
                 <input
                   type="text"
                   placeholder="Search by name, email, or ID..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="block w-full pl-11 pr-4 py-2.5 bg-slate-50 border-transparent rounded-xl text-sm transition-all outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 placeholder:text-slate-400 font-medium text-slate-900"
                 />
               </div>
               {activeTab === 'student' && (
@@ -6243,9 +6264,11 @@ const ManageUsers: React.FC = () => {
                   <div className="flex items-center space-x-2">
                     <Filter className="h-5 w-5 text-gray-400" />
                     <select
+                      disabled={true}
+                      title="only super admin have the access to use this"
                       value={viewingAcademicYear}
                       onChange={(e) => setViewingYear(e.target.value)}
-                      className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-100 cursor-not-allowed"
                     >
                       {availableYears.map((year) => (
                         <option key={year} value={year}>
@@ -6286,21 +6309,21 @@ const ManageUsers: React.FC = () => {
                   </div>
 
                   {/* View Mode Toggle */}
-                  <div className="flex items-center space-x-2 bg-gray-100 rounded-lg p-1">
+                  <div className="flex items-center space-x-1.5 bg-slate-100/80 rounded-xl p-1.5">
                     <button
                       onClick={() => setViewMode('table')}
-                      className={`px-3 py-1 rounded text-sm font-medium transition-colors ${viewMode === 'table'
-                        ? 'bg-white text-blue-600 shadow-sm'
-                        : 'text-gray-600 hover:text-gray-800'
+                      className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all duration-200 ${viewMode === 'table'
+                        ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/50'
+                        : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
                         }`}
                     >
                       Table View
                     </button>
                     <button
                       onClick={() => setViewMode('hierarchy')}
-                      className={`px-3 py-1 rounded text-sm font-medium transition-colors ${viewMode === 'hierarchy'
-                        ? 'bg-white text-blue-600 shadow-sm'
-                        : 'text-gray-600 hover:text-gray-800'
+                      className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all duration-200 ${viewMode === 'hierarchy'
+                        ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/50'
+                        : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
                         }`}
                     >
                       Class View
@@ -6317,10 +6340,10 @@ const ManageUsers: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <div className="flex space-x-2">
+              <div className="flex flex-wrap items-center gap-3">
                 <button
                   onClick={exportUsers}
-                  className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  className="flex items-center space-x-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 hover:text-indigo-600 hover:border-indigo-200 transition-all font-semibold text-sm shadow-sm"
                 >
                   <Upload className="h-4 w-4" />
                   <span>Export</span>
@@ -6335,14 +6358,14 @@ const ManageUsers: React.FC = () => {
                       toast.error('Failed to open import dialog');
                     }
                   }}
-                  className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  className="flex items-center space-x-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 hover:text-indigo-600 hover:border-indigo-200 transition-all font-semibold text-sm shadow-sm"
                 >
                   <Download className="h-4 w-4" />
                   <span>Import</span>
                 </button>
                 <button
                   onClick={() => generateTemplate(activeTab)}
-                  className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  className="flex items-center space-x-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 hover:text-indigo-600 hover:border-indigo-200 transition-all font-semibold text-sm shadow-sm"
                   title={`Download ${activeTab} import template`}
                 >
                   <FileText className="h-4 w-4" />
@@ -6351,20 +6374,20 @@ const ManageUsers: React.FC = () => {
                 {activeTab === 'teacher' && (
                   <button
                     onClick={handleShowAllPasswords}
-                    className={`flex items-center space-x-2 px-4 py-2 border rounded-lg ${allPasswordsVisible
-                      ? 'border-gray-300 bg-gray-50 text-gray-700 hover:bg-gray-100'
-                      : 'border-purple-300 bg-purple-50 text-purple-700 hover:bg-purple-100'
+                    className={`flex items-center space-x-2 px-4 py-2.5 border rounded-xl font-semibold text-sm transition-all shadow-sm ${allPasswordsVisible
+                      ? 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
+                      : 'border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 hover:border-violet-300'
                       }`}
                     title={allPasswordsVisible ? "Hide all teacher passwords" : "Show all teacher passwords (requires admin password)"}
                   >
                     {allPasswordsVisible ? (
                       <>
-                        <EyeOff className="h-4 w-4" />
+                        <EyeOff className="h-4 w-4 stroke-2" />
                         <span>Hide All Passwords</span>
                       </>
                     ) : (
                       <>
-                        <Eye className="h-4 w-4" />
+                        <Eye className="h-4 w-4 stroke-2" />
                         <span>Show All Passwords</span>
                       </>
                     )}
@@ -6389,18 +6412,18 @@ const ManageUsers: React.FC = () => {
                       generatedPassword: password
                     }));
                   }}
-                  className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  className="flex items-center space-x-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all font-semibold text-sm shadow-md hover:shadow-lg hover:-translate-y-0.5"
                 >
-                  <Plus className="h-4 w-4" />
+                  <Plus className="h-4 w-4 stroke-[3]" />
                   <span>Add {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</span>
                 </button>
               </div>
             )}
           </div>
-        </div>
+
 
         {/* Users Display */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <motion.div variants={itemVariants} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
           {activeTab === 'student' && viewMode === 'hierarchy' ? (
             /* Hierarchical Student View */
             <div className="p-6">
@@ -6484,8 +6507,8 @@ const ManageUsers: React.FC = () => {
                                         ) : (
                                           <UserX className="h-4 w-4 text-red-500 mr-1" />
                                         )}
-                                        <span className={`text-sm ${student.isActive ? 'text-green-700' : 'text-red-700'}`}>
-                                          {student.isActive ? 'Active' : 'Inactive'}
+                                        <span className={`text-sm ${student.isActive ? `text-green-700` : `text-red-700`}`}>
+                                          {student.isActive ? `Active` : `Inactive`}
                                         </span>
                                       </div>
                                       <div className="flex space-x-1">
@@ -6520,40 +6543,40 @@ const ManageUsers: React.FC = () => {
             </div>
           ) : (
             /* Table View */
-            <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-320px)] border border-gray-200 shadow sm:rounded-lg" style={{ scrollBehavior: 'smooth' }}>
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50 sticky top-0 z-10 shadow-[0_1px_2px_rgba(0,0,0,0.1)]">
+            <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-320px)] border border-slate-100 shadow-sm sm:rounded-2xl custom-scrollbar" style={{ scrollBehavior: 'smooth' }}>
+              <table className="min-w-full divide-y divide-slate-100">
+                <thead className="bg-slate-50/80 backdrop-blur-md sticky top-0 z-10 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Photo</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                    <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">Photo</th>
+                    <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">User</th>
+                    <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">Contact</th>
                     {activeTab === 'student' && (
                       <>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Class</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Section</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student ID</th>
+                        <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">Class</th>
+                        <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">Section</th>
+                        <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">Student ID</th>
                       </>
                     )}
                     {activeTab === 'teacher' && (
                       <>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee ID</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Password</th>
-                        {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Experience</th> */}
+                        <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">Employee ID</th>
+                        <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">Password</th>
+                        {/* <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">Experience</th> */}
                       </>
                     )}
                     {activeTab === 'admin' && (
                       <>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee ID</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Access Level</th>
+                        <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">Employee ID</th>
+                        <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">Department</th>
+                        <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">Access Level</th>
                       </>
                     )}
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">Status</th>
+                    <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">Created</th>
+                    <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white divide-y divide-slate-50">
                   {loading ? (
                     <tr>
                       <td colSpan={activeTab === 'student' ? 8 : activeTab === 'teacher' ? 8 : 8} className="px-6 py-4 text-center text-gray-500">Loading users...</td>
@@ -6578,7 +6601,7 @@ const ManageUsers: React.FC = () => {
                       const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase() || 'U';
 
                       return (
-                        <tr key={user._id} className="hover:bg-gray-50">
+                        <tr key={user._id} className="hover:bg-slate-50/80 transition-colors">
                           {/* Photo Column */}
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex-shrink-0 h-10 w-10">
@@ -6587,20 +6610,20 @@ const ManageUsers: React.FC = () => {
                                   src={fullPhotoUrl}
                                   // alt={`${(user as any).name?.displayName || 'User'} photo`}
                                   alt={`${fullPhotoUrl}`}
-                                  className="h-10 w-10 rounded-full object-cover border border-gray-200"
+                                  className="h-10 w-10 rounded-full object-cover shadow-sm border border-slate-200/50"
                                   onError={(e) => {
                                     // Fallback to initials if image fails to load
                                     const target = e.target as HTMLImageElement;
                                     target.style.display = 'none';
                                     const parent = target.parentElement;
                                     if (parent) {
-                                      parent.innerHTML = `<div class="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center"><span class="text-sm font-medium text-blue-700">${initials}</span></div>`;
+                                      parent.innerHTML = `<div class="h-10 w-10 rounded-full bg-indigo-50 flex items-center justify-center shadow-inner border border-indigo-100/50"><span class="text-sm font-bold text-indigo-600">${initials}</span></div>`;
                                     }
                                   }}
                                 />
                               ) : (
-                                <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                                  <span className="text-sm font-medium text-blue-700">{initials}</span>
+                                <div className="h-10 w-10 rounded-full bg-indigo-50 flex items-center justify-center shadow-inner border border-indigo-100/50">
+                                  <span className="text-sm font-bold text-indigo-600">{initials}</span>
                                 </div>
                               )}
                             </div>
@@ -6753,7 +6776,7 @@ const ManageUsers: React.FC = () => {
               </table>
             </div>
           )}
-        </div>
+        </motion.div>
 
         {/* Add User Modal */}
         {showAddModal && (
@@ -10607,7 +10630,7 @@ const ManageUsers: React.FC = () => {
             </div>
           </div>
         )}
-      </div>
+      </motion.div>
     );
   } catch (error) {
     console.error('Render error in ManageUsers:', error);

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { BookOpen, Users, FileText, Search, Calendar, Clock, MapPin, CreditCard, Download, ChevronDown, ChevronRight, Plus, Trash2, RectangleHorizontal, RectangleVertical } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useSchoolClasses } from '../../../hooks/useSchoolClasses';
@@ -94,7 +95,8 @@ const AcademicDetails: React.FC = () => {
   } = useSchoolClasses(academicYearReady ? getAcademicYearToUse(viewingAcademicYear, currentAcademicYear) : undefined);
 
   // Tab management
-  const [activeTab, setActiveTab] = useState('subjects');
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState(location.state?.tab || 'subjects');
 
   // State management for Class Subjects
   const [classSubjects, setClassSubjects] = useState<ClassSubjects[]>([]);
@@ -1647,60 +1649,62 @@ const AcademicDetails: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-5xl mx-auto">
+    <div className="space-y-6 relative">
+      <div className="sticky top-[72px] z-20 flex flex-col gap-6 pt-4 pb-2 -mt-4 bg-[#f8fafc]">
         {/* Header */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <div className="flex items-center gap-3 mb-4">
-            <BookOpen className="h-6 w-6 text-blue-600" />
-            <h1 className="text-2xl font-bold text-gray-800">Academic Management</h1>
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sm:p-8 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50 rounded-full blur-3xl opacity-60 -mr-20 -mt-20 pointer-events-none"></div>
+          <div className="flex items-center justify-between relative z-10">
+            <div className="flex items-center space-x-4">
+              <div className="bg-indigo-600 p-3 rounded-xl flex items-center justify-center shadow-sm">
+                <BookOpen className="h-7 w-7 text-white" strokeWidth={2} />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Academic Management</h1>
+                <p className="text-sm font-medium text-slate-500 mt-1">Manage subjects and generate hall tickets for your school</p>
+              </div>
+            </div>
           </div>
-          <p className="text-gray-600">Manage subjects and generate hall tickets for your school</p>
         </div>
 
         {/* Tab Navigation */}
-        <div className="bg-white rounded-lg shadow-md mb-6">
-          <div className="border-b border-gray-200">
-            <nav className="flex space-x-8 px-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="p-6">
+            <nav className="inline-flex bg-slate-100/80 p-1.5 rounded-2xl w-full sm:w-auto overflow-x-auto custom-scrollbar">
               <button
                 onClick={() => setActiveTab('subjects')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'subjects'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                className={`flex items-center justify-center space-x-2 py-2.5 px-6 rounded-xl font-semibold text-sm transition-all duration-200 whitespace-nowrap ${activeTab === 'subjects'
+                  ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/50'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
                   }`}
               >
-                <div className="flex items-center gap-2">
-                  <BookOpen className="h-4 w-4" />
-                  Class Subjects Management
-                </div>
+                <BookOpen className="h-4 w-4" />
+                <span>Class Subjects Management</span>
               </button>
               <button
                 onClick={() => setActiveTab('hallticket')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'hallticket'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                className={`flex items-center justify-center space-x-2 py-2.5 px-6 rounded-xl font-semibold text-sm transition-all duration-200 whitespace-nowrap ${activeTab === 'hallticket'
+                  ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/50'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
                   }`}
               >
-                <div className="flex items-center gap-2">
-                  <FileText className="h-4 w-4" />
-                  Hall Ticket Generation
-                </div>
+                <FileText className="h-4 w-4" />
+                <span>Hall Ticket Generation</span>
               </button>
               <button
                 onClick={() => setActiveTab('idcard')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'idcard'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                className={`flex items-center justify-center space-x-2 py-2.5 px-6 rounded-xl font-semibold text-sm transition-all duration-200 whitespace-nowrap ${activeTab === 'idcard'
+                  ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/50'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
                   }`}
               >
-                <div className="flex items-center gap-2">
-                  <CreditCard className="h-4 w-4" />
-                  School ID Card Generation
-                </div>
+                <CreditCard className="h-4 w-4" />
+                <span>School ID Card Generation</span>
               </button>
             </nav>
           </div>
         </div>
+      </div>
 
         {/* Show error if classes failed to load */}
         {classesError && (
@@ -2008,9 +2012,11 @@ const AcademicDetails: React.FC = () => {
                       Academic Year <span className="text-red-500">*</span>
                     </label>
                     <select
+                      disabled={true}
+                      title="only super admin have the access to use this"
                       value={viewingAcademicYear}
                       onChange={(e) => setViewingYear(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-100 cursor-not-allowed"
                     >
                       {availableYears.map((year) => (
                         <option key={year} value={year}>
@@ -2509,7 +2515,6 @@ const AcademicDetails: React.FC = () => {
           </div>
         )}
       </div>
-    </div>
   );
 };
 
