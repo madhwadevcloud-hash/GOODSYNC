@@ -671,8 +671,8 @@ const SchoolSettings: React.FC = () => {
             onClick={handleSaveScoring}
             disabled={isWeightageInvalid}
             className={`px-4 py-2 rounded-lg flex items-center transition-colors ${isWeightageInvalid
-                ? 'bg-gray-400 text-gray-200 cursor-not-allowed opacity-60'
-                : 'bg-blue-600 hover:bg-blue-700 text-white'
+              ? 'bg-gray-400 text-gray-200 cursor-not-allowed opacity-60'
+              : 'bg-blue-600 hover:bg-blue-700 text-white'
               }`}
           >
             <Save className="h-4 w-4 mr-2" />
@@ -895,8 +895,8 @@ const SchoolSettings: React.FC = () => {
                                   </div>
                                 </div>
                                 <span className={`px-3 py-1 text-xs font-semibold rounded-full ${totalClassWeight === 100
-                                    ? 'bg-green-100 text-green-800'
-                                    : 'bg-yellow-100 text-yellow-800'
+                                  ? 'bg-green-100 text-green-800'
+                                  : 'bg-yellow-100 text-yellow-800'
                                   }`}>
                                   {totalClassWeight === 100 ? 'Configured (100%)' : 'Needs Configuration'}
                                 </span>
@@ -956,171 +956,171 @@ const SchoolSettings: React.FC = () => {
                   </div>
                 </div>
                 {/* Right column: Grading System (takes 1 col) */}
-                        <div className="space-y-4 bg-gray-50 p-6 rounded-xl border border-gray-200 h-fit">
-                          <div className="flex items-center justify-between border-b border-gray-200 pb-3 mb-2">
-                            <div>
-                              <h3 className="text-md font-semibold text-gray-900 flex items-center gap-2">
-                                <Award className="h-5 w-5 text-blue-600" />
-                                Grading Scale
-                              </h3>
-                              <p className="text-xs text-gray-500 mt-0.5">Customize grade name and percentage thresholds.</p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setGradingSystem(prev => [
-                                  ...prev,
-                                  { grade: `G${prev.length + 1}`, minPercentage: 0, maxPercentage: 0 }
-                                ]);
-                              }}
-                              className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline flex items-center"
-                            >
-                              + Add Grade
-                            </button>
-                          </div>
+                <div className="space-y-4 bg-gray-50 p-6 rounded-xl border border-gray-200 h-fit">
+                  <div className="flex items-center justify-between border-b border-gray-200 pb-3 mb-2">
+                    <div>
+                      <h3 className="text-md font-semibold text-gray-900 flex items-center gap-2">
+                        <Award className="h-5 w-5 text-blue-600" />
+                        Grading Scale
+                      </h3>
+                      <p className="text-xs text-gray-500 mt-0.5">Customize grade name and percentage thresholds.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGradingSystem(prev => [
+                          ...prev,
+                          { grade: `G${prev.length + 1}`, minPercentage: 0, maxPercentage: 0 }
+                        ]);
+                      }}
+                      className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline flex items-center"
+                    >
+                      + Add Grade
+                    </button>
+                  </div>
 
-                          <div className="space-y-3 max-h-[450px] overflow-y-auto pr-1">
-                            {gradingSystem.map((scale, index) => (
-                              <div key={index} className="flex items-center gap-2 bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
-                                <div className="w-16">
-                                  <label className="block text-[10px] font-bold text-gray-400 uppercase">Grade</label>
-                                  <input
-                                    type="text"
-                                    value={scale.grade}
-                                    onChange={(e) => {
-                                      const updated = [...gradingSystem];
-                                      updated[index].grade = e.target.value;
-                                      setGradingSystem(updated);
-                                    }}
-                                    placeholder="A+"
-                                    className="w-full text-sm font-semibold border-b border-gray-300 focus:border-blue-500 focus:ring-0 py-1 bg-transparent text-center"
-                                  />
-                                </div>
-                                <div className="flex-1">
-                                  <label className="block text-[10px] font-bold text-gray-400 uppercase text-center">Min (%)</label>
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    value={scale.minPercentage}
-                                    onChange={(e) => {
-                                      const updated = [...gradingSystem];
-                                      updated[index].minPercentage = Math.max(0, parseFloat(e.target.value) || 0);
-                                      setGradingSystem(updated);
-                                    }}
-                                    className="w-full text-sm text-center border border-gray-300 rounded px-1.5 py-1 focus:ring-1 focus:ring-blue-500"
-                                  />
-                                </div>
-                                <div className="text-gray-400 text-sm font-medium pt-3">-</div>
-                                <div className="flex-1">
-                                  <label className="block text-[10px] font-bold text-gray-400 uppercase text-center">Max (%)</label>
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    value={scale.maxPercentage}
-                                    onChange={(e) => {
-                                      const updated = [...gradingSystem];
-                                      updated[index].maxPercentage = Math.max(0, parseFloat(e.target.value) || 0);
-                                      setGradingSystem(updated);
-                                    }}
-                                    className="w-full text-sm text-center border border-gray-300 rounded px-1.5 py-1 focus:ring-1 focus:ring-blue-500"
-                                  />
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setGradingSystem(prev => prev.filter((_, i) => i !== index));
-                                  }}
-                                  className="text-red-500 hover:text-red-700 pt-3 flex-shrink-0"
-                                  title="Delete"
-                                >
-                                  <X className="h-4 w-4" />
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-
-                          <div className="pt-2 text-[11px] text-gray-500 italic flex items-start gap-1">
-                            <span>💡</span>
-                            <span>Click "Save Scoring" above to apply your changes to the grading scale.</span>
-                          </div>
+                  <div className="space-y-3 max-h-[450px] overflow-y-auto pr-1">
+                    {gradingSystem.map((scale, index) => (
+                      <div key={index} className="flex items-center gap-2 bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
+                        <div className="w-16">
+                          <label className="block text-[10px] font-bold text-gray-400 uppercase">Grade</label>
+                          <input
+                            type="text"
+                            value={scale.grade}
+                            onChange={(e) => {
+                              const updated = [...gradingSystem];
+                              updated[index].grade = e.target.value;
+                              setGradingSystem(updated);
+                            }}
+                            placeholder="A+"
+                            className="w-full text-sm font-semibold border-b border-gray-300 focus:border-blue-500 focus:ring-0 py-1 bg-transparent text-center"
+                          />
                         </div>
+                        <div className="flex-1">
+                          <label className="block text-[10px] font-bold text-gray-400 uppercase text-center">Min</label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={scale.minPercentage}
+                            onChange={(e) => {
+                              const updated = [...gradingSystem];
+                              updated[index].minPercentage = Math.max(0, parseFloat(e.target.value) || 0);
+                              setGradingSystem(updated);
+                            }}
+                            className="w-full text-sm text-center border border-gray-300 rounded px-1.5 py-1 focus:ring-1 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div className="text-gray-400 text-sm font-medium pt-3">-</div>
+                        <div className="flex-1">
+                          <label className="block text-[10px] font-bold text-gray-400 uppercase text-center">Max</label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={scale.maxPercentage}
+                            onChange={(e) => {
+                              const updated = [...gradingSystem];
+                              updated[index].maxPercentage = Math.max(0, parseFloat(e.target.value) || 0);
+                              setGradingSystem(updated);
+                            }}
+                            className="w-full text-sm text-center border border-gray-300 rounded px-1.5 py-1 focus:ring-1 focus:ring-blue-500"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setGradingSystem(prev => prev.filter((_, i) => i !== index));
+                          }}
+                          className="text-red-500 hover:text-red-700 pt-3 flex-shrink-0"
+                          title="Delete"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="pt-2 text-[11px] text-gray-500 italic flex items-start gap-1">
+                    <span>💡</span>
+                    <span>Click "Save Scoring" above to apply your changes to the grading scale.</span>
+                  </div>
+                </div>
               </div>
             </div>
           )}
 
-                {activeTab === 'classes' && (
-                  <div className="space-y-6">
-                    <h3 className="text-lg font-medium text-gray-900">Class Structure</h3>
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                      <p className="text-sm text-blue-800">
-                        <strong>Note:</strong> Classes and sections are managed by SuperAdmin. This is a read-only view.
-                      </p>
-                    </div>
+          {activeTab === 'classes' && (
+            <div className="space-y-6">
+              <h3 className="text-lg font-medium text-gray-900">Class Structure</h3>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <p className="text-sm text-blue-800">
+                  <strong>Note:</strong> Classes and sections are managed by SuperAdmin. This is a read-only view.
+                </p>
+              </div>
 
-                    {loading ? (
-                      <div className="text-center py-8">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                        <p className="mt-4 text-gray-600">Loading classes...</p>
+              {loading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                  <p className="mt-4 text-gray-600">Loading classes...</p>
+                </div>
+              ) : classes.length === 0 ? (
+                <div className="text-center py-12">
+                  <BookOpen className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Classes Found</h3>
+                  <p className="text-gray-600">Classes created by SuperAdmin will appear here.</p>
+                  <p className="text-sm text-gray-500 mt-2">Ask your SuperAdmin to create classes in the Academics section.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {classes.map((cls) => (
+                    <div key={cls._id} className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-medium text-gray-900">Class {cls.className}</h4>
+                        <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                          {cls.sections.length} sections
+                        </span>
                       </div>
-                    ) : classes.length === 0 ? (
-                      <div className="text-center py-12">
-                        <BookOpen className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                        <h3 className="text-lg font-medium text-gray-900 mb-2">No Classes Found</h3>
-                        <p className="text-gray-600">Classes created by SuperAdmin will appear here.</p>
-                        <p className="text-sm text-gray-500 mt-2">Ask your SuperAdmin to create classes in the Academics section.</p>
+
+                      {/* Total student count below class name */}
+                      <div className="mb-3 p-2 bg-gray-50 rounded-md">
+                        <p className="text-sm font-medium text-gray-700 flex items-center">
+                          <Users className="h-4 w-4 mr-1" />
+                          Total Students: {cls.studentCount !== undefined ? cls.studentCount : '...'}
+                        </p>
                       </div>
-                    ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {classes.map((cls) => (
-                          <div key={cls._id} className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
-                            <div className="flex items-center justify-between mb-2">
-                              <h4 className="font-medium text-gray-900">Class {cls.className}</h4>
-                              <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
-                                {cls.sections.length} sections
+
+                      {cls.sections.length > 0 ? (
+                        <div className="space-y-2">
+                          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Sections</p>
+                          {cls.sections.map((section, index) => (
+                            <div key={index} className="flex items-center justify-between text-sm bg-white border border-gray-100 rounded-md p-2">
+                              <div className="flex items-center">
+                                <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                                <span className="text-gray-700">Section {section}</span>
+                              </div>
+                              <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full font-medium">
+                                {cls.sectionCounts?.[section] !== undefined ? cls.sectionCounts[section] : '...'} students
                               </span>
                             </div>
-
-                            {/* Total student count below class name */}
-                            <div className="mb-3 p-2 bg-gray-50 rounded-md">
-                              <p className="text-sm font-medium text-gray-700 flex items-center">
-                                <Users className="h-4 w-4 mr-1" />
-                                Total Students: {cls.studentCount !== undefined ? cls.studentCount : '...'}
-                              </p>
-                            </div>
-
-                            {cls.sections.length > 0 ? (
-                              <div className="space-y-2">
-                                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Sections</p>
-                                {cls.sections.map((section, index) => (
-                                  <div key={index} className="flex items-center justify-between text-sm bg-white border border-gray-100 rounded-md p-2">
-                                    <div className="flex items-center">
-                                      <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                                      <span className="text-gray-700">Section {section}</span>
-                                    </div>
-                                    <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full font-medium">
-                                      {cls.sectionCounts?.[section] !== undefined ? cls.sectionCounts[section] : '...'} students
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <p className="text-sm text-gray-500 italic">No sections added</p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {activeTab === 'templates' && (
-                  <UniversalTemplate />
-                )}
-
-              </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-500 italic">No sections added</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
+          )}
+
+          {activeTab === 'templates' && (
+            <UniversalTemplate />
+          )}
+
+        </div>
+      </div>
     </div>
-        );
+  );
 };
 
-        export default SchoolSettings;
+export default SchoolSettings;
