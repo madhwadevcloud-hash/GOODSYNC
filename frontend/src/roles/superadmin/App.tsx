@@ -45,15 +45,21 @@ function AppContent() {
         return <SchoolEditDetails />;
       case 'promotion':
         return (
-          <div className="p-6">
-            <div className="flex items-center space-x-3 mb-6">
-              <div className="bg-blue-100 p-3 rounded-xl">
-                <TrendingUp className="h-6 w-6 text-blue-600" />
+          <div className="p-4 sm:p-6 animate-fadeIn">
+            <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-indigo-600 to-purple-600 rounded-2xl p-5 sm:p-8 mb-4 sm:mb-6 opacity-0 animate-slideUp">
+              <div className="relative z-10 flex items-center space-x-4">
+                <div className="bg-white/15 p-3 rounded-2xl flex-shrink-0">
+                  <TrendingUp className="h-6 w-6 sm:h-7 sm:w-7 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-xl sm:text-2xl font-bold text-white">Student Promotion Management</h1>
+                  <p className="text-indigo-100 mt-1 text-sm sm:text-base">
+                    Global dashboard for managing student promotions across all registered schools.
+                  </p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-2xl font-bold font-semibold text-gray-900">Student Promotion Management</h1>
-                <p className="text-sm text-gray-500">Global dashboard for managing student promotions across all registered schools.</p>
-              </div>
+              <div className="absolute -right-10 -top-10 w-40 h-40 rounded-full bg-white/10" />
+              <div className="absolute right-16 bottom-[-3rem] w-28 h-28 rounded-full bg-white/10" />
             </div>
             <SuperAdminPromotionTab />
           </div>
@@ -98,9 +104,13 @@ function AppContent() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col lg:flex-row">
+    <div className="h-screen bg-gray-50 flex flex-col lg:flex-row overflow-hidden">
       {currentView !== 'school-login' && <Navigation />}
-      <main className={`flex-1 overflow-y-auto ${currentView === 'school-login' ? 'w-full' : ''}`}>
+      <main
+        className={`flex-1 h-full overflow-y-auto ${
+          currentView === 'school-login' ? 'w-full' : ''
+        }`}
+      >
         {renderCurrentView()}
       </main>
       
