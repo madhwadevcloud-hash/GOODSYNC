@@ -145,10 +145,10 @@ export default function Login() {
       let loginPayload;
       if (selectedRole === "student") {
           loginPayload = {
-              identifier: identifier.trim(),
-              password: password,
+              email: identifier.trim(),   // Student ID goes here
+              password,
               schoolCode: schoolCode.trim(),
-              role: "student"
+              role: "student",
           };
       } else {
           loginPayload = schoolCode.trim()
@@ -163,12 +163,28 @@ export default function Login() {
                   password,
                   role: selectedRole
               };
-
       }
 
       await login(loginPayload);
-      const from = location.state?.from as string | undefined;
-      navigate(from ?? "/", { replace: true });
+
+      switch (selectedRole) {
+        case "student":
+          navigate("/student", { replace: true });
+          break;
+
+        case "teacher":
+          navigate("/teacher", { replace: true });
+          break;
+
+        case "admin":
+          navigate("/admin", { replace: true });
+          break;
+
+        case "superadmin":
+        default:
+          navigate("/", { replace: true });
+          break;
+      }
     } catch (err: any) {
       setError(err?.message || "Login failed");
     } finally {
@@ -223,7 +239,15 @@ export default function Login() {
                         : "your.email@school.com"
                     }
                     value={identifier}
-                    onChange={(e) => setIdentifier(e.target.value)}
+                    onChange={(e) => {
+                      const value = e.target.value;
+
+                      setIdentifier(
+                        selectedRole === "student"
+                          ? value.toUpperCase()
+                          : value
+                      );
+                    }}
                     required
                     autoComplete="username"
                   />
