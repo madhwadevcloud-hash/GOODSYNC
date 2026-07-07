@@ -44,6 +44,19 @@ class TeacherAssignmentService {
     } = data;
 
     // Validate required fields
+    console.log('[TSA SERVICE] Validating fields:', {
+      schoolId: !!schoolId,
+      schoolCode: !!schoolCode,
+      academicYear: !!academicYear,
+      className: !!className,
+      section: !!section,
+      subjectName: !!subjectName,
+      teacherId: !!teacherId,
+      teacherName: !!teacherName,
+      createdBy: !!createdBy,
+      values: { schoolId, schoolCode, academicYear, className, section, subjectName, teacherId, teacherName, createdBy }
+    });
+
     if (!schoolId || !schoolCode || !academicYear || !className || !section || !subjectName || !teacherId || !teacherName || !createdBy) {
       throw new Error('Missing required fields for teacher assignment');
     }

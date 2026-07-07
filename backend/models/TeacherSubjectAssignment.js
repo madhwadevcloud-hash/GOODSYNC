@@ -193,14 +193,14 @@ teacherSubjectAssignmentSchema.index(
 );
 
 // =============================================
-// PRE-SAVE MIDDLEWARE
+// PRE-VALIDATE MIDDLEWARE
 // =============================================
-teacherSubjectAssignmentSchema.pre('save', function (next) {
+teacherSubjectAssignmentSchema.pre('validate', function (next) {
   // Auto-generate assignmentId if not set
   if (!this.assignmentId) {
     const ts = Date.now();
     const rand = Math.random().toString(36).substring(2, 8).toUpperCase();
-    this.assignmentId = `TSA_${this.schoolCode}_${this.className}_${this.section}_${rand}_${ts}`;
+    this.assignmentId = `TSA_${this.schoolCode || 'GEN'}_${this.className || 'C'}_${this.section || 'S'}_${rand}_${ts}`;
   }
 
   // Normalize section to uppercase
