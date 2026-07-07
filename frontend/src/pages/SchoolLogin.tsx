@@ -3,7 +3,7 @@ import { School, User, Eye, EyeOff, AlertCircle, ArrowLeft } from 'lucide-react'
 import api from '../api/axios';
 
 interface LoginFormData {
-  email: string;
+  identifier: string;
   password: string;
 }
 
@@ -21,13 +21,15 @@ interface LoginResponse {
 }
 
 interface SchoolLoginProps {
+  role?: "teacher" | "student";
+  schoolCode?: string;
   onLoginSuccess?: (userInfo: any) => void;
   onBack?: () => void;
 }
 
-export function SchoolLogin({ onLoginSuccess, onBack }: SchoolLoginProps) {
+export function SchoolLogin({ role = "teacher", schoolCode = "", onLoginSuccess, onBack }: SchoolLoginProps) {
   const [formData, setFormData] = useState<LoginFormData>({
-    email: '',
+    identifier: '',
     password: ''
   });
   const [showPassword, setShowPassword] = useState(false);
@@ -38,35 +40,49 @@ export function SchoolLogin({ onLoginSuccess, onBack }: SchoolLoginProps) {
     e.preventDefault();
     setError(null);
     
-    if (!formData.email || !formData.password) {
+    if (!formData.identifier || !formData.password) {
       setError('Please fill in all fields');
       return;
     }
 
     setLoading(true);
     try {
-      const response = await api.post('/auth/login', {
-        email: formData.email,
-        password: formData.password
-      });
+      let loginPayload: any;
+      if (role === "student") {
+          loginPayload = {
+              identifier: formData.identifier,
+              password: formData.password.replace(/\D/g, ""),
+              schoolCode
+          };
+          const response = await api.post(
+              "/auth/school-login",
+              loginPayload
+          );
+          const data: LoginResponse = response.data;
+          if (data.success) {
+              localStorage.setItem("authToken", data.token);
+              localStorage.setItem("userInfo", JSON.stringify(data.user));
+              if (onLoginSuccess) {
+                  onLoginSuccess(data.user);
+              }
+          }
 
-      const data: LoginResponse = response.data;
-      
-      if (data.success && data.token) {
-        // Store token and user info
-        localStorage.setItem('authToken', data.token);
-        localStorage.setItem('userInfo', JSON.stringify(data.user));
-        
-        // Call the success callback if provided
-        if (onLoginSuccess) {
-          onLoginSuccess(data.user);
-        } else {
-          // Default behavior - show success message
-          alert(`Login successful!\nWelcome ${data.user.name}\nRole: ${data.user.role}\nSchool: ${data.user.schoolName}`);
-        }
       } else {
-        setError('Invalid login credentials');
+          const response = await api.post("/auth/login", {
+              email: formData.identifier,
+              password: formData.password
+          });
+          const data: LoginResponse = response.data;
+          if (data.success) {
+              localStorage.setItem("authToken", data.token);
+              localStorage.setItem("userInfo", JSON.stringify(data.user));
+              if (onLoginSuccess) {
+                  onLoginSuccess(data.user);
+              }
+          }
+
       }
+
     } catch (error: any) {
       console.error('Login error:', error);
       setError(
@@ -101,10 +117,14 @@ export function SchoolLogin({ onLoginSuccess, onBack }: SchoolLoginProps) {
             <School className="h-8 w-8 text-white" />
           </div>
           <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-            School Portal Login
+            {role === "student"
+                ? "Students & Parents Login"
+                : "School Portal Login"}
           </h2>
           <p className="mt-2 text-sm text-gray-600">
-            Sign in to access your school account
+            {role === "student"
+                ? "Sign in using Student ID and Date of Birth"
+                : "Sign in to access your school account"}
           </p>
         </div>
         
@@ -118,9 +138,11 @@ export function SchoolLogin({ onLoginSuccess, onBack }: SchoolLoginProps) {
             )}
             
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                Email Address
-              </label>
+              <label>
+                {role === "student"
+                    ? "Student ID"
+                    : "Email Address"}
+            </label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                 <input
@@ -129,17 +151,24 @@ export function SchoolLogin({ onLoginSuccess, onBack }: SchoolLoginProps) {
                   type="email"
                   autoComplete="email"
                   required
-                  value={formData.email}
-                  onChange={(e) => handleInputChange('email', e.target.value)}
-                  className="pl-10 w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                  placeholder="Enter your email"
+                  value={formData.identifier}
+                  onChange={(e)=>
+                  handleInputChange("identifier",e.target.value)
+                  }
+                  placeholder={
+                      role==="student"
+                          ? "Enter Student ID"
+                          : "Enter your email"
+                  }
                 />
               </div>
             </div>
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                Password
+                {role==="student"
+                    ? "Date of Birth"
+                    : "Password"}
               </label>
               <div className="relative">
                 <input
@@ -153,7 +182,11 @@ export function SchoolLogin({ onLoginSuccess, onBack }: SchoolLoginProps) {
                   onFocus={() => setShowPassword(true)}
                   onBlur={() => setShowPassword(false)}
                   className="w-full px-3 py-3 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                  placeholder="Enter your password"
+                  placeholder={
+                    role==="student"
+                        ? "DD/MM/YYYY"
+                        : "Enter your password"
+                }
                 />
                 <button
                   type="button"

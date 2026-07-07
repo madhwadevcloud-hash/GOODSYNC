@@ -272,6 +272,43 @@ const ViewAssignments: React.FC = () => {
 
   return today <= due;
 };
+const getDueStatus = (dueDate: string) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const due = new Date(dueDate);
+  due.setHours(0, 0, 0, 0);
+
+  const diffDays = Math.ceil(
+    (due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+  );
+
+  if (diffDays < 0) {
+    return {
+      text: "Expired",
+      className: "bg-red-100 text-red-700",
+    };
+  }
+
+  if (diffDays === 0) {
+    return {
+      text: "Today",
+      className: "bg-orange-100 text-orange-700",
+    };
+  }
+
+  if (diffDays === 1) {
+    return {
+      text: "1 Day Left",
+      className: "bg-yellow-100 text-yellow-700",
+    };
+  }
+
+  return {
+    text: `${diffDays} Days Left`,
+    className: "bg-green-100 text-green-700",
+  };
+};
 
   return (
     <div className="space-y-6">
@@ -284,7 +321,7 @@ const ViewAssignments: React.FC = () => {
             placeholder="Search assignments..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="pl-10 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent"
           />
         </div>
 
@@ -295,7 +332,7 @@ const ViewAssignments: React.FC = () => {
             setSelectedSection('');
             setSelectedSubject('');
           }}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent"
         >
           <option value="">All Classes</option>
           {classList.map((cls) => (
@@ -308,7 +345,7 @@ const ViewAssignments: React.FC = () => {
           onChange={(e) => {
             setSelectedSection(e.target.value);
           }}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent"
         >
           <option value="">All Sections</option>
           {selectedClass && availableSections.map((section) => (
@@ -319,7 +356,7 @@ const ViewAssignments: React.FC = () => {
         <select
           value={selectedSubject}
           onChange={(e) => setSelectedSubject(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent"
         >
           <option value="">All Subjects</option>
           {availableSubjects.map((subject) => (
@@ -367,7 +404,10 @@ const ViewAssignments: React.FC = () => {
                 </td>
               </tr>
             ) : (
-              filteredAssignments.map((assignment) => (
+              filteredAssignments.map((assignment) => {
+  const dueStatus = getDueStatus(assignment.dueDate);
+
+  return (
                 <tr key={assignment._id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">{assignment.title}</div>
@@ -397,10 +437,16 @@ const ViewAssignments: React.FC = () => {
                         <Eye className="h-3.5 w-3.5" />
                         View
                       </button>
+                      <span
+  className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold ${dueStatus.className}`}
+>
+  <Calendar className="h-3.5 w-3.5" />
+  {dueStatus.text}
+</span>
                       {canEditAssignment(assignment.dueDate) && (
   <button
     onClick={() => handleEdit(assignment)}
-    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg font-semibold text-xs hover:bg-blue-600 hover:text-white transition-all shadow-sm"
+    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-violet-50 text-violet-700 rounded-lg font-semibold text-xs hover:bg-violet-600 hover:text-white transition-all shadow-sm"
     title="Edit"
   >
     <Edit className="h-3.5 w-3.5" />
@@ -417,8 +463,9 @@ const ViewAssignments: React.FC = () => {
                       </button>
                     </div>
                   </td>
-                </tr>
-              ))
+               </tr>
+);
+})
             )}
           </tbody>
         </table>
@@ -568,7 +615,7 @@ const EditAssignmentModal: React.FC<EditAssignmentModalProps> = ({ assignment, o
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
               placeholder="Enter assignment title"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent"
             />
           </div>
 
@@ -579,7 +626,7 @@ const EditAssignmentModal: React.FC<EditAssignmentModalProps> = ({ assignment, o
               <select
                 value={formData.class}
                 onChange={(e) => setFormData({ ...formData, class: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent"
               >
                 <option value="">Select Class</option>
                 {classList.map((cls) => (
@@ -593,7 +640,7 @@ const EditAssignmentModal: React.FC<EditAssignmentModalProps> = ({ assignment, o
               <select
                 value={formData.section}
                 onChange={(e) => setFormData({ ...formData, section: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent disabled:bg-gray-100"
                 disabled={!formData.class}
               >
                 <option value="">Select Section</option>
@@ -608,7 +655,7 @@ const EditAssignmentModal: React.FC<EditAssignmentModalProps> = ({ assignment, o
               <select
                 value={formData.subject}
                 onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent disabled:bg-gray-100"
                 disabled={!formData.section || loadingSubjects}
               >
                 <option value="">
@@ -632,7 +679,7 @@ const EditAssignmentModal: React.FC<EditAssignmentModalProps> = ({ assignment, o
                 type="date"
                 value={formData.startDate}
                 onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent"
               />
             </div>
 
@@ -643,7 +690,7 @@ const EditAssignmentModal: React.FC<EditAssignmentModalProps> = ({ assignment, o
                 value={formData.dueDate}
                 onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
                 min={formData.startDate || new Date().toISOString().split('T')[0]}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent"
               />
             </div>
           </div>
@@ -656,7 +703,7 @@ const EditAssignmentModal: React.FC<EditAssignmentModalProps> = ({ assignment, o
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               rows={6}
               placeholder="Write detailed instructions for the assignment..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent"
             />
           </div>
 
@@ -671,7 +718,7 @@ const EditAssignmentModal: React.FC<EditAssignmentModalProps> = ({ assignment, o
             <button
               onClick={handleSubmit}
               disabled={saving}
-              className="flex items-center px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+              className="flex items-center px-6 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               <Plus className="h-4 w-4 mr-2" />
               {saving ? 'Updating...' : 'Update Assignment'}

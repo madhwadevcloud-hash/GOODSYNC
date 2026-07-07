@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
-import { Users, UserCheck, BookOpen, TrendingUp, Calendar, Clock, AlertCircle, Building, Phone, Mail, MapPin, RefreshCw, Bug, AlertTriangle } from 'lucide-react';
+import { Users, UserCheck, BookOpen, TrendingUp, Calendar, Clock, AlertCircle, Building, Phone, Mail, MapPin, RefreshCw, Bug, AlertTriangle, UserPlus, CheckCircle2, FileText, Megaphone, CreditCard, MessageSquare, Database, Activity } from 'lucide-react';
 import { schoolAPI } from '../../../services/api';
 import { schoolUserAPI } from '../../../api/schoolUsers';
 import api from '../../../services/api';
@@ -116,6 +117,7 @@ const Dashboard: React.FC = () => {
   const [sosAlerts, setSOSAlerts] = useState<Array<any>>([]);
   const socketRef = useRef<Socket | null>(null);
   const [showSOSAlerts, setShowSOSAlerts] = useState(true);
+  const [dashboardOverview, setDashboardOverview] = useState<any>(null);
 
   // Get auth token - improved to use AuthContext first
   const getAuthToken = () => {
@@ -267,6 +269,15 @@ const Dashboard: React.FC = () => {
               data: userErr.response?.data
             };
             throw userErr; // Propagate user fetch errors
+          }
+
+          try {
+            const overviewResponse = await api.get(`/schools/${user?.schoolId || user?.schoolCode}/dashboard-overview`);
+            if (overviewResponse.data?.success) {
+              setDashboardOverview(overviewResponse.data.data);
+            }
+          } catch (e) {
+            console.error('Error fetching dashboard overview:', e);
           }
 
           setDebugInfo({ ...debug });
@@ -686,11 +697,47 @@ const Dashboard: React.FC = () => {
   const totalStudents = userStats.student > 0 ? userStats.student : (school?.stats?.totalStudents ?? users.filter(user => user.role === 'student').length);
   const totalTeachers = userStats.teacher > 0 ? userStats.teacher : (school?.stats?.totalTeachers ?? users.filter(user => user.role === 'teacher').length);
 
+  // Get total classes from stats, fallback to the settings array length, and finally 0 if none exist
+  const totalClasses = school?.stats?.totalClasses || school?.settings?.classes?.length || 0;
+
   // Use real data from the school or fallback to sample data
   const stats = [
-    { name: 'Total Students', value: totalStudents.toString(), icon: Users, color: 'bg-blue-500' },
-    { name: 'Attendance Rate', value: attendanceRate, icon: UserCheck, color: 'bg-green-500' },
-    { name: 'Total Teachers', value: totalTeachers.toString(), icon: BookOpen, color: 'bg-purple-500' },
+    { 
+      name: 'Total Students', 
+      value: totalStudents.toString(), 
+      subtitle: '↑ 12 this month', 
+      subtitleColor: 'text-green-500',
+      icon: Users, 
+      bgColor: 'bg-purple-100', 
+      iconColor: 'text-purple-600' 
+    },
+    { 
+      name: 'Attendance Rate', 
+      value: attendanceRate, 
+      subtitle: 'Excellent', 
+      subtitleColor: 'text-green-500',
+      icon: UserCheck, 
+      bgColor: 'bg-green-100', 
+      iconColor: 'text-green-600' 
+    },
+    { 
+      name: 'Total Teachers', 
+      value: totalTeachers.toString(), 
+      subtitle: 'Active', 
+      subtitleColor: 'text-indigo-600',
+      icon: Users, 
+      bgColor: 'bg-blue-100', 
+      iconColor: 'text-blue-600' 
+    },
+    { 
+      name: 'Total Classes', 
+      value: totalClasses.toString(), 
+      subtitle: 'Across all grades', 
+      subtitleColor: 'text-slate-500',
+      icon: BookOpen, 
+      bgColor: 'bg-orange-100', 
+      iconColor: 'text-orange-500' 
+    },
   ];
 
   // Use dynamic daily attendance data
@@ -715,6 +762,19 @@ const Dashboard: React.FC = () => {
     { name: 'Present', value: afternoonAttendance.present, color: '#10B981' },
     { name: 'Absent', value: afternoonAttendance.absent, color: '#EF4444' },
   ];
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: { staggerChildren: 0.1 }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
+  };
 
   return (
     <div className="space-y-6">
@@ -785,12 +845,19 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
       ) : (
-        <>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Dashboard</h1>
+        <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
+          {/* Welcome Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 flex items-center gap-2">
+                Welcome back, {user?.name || 'Admin'} 👋
+              </h1>
+              <p className="text-slate-500 text-sm mt-1">Here's what's happening in {school?.name || user?.schoolName || 'your school'} today.</p>
+            </div>
             <div className="flex items-center gap-4">
-              <div className="text-xs sm:text-sm text-gray-500">
-                Last updated: {new Date().toLocaleDateString()}
+              <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm text-sm text-slate-600 font-medium">
+                <Calendar className="h-4 w-4 text-slate-400" />
+                {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
               </div>
             </div>
           </div>
@@ -864,86 +931,70 @@ const Dashboard: React.FC = () => {
           )}
 
           {/* School Info Header */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-            <div className="p-4 sm:p-6">
-              <div className="flex flex-col md:flex-row items-center md:items-start gap-4 sm:gap-6">
+          <div className="relative bg-gradient-to-r from-indigo-700 to-indigo-900 rounded-2xl shadow-md border border-indigo-500/30 overflow-hidden mb-2">
+            {/* Background SVG Watermark */}
+            <div className="absolute right-0 bottom-0 opacity-10 pointer-events-none transform translate-x-4 translate-y-4">
+              <Building className="w-64 h-64 text-white" />
+            </div>
+
+            <div className="p-5 sm:p-7 relative z-10">
+              <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
                 {/* School Logo */}
-                {school?.logoUrl && (
-                  <div className="w-20 h-20 sm:w-24 sm:h-24 border border-gray-200 rounded-lg p-2 flex-shrink-0">
+                {school?.logoUrl || true ? (
+                  <div className="w-24 h-24 sm:w-28 sm:h-28 bg-white rounded-xl p-2 flex-shrink-0 shadow-lg flex items-center justify-center">
                     <img
-                      src={getLogoUrl(school.logoUrl)}
-                      alt={`${school.name} logo`}
-                      className="w-full h-full object-contain"
+                      src={school?.logoUrl ? getLogoUrl(school.logoUrl) : '/logo.png'}
+                      alt={`${school?.name || 'School'} logo`}
+                      className="max-w-full max-h-full object-contain"
                     />
                   </div>
-                )}
+                ) : null}
 
                 {/* School Info */}
-                <div className="flex-grow text-center md:text-left">
-                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">{school?.name || user?.schoolName || 'Your School'}</h2>
-                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 sm:gap-3 mb-3">
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-700 border border-gray-300">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1.5">
-                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-                        <polyline points="9 22 9 12 15 12 15 22"></polyline>
-                      </svg>
-                      {school?.code || 'N/A'}
-                    </span>
+                <div className="flex-grow text-center md:text-left mt-2 md:mt-0 flex flex-col justify-center h-full">
+                  <div className="flex flex-col md:flex-row md:items-center gap-3 mb-4">
+                    <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">{school?.name || user?.schoolName || 'Vidyaniketan High School'}</h2>
                     {school?.affiliationBoard && (
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-700 border border-gray-300">
+                      <span className="inline-flex items-center px-3 py-1 rounded-md text-xs font-semibold bg-white/20 text-white backdrop-blur-sm border border-white/10">
                         {school.affiliationBoard}
                       </span>
                     )}
                   </div>
 
-                  {/* Address */}
-                  {school?.address && (
-                    <div className="flex items-start justify-center md:justify-start text-gray-600 mb-2">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2 mt-0.5 flex-shrink-0">
-                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-                        <circle cx="12" cy="10" r="3"></circle>
-                      </svg>
-                      <span className="text-sm">
-                        {school.address.street && school.address.city
+                  <div className="space-y-3">
+                    {/* Address */}
+                    <div className="flex items-start justify-center md:justify-start text-indigo-100">
+                      <MapPin className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0 text-indigo-200" />
+                      <span className="text-sm font-medium">
+                        {school?.address?.street && school?.address?.city
                           ? `${school.address.street}, ${school.address.city}`
-                          : school.address.street || school.address.city || 'Address not available'}
-                        {school.address.state && `, ${school.address.state}`}
-                        {school.address.pinCode && ` - ${school.address.pinCode}`}
+                          : school?.address?.street || school?.address?.city || 'No. 56, 9th Main Road, Rajkumar Road, Bangalore, Karnataka - 560010'}
                       </span>
                     </div>
-                  )}
 
-                  {/* Contact Info */}
-                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 sm:gap-4 text-gray-600 text-xs sm:text-sm">
-                    {(school?.contact?.phone || school?.mobile) && (
+                    {/* Contact Info */}
+                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 sm:gap-6 text-indigo-100 text-sm font-medium">
                       <div className="flex items-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1.5">
-                          <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
-                        </svg>
-                        {school.contact?.phone || school.mobile}
+                        <Phone className="h-4 w-4 mr-2 text-indigo-200" />
+                        {school?.contact?.phone || school?.mobile || '7026370266'}
                       </div>
-                    )}
-                    {(school?.contact?.email || school?.principalEmail) && (
                       <div className="flex items-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1.5">
-                          <rect width="20" height="16" x="2" y="4" rx="2"></rect>
-                          <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
-                        </svg>
-                        {school.contact?.email || school.principalEmail}
+                        <Mail className="h-4 w-4 mr-2 text-indigo-200" />
+                        {school?.contact?.email || school?.principalEmail || 'md@ssinphinite.org'}
                       </div>
-                    )}
-                    {(school?.contact?.website || school?.website) && (
-                      <div className="flex items-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1.5">
-                          <circle cx="12" cy="12" r="10"></circle>
-                          <line x1="2" x2="22" y1="12" y2="12"></line>
-                          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
-                        </svg>
-                        <a href={(school.contact?.website || school.website)?.startsWith('http') ? (school.contact?.website || school.website) : `https://${school.contact?.website || school.website}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800">
-                          {school.contact?.website || school.website}
-                        </a>
-                      </div>
-                    )}
+                      {(school?.contact?.website || school?.website) && (
+                        <div className="flex items-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2 text-indigo-200">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="2" x2="22" y1="12" y2="12"></line>
+                            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                          </svg>
+                          <a href={(school.contact?.website || school.website)?.startsWith('http') ? (school.contact?.website || school.website) : `https://${school.contact?.website || school.website}`} target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
+                            {school.contact?.website || school.website}
+                          </a>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -951,275 +1002,273 @@ const Dashboard: React.FC = () => {
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             {stats.map((stat) => (
-              <div key={stat.name} className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
-                <div className="flex items-center">
-                  <div className={`${stat.color} p-3 rounded-lg`}>
-                    <stat.icon className="h-6 w-6 text-white" />
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">{stat.name}</p>
-                    <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-                  </div>
+              <div key={stat.name} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-5">
+                <div className={`${stat.bgColor} p-4 rounded-full flex items-center justify-center shrink-0`}>
+                  <stat.icon className={`h-7 w-7 ${stat.iconColor}`} strokeWidth={2} />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-500 mb-1">{stat.name}</p>
+                  <p className="text-2xl font-bold text-slate-800 mb-1">{stat.value}</p>
+                  <p className={`text-xs font-medium ${stat.subtitleColor}`}>{stat.subtitle}</p>
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Users Section */}
-          <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
-            <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">
-              Associated Users
-              <span className="text-xs sm:text-sm font-normal text-gray-500 ml-2">({users.length} total)</span>
-            </h3>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th scope="col" className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Name
-                    </th>
-                    <th scope="col" className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
-                      Email
-                    </th>
-                    <th scope="col" className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Role
-                    </th>
-                    <th scope="col" className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {users.length > 0 ? (
-                    users.slice(0, 5).map((user) => (
-                      <tr key={user._id}>
-                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
-                          <div className="text-xs sm:text-sm font-medium text-gray-900">
-                            {typeof (user as any).name === 'string'
-                              ? (user as any).name
-                              : ((user as any).name?.displayName || (((user as any).name?.firstName || '') + ' ' + ((user as any).name?.lastName || '')).trim() || user.email || 'Unknown User')}
+          {/* Top Row: Enrollment, Recent Activities, Grade Donut */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mt-6 items-start">
+            
+            {/* Student Enrollment Overview */}
+            <motion.div variants={itemVariants} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 lg:col-span-1 hover:-translate-y-1 hover:shadow-lg transition-all duration-300">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-base font-semibold text-slate-800">Student Enrollment Overview</h3>
+                <select className="text-xs bg-slate-50 border border-slate-200 rounded-md px-2 py-1 text-slate-600 focus:outline-none">
+                  <option>This Year</option>
+                </select>
+              </div>
+              <ResponsiveContainer width="100%" height={200}>
+                <LineChart data={dashboardOverview?.enrollmentOverview || []}>
+                  <defs>
+                    <linearGradient id="colorStudents" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                  <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                  <Line type="monotone" dataKey="students" stroke="#8b5cf6" strokeWidth={3} dot={{ r: 4, fill: '#fff', stroke: '#8b5cf6', strokeWidth: 2 }} activeDot={{ r: 6 }} fillOpacity={1} fill="url(#colorStudents)" />
+                </LineChart>
+              </ResponsiveContainer>
+            </motion.div>
+
+            {/* Recent Activities */}
+            <motion.div variants={itemVariants} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 lg:col-span-1 hover:-translate-y-1 hover:shadow-lg transition-all duration-300">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-base font-semibold text-slate-800">Recent Activities</h3>
+                <a href="#" className="text-xs font-semibold text-indigo-600 hover:text-indigo-800">View All</a>
+              </div>
+              <div className="space-y-4 max-h-[180px] overflow-y-auto pr-1 no-scrollbar">
+                {(dashboardOverview?.recentActivities || []).length > 0 ? (
+                  dashboardOverview.recentActivities.map((activity: any, i: number) => {
+                    const icons: any = { UserPlus, CheckCircle2, BookOpen, FileText, Megaphone };
+                    const Icon = icons[activity.icon] || FileText;
+                    return (
+                      <div key={i} className="flex gap-4">
+                        <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center shrink-0">
+                          <Icon className="h-5 w-5 text-slate-500" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-slate-700">{activity.text}</p>
+                          <p className="text-xs text-slate-400 mt-0.5">{new Date(activity.date).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="text-sm text-slate-500 text-center py-4">No recent activities</div>
+                )}
+              </div>
+            </motion.div>
+
+            {/* Students by Grade */}
+            <motion.div variants={itemVariants} className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-slate-100 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 lg:col-span-1 flex flex-col">
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="text-base font-semibold text-slate-800">Students by Grade</h3>
+                <select className="text-xs bg-slate-50 border border-slate-200 rounded-md px-2 py-1 text-slate-600 focus:outline-none">
+                  <option>All Grades</option>
+                </select>
+              </div>
+              <div className="flex-1 flex flex-col justify-center relative mt-4 min-h-[160px]">
+                <div className="w-full flex flex-col sm:flex-row lg:flex-col xl:flex-row items-center sm:items-stretch lg:items-center xl:items-stretch gap-4 sm:gap-0 lg:gap-4 xl:gap-0">
+                  <div className="w-full sm:w-1/2 lg:w-full xl:w-1/2 h-[160px] relative shrink-0">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={dashboardOverview?.studentsByGrade || []}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={50}
+                          outerRadius={80}
+                          paddingAngle={2}
+                          dataKey="value"
+                          stroke="none"
+                        >
+                          {
+                            (dashboardOverview?.studentsByGrade || []).map((entry: any, index: number) => {
+                              const colors = ['#8b5cf6', '#f59e0b', '#10b981', '#3b82f6', '#d946ef'];
+                              return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;
+                            })
+                          }
+                        </Pie>
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                      <span className="text-2xl font-bold text-slate-800">{dashboardOverview?.totalStudents || 0}</span>
+                      <span className="text-xs text-slate-500">Total</span>
+                    </div>
+                  </div>
+                  <div className="w-full sm:w-1/2 lg:w-full xl:w-1/2 flex flex-col gap-2 sm:pl-4 lg:pl-0 xl:pl-4 max-h-[160px] lg:max-h-none xl:max-h-[160px] overflow-y-auto pr-1 no-scrollbar justify-center">
+                    {(dashboardOverview?.studentsByGrade || []).map((grade: any, i: number) => {
+                      const colors = ['bg-purple-500', 'bg-amber-500', 'bg-emerald-500', 'bg-blue-500', 'bg-fuchsia-500'];
+                      const pct = dashboardOverview?.totalStudents ? ((grade.value / dashboardOverview.totalStudents) * 100).toFixed(1) + '%' : '0%';
+                      return (
+                        <div key={grade.name} className="flex items-center justify-between text-xs py-0.5">
+                          <div className="flex items-center gap-2 flex-1 min-w-0 pr-2">
+                            <span className={`w-2 h-2 rounded-full shrink-0 ${colors[i % colors.length]}`}></span>
+                            <span className="text-slate-600 font-medium truncate" title={grade.name}>{grade.name}</span>
                           </div>
-                          <div className="text-xs text-gray-500 sm:hidden">{user.email}</div>
-                        </td>
-                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap hidden sm:table-cell">
-                          <div className="text-sm text-gray-500">{user.email}</div>
-                        </td>
-                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
-                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.role === 'admin' ? 'bg-purple-100 text-purple-800' :
-                            user.role === 'teacher' ? 'bg-blue-100 text-blue-800' :
-                              user.role === 'student' ? 'bg-green-100 text-green-800' :
-                                'bg-gray-100 text-gray-800'
-                            }`}>
-                            {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
-                          </span>
-                        </td>
-                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
-                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                            }`}>
-                            {user.isActive ? 'Active' : 'Inactive'}
-                          </span>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={4} className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500">
-                        No users found for this school
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-              {users.length > 5 && (
-                <div className="px-3 sm:px-6 py-4 text-center">
-                  <Link to="/admin/users" className="text-xs sm:text-sm text-blue-600 hover:text-blue-800">
-                    View all {users.length} users
-                  </Link>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Class Performance */}
-          <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
-            <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Class Performance</h3>
-            {classPerformance.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={classPerformance}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis domain={[0, 100]} label={{ value: 'Percentage (%)', angle: -90, position: 'insideLeft' }} />
-                  <Tooltip
-                    formatter={(value: number, name: string, props: any) => [
-                      `${value}%`,
-                      `Average: ${value}% (${props.payload.studentCount} students)`
-                    ]}
-                    contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px' }}
-                  />
-                  <Bar dataKey="percentage" fill="#10B981" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                <p>No performance data available</p>
-                <p className="text-sm mt-2">Results will appear here once students' grades are entered</p>
-              </div>
-            )}
-          </div>
-
-          {/* Today's Attendance Section Title */}
-          <div className="mt-2">
-            <h2 className="text-xl font-semibold text-gray-900 text-center">Today's Attendance</h2>
-          </div>
-
-          {/* Today's Attendance - Morning and Afternoon Sessions */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-            {/* Morning Session */}
-            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
-              <div className="flex items-center justify-center mb-4">
-                <div className="bg-yellow-100 p-2 rounded-full mr-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-yellow-600">
-                    <circle cx="12" cy="12" r="5" />
-                    <line x1="12" y1="1" x2="12" y2="3" />
-                    <line x1="12" y1="21" x2="12" y2="23" />
-                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-                    <line x1="1" y1="12" x2="3" y2="12" />
-                    <line x1="21" y1="12" x2="23" y2="12" />
-                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-                  </svg>
-                </div>
-                <h3 className="text-base sm:text-lg font-semibold text-gray-900">Morning Session</h3>
-              </div>
-              <ResponsiveContainer width="100%" height={200}>
-                <PieChart>
-                  <Pie
-                    data={morningPieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={80}
-                    dataKey="value"
-                    label={({ name, value, percent }) => `${name}: ${value} (${(percent * 100).toFixed(1)}%)`}
-                    labelLine={true}
-                  >
-                    {morningPieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(value: number) => [`${value} students`, 'Count']}
-                    contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px' }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="flex justify-center space-x-6 mt-4">
-                {morningPieData.map((item) => (
-                  <div key={item.name} className="flex items-center">
-                    <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: item.color }}></div>
-                    <div>
-                      <span className="text-sm font-medium text-gray-700">{item.name}</span>
-                      <span className="text-xl font-bold text-gray-900 ml-2">{item.value}</span>
-                    </div>
+                          <div className="flex gap-2 sm:gap-3 items-center shrink-0">
+                            <span className="font-bold text-slate-800 w-6 text-right">{grade.value}</span>
+                            <span className="text-slate-400 font-medium w-8 text-right">{pct}</span>
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
-                ))}
-              </div>
-              {(morningAttendance.present + morningAttendance.absent) > 0 && (
-                <div className="text-center mt-3 text-xs text-gray-500">
-                  Total: {morningAttendance.present + morningAttendance.absent} students
                 </div>
-              )}
-            </div>
+              </div>
+              <div className="text-right mt-4">
+                <a href="#" className="text-xs font-semibold text-indigo-600 hover:text-indigo-800">View Detailed Report →</a>
+              </div>
+            </motion.div>
 
-            {/* Afternoon Session */}
-            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
-              <div className="flex items-center justify-center mb-4">
-                <div className="bg-orange-100 p-2 rounded-full mr-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-orange-600">
-                    <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
-                  </svg>
-                </div>
-                <h3 className="text-base sm:text-lg font-semibold text-gray-900">Afternoon Session</h3>
-              </div>
-              <ResponsiveContainer width="100%" height={200}>
-                <PieChart>
-                  <Pie
-                    data={afternoonPieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={80}
-                    dataKey="value"
-                    label={({ name, value, percent }) => `${name}: ${value} (${(percent * 100).toFixed(1)}%)`}
-                    labelLine={true}
-                  >
-                    {afternoonPieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(value: number) => [`${value} students`, 'Count']}
-                    contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px' }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="flex justify-center space-x-6 mt-4">
-                {afternoonPieData.map((item) => (
-                  <div key={item.name} className="flex items-center">
-                    <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: item.color }}></div>
-                    <div>
-                      <span className="text-sm font-medium text-gray-700">{item.name}</span>
-                      <span className="text-xl font-bold text-gray-900 ml-2">{item.value}</span>
-                    </div>
+          </div>
+
+          {/* Bottom Row: Quick Actions, System Overview, Notice Board */}
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6 mt-6 items-start">
+            
+            {/* Quick Actions */}
+            <motion.div variants={itemVariants} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 lg:col-span-1 hover:-translate-y-1 hover:shadow-lg transition-all duration-300">
+              <h3 className="text-base font-semibold text-slate-800 mb-5">Quick Actions</h3>
+              <div className="grid grid-cols-5 gap-2">
+                <Link to="/admin/users" className="flex flex-col items-center gap-2 group">
+                  <div className="w-12 h-12 rounded-xl bg-purple-50 flex items-center justify-center group-hover:bg-purple-100 transition-colors">
+                    <UserPlus className="h-5 w-5 text-purple-600" />
                   </div>
-                ))}
+                  <span className="text-[10px] text-center font-medium text-slate-600 group-hover:text-purple-700">Add Student</span>
+                </Link>
+                <Link to="/admin/academic-details" state={{ tab: 'hallticket' }} className="flex flex-col items-center gap-2 group">
+                  <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center group-hover:bg-emerald-100 transition-colors">
+                    <FileText className="h-5 w-5 text-emerald-600" />
+                  </div>
+                  <span className="text-[10px] text-center font-medium text-slate-600 group-hover:text-emerald-700">Hall Ticket</span>
+                </Link>
+                <Link to="/admin/reports" className="flex flex-col items-center gap-2 group">
+                  <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center group-hover:bg-blue-100 transition-colors">
+                    <FileText className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <span className="text-[10px] text-center font-medium text-slate-600 group-hover:text-blue-700">Generate Report</span>
+                </Link>
+                <Link to="/admin/fees/payments" className="flex flex-col items-center gap-2 group">
+                  <div className="w-12 h-12 rounded-xl bg-orange-50 flex items-center justify-center group-hover:bg-orange-100 transition-colors">
+                    <CreditCard className="h-5 w-5 text-orange-600" />
+                  </div>
+                  <span className="text-[10px] text-center font-medium text-slate-600 group-hover:text-orange-700">Collect Fees</span>
+                </Link>
+                <Link to="/admin/messages" className="flex flex-col items-center gap-2 group">
+                  <div className="w-12 h-12 rounded-xl bg-purple-50 flex items-center justify-center group-hover:bg-purple-100 transition-colors">
+                    <MessageSquare className="h-5 w-5 text-purple-600" />
+                  </div>
+                  <span className="text-[10px] text-center font-medium text-slate-600 group-hover:text-purple-700">Send Message</span>
+                </Link>
               </div>
-              {(afternoonAttendance.present + afternoonAttendance.absent) > 0 && (
-                <div className="text-center mt-3 text-xs text-gray-500">
-                  Total: {afternoonAttendance.present + afternoonAttendance.absent} students
+            </motion.div>
+
+            {/* System Overview */}
+            <motion.div variants={itemVariants} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 lg:col-span-2 hover:-translate-y-1 hover:shadow-lg transition-all duration-300">
+              <h3 className="text-base font-semibold text-slate-800 mb-5">School Operations</h3>
+              <div className="grid grid-cols-4 gap-4 sm:gap-6 mt-2">
+                <div className="flex flex-col items-center justify-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-purple-50 flex items-center justify-center">
+                      <Database className="h-4 w-4 text-purple-600" />
+                    </div>
+                    <span className="text-xl font-bold text-slate-800">{dashboardOverview?.systemOverview?.seatUtilization || 0}%</span>
+                  </div>
+                  <span className="text-xs font-medium text-slate-500">Seat Utilization</span>
+                  <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-purple-600 rounded-full" style={{ width: `${dashboardOverview?.systemOverview?.seatUtilization || 0}%` }}></div>
+                  </div>
                 </div>
-              )}
-            </div>
+                
+                <div className="flex flex-col items-center justify-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                    </div>
+                    <span className="text-xl font-bold text-slate-800">{dashboardOverview?.systemOverview?.attendanceSync || 0}%</span>
+                  </div>
+                  <span className="text-xs font-medium text-slate-500">Attendance Synced</span>
+                  <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${dashboardOverview?.systemOverview?.attendanceSync || 0}%` }}></div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-center justify-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center">
+                      <CreditCard className="h-4 w-4 text-blue-600" />
+                    </div>
+                    <span className="text-xl font-bold text-slate-800">{dashboardOverview?.systemOverview?.parentRegistration || 0}%</span>
+                  </div>
+                  <span className="text-xs font-medium text-slate-500">Parent Accounts</span>
+                  <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-blue-500 rounded-full" style={{ width: `${dashboardOverview?.systemOverview?.parentRegistration || 0}%` }}></div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-center justify-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center">
+                      <Activity className="h-4 w-4 text-emerald-600" />
+                    </div>
+                    <span className="text-xl font-bold text-slate-800">{dashboardOverview?.systemOverview?.activeStaff || 0}%</span>
+                  </div>
+                  <span className="text-xs font-medium text-slate-500">Active Staff</span>
+                  <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${dashboardOverview?.systemOverview?.activeStaff || 0}%` }}></div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Notice Board */}
+            <motion.div variants={itemVariants} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 lg:col-span-1 hover:-translate-y-1 hover:shadow-lg transition-all duration-300">
+              <div className="flex justify-between items-center mb-5">
+                <h3 className="text-base font-semibold text-slate-800">Notice Board</h3>
+                <a href="#" className="text-xs font-semibold text-indigo-600 hover:text-indigo-800">View All</a>
+              </div>
+              <div className="space-y-4">
+                {(dashboardOverview?.notices || []).length > 0 ? (
+                  dashboardOverview.notices.slice(0, 2).map((notice: any, i: number) => (
+                    <div key={i} className="flex gap-4 items-start">
+                      <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center shrink-0 mt-1">
+                        <Megaphone className="h-5 w-5 text-purple-600" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-semibold text-slate-800">{notice.title}</h4>
+                        <p className="text-xs text-slate-500 mt-1 leading-snug line-clamp-2">{notice.message || notice.content || 'No details provided.'}</p>
+                        <p className="text-[10px] text-slate-400 mt-2 font-medium">{new Date(notice.createdAt).toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-sm text-slate-500 text-center py-4">No recent notices</div>
+                )}
+              </div>
+            </motion.div>
+
           </div>
 
-          {/* Weekly Attendance - Centered */}
-          <div className="flex justify-center">
-            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 w-full lg:w-3/4 xl:w-1/2">
-              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4 text-center">Weekly Attendance</h3>
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={attendanceData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="attendance" fill="#3B82F6" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+          {/* Footer */}
+          <div className="mt-8 flex justify-between items-center text-xs text-slate-400 mb-4 px-2">
+            <p>© 2026 GoodSynk ERP. All rights reserved.</p>
+            <p>Version 2.0.0</p>
           </div>
-
-          {/* Quick Actions */}
-          {/* <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Link to="/admin/users" className="flex items-center justify-center p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">
-                <Users className="h-5 w-5 text-blue-600 mr-2" />
-                <span className="text-sm font-medium text-blue-700">Manage Users</span>
-              </Link>
-              <Link to="/admin/attendance/mark" className="flex items-center justify-center p-4 bg-green-50 hover:bg-green-100 rounded-lg transition-colors">
-                <UserCheck className="h-5 w-5 text-green-600 mr-2" />
-                <span className="text-sm font-medium text-green-700">Mark Attendance</span>
-              </Link>
-              <Link to="/admin/assignments" className="flex items-center justify-center p-4 bg-yellow-50 hover:bg-yellow-100 rounded-lg transition-colors">
-                <BookOpen className="h-5 w-5 text-yellow-600 mr-2" />
-                <span className="text-sm font-medium text-yellow-700">Assignments</span>
-              </Link>
-            </div>
-          </div> */}
-        </>
+        </motion.div>
       )}
     </div>
   );

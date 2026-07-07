@@ -60,9 +60,58 @@ router.get('/my-profile', authMiddleware.auth, async (req, res) => {
     // Remove sensitive data
     const { password, temporaryPassword, passwordHistory, ...studentWithoutSensitiveData } = student;
 
+    // Flatten the nested student document into the simple shape the
+    // student portal frontend expects. Any field that isn't available
+    // is sent back as null so the UI can show a fallback ("--").
+    const academic = student.studentDetails?.academic || {};
+    const personal = student.studentDetails?.personal || {};
+    const family = student.studentDetails?.family || {};
+    const transport = student.studentDetails?.transport || {};
+    const permanentAddress = student.address?.permanent || {};
+
+    const displayName =
+      student.name?.displayName ||
+      [student.name?.firstName, student.name?.lastName].filter(Boolean).join(' ') ||
+      null;
+
+    const profile = {
+      studentName: displayName,
+      studentId: student.userId || null,
+      enrollmentNo: academic.enrollmentNo || academic.admissionNumber || null,
+      class: academic.currentClass || null,
+      section: academic.currentSection || null,
+      rollNumber: academic.rollNumber || null,
+      academicYear: academic.academicYear || null,
+
+      dob: personal.dateOfBirth || null,
+      gender: personal.gender || null,
+      bloodGroup: personal.bloodGroup || null,
+      nationality: personal.nationality || null,
+
+      email: student.email || null,
+      mobile: student.contact?.primaryPhone || null,
+
+      fatherName: family.father?.name || null,
+      motherName: family.mother?.name || null,
+      guardianName: family.guardian?.name || family.father?.name || null,
+      parentMobile: family.father?.phone || family.mother?.phone || null,
+
+      address: permanentAddress.street || null,
+      city: permanentAddress.city || null,
+      state: permanentAddress.state || null,
+      pinCode: permanentAddress.pincode || null,
+
+      admissionDate: academic.admissionDate || null,
+
+      transport: transport.mode || null,
+      busRoute: transport.busRoute || null,
+
+      profileImage: student.profileImage || student.photo || null
+    };
+
     res.json({
       success: true,
-      data: studentWithoutSensitiveData
+      data: profile
     });
   } catch (error) {
     console.error('Error fetching student profile:', error);

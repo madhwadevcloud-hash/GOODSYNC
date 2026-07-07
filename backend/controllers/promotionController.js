@@ -6,6 +6,7 @@ const PromotionRequest = require('../models/PromotionRequest');
 const SystemNotification = require('../models/Notification');
 const { uploadPDFBufferToCloudinary } = require('../config/cloudinary');
 const NodeCache = require('node-cache');
+const mongoose = require('mongoose');
 
 // ---------------------------------------------------------------------------
 // Cache setup
@@ -93,6 +94,39 @@ const academicYearsMatch = (a, b) => {
   return na !== null && na === nb;
 };
 
+const getStudentClass = (student) => {
+  return (
+    student?.academicInfo?.class ||
+    student?.studentDetails?.academic?.currentClass ||
+    student?.studentDetails?.currentClass ||
+    student?.studentDetails?.class ||
+    student?.class ||
+    ''
+  ).toString().trim();
+};
+
+const getStudentSection = (student) => {
+  return (
+    student?.academicInfo?.section ||
+    student?.studentDetails?.academic?.currentSection ||
+    student?.studentDetails?.currentSection ||
+    student?.studentDetails?.section ||
+    student?.section ||
+    ''
+  ).toString().trim();
+};
+
+const getStudentAcademicYear = (student) => {
+  return (
+    student?.academicInfo?.academicYear ||
+    student?.studentDetails?.academic?.academicYear ||
+    student?.studentDetails?.academicYear ||
+    student?.academicYear ||
+    student?.currentAcademicYear ||
+    ''
+  ).toString().trim();
+};
+
 // ---------------------------------------------------------------------------
 // CSV helpers
 // ---------------------------------------------------------------------------
@@ -167,58 +201,93 @@ const createNotification = async (req, { userId, role, schoolCode, title, messag
 // Bulk school-wide promotion
 exports.bulkPromotion = async (req, res) => {
   console.log('🚀 BULK PROMOTION ENDPOINT HIT!');
-  const schoolCode = req.params.schoolCode.toUpperCase();
+  const schoolCode = req.params.schoolCode.trim().toUpperCase();
   const { fromYear, toYear, finalYearAction } = req.body;
 
-  const activeRequest = await PromotionRequest.findOne({
-    schoolCode: { $regex: new RegExp(`^${schoolCode}$`, 'i') },
+  if (!fromYear || !toYear || !finalYearAction) {
+    return res.status(400).json({
+      success: false,
+      message: 'Missing required parameters: fromYear, toYear, finalYearAction'
+    });
+  }
+
+  // Retrieve approved promotion request matching both fromYear and toYear
+  const school = await School.findOne({ code: schoolCode });
+  if (!school) {
+    return res.status(404).json({ success: false, message: 'School not found' });
+  }
+
+  // Validate that the destination Academic Year has been created and activated by the Super Admin
+  if (!school.settings?.academicYear?.currentYear || school.settings.academicYear.currentYear !== toYear) {
+    return res.status(400).json({
+      success: false,
+      message: 'The next Academic Year has not been created or activated by the Super Admin. Student promotion cannot proceed until the new Academic Year is set.'
+    });
+  }
+
+  // Check if promotion has already been completed for this transition (LOCK enforcement)
+  const completedRequest = await PromotionRequest.findOne({
+    schoolCode: schoolCode,
     fromYear,
+    toYear,
+    status: 'Completed'
+  });
+
+  if (completedRequest) {
+    return res.status(400).json({
+      success: false,
+      message: `Student promotion for Academic Year ${fromYear} to ${toYear} has already been completed. The Promotion Module will be available again after the Super Admin activates the next Academic Year.`
+    });
+  }
+
+  // Retrieve approved promotion request matching both fromYear and toYear
+  const activeRequest = await PromotionRequest.findOne({
+    schoolCode: schoolCode,
+    fromYear,
+    toYear,
     status: 'Approved'
   });
 
   if (!activeRequest) {
     return res.status(400).json({
       success: false,
-      message: 'No approved promotion request found for this academic year. Promotion is blocked.'
+      message: `No approved promotion request found for transition ${fromYear} -> ${toYear}. Promotion is blocked.`
     });
   }
 
-  const school = await School.findOne({ code: schoolCode });
-  if (!school) {
-    return res.status(404).json({ success: false, message: 'School not found' });
-  }
-
   const schoolConnection = await DatabaseManager.getSchoolConnection(schoolCode);
+  const mongoose = require('mongoose');
   const session = await schoolConnection.startSession();
 
   try {
     session.startTransaction();
 
-    let usersCollection = schoolConnection.collection('students');
+    const usersCollection = schoolConnection.collection('students');
     const alumniCollection = schoolConnection.collection('alumni');
     const classRequestsCollection = schoolConnection.collection('classrequests');
     const promotionHistoryCollection = schoolConnection.collection('promotion_history');
 
-    // Fetch students (cached where possible to avoid re-hitting the DB on every load)
-    let allStudents = await getCachedStudents(schoolCode);
+    // Build exact student matching query to avoid omissions
+    const yearFormats = [fromYear];
+    const matchShort = fromYear.match(/^(\d{4})-(\d{2})$/);
+    if (matchShort) yearFormats.push(`${matchShort[1]}-20${matchShort[2]}`);
+    const matchLong = fromYear.match(/^(\d{4})-(\d{4})$/);
+    if (matchLong) yearFormats.push(`${matchLong[1]}-${matchLong[2].substring(2)}`);
+    const uniqueYears = [...new Set(yearFormats)];
 
-    // DIAGNOSTIC: log the distinct raw academicYear formats present, so if the
-    // count is still off after this fix you can see exactly what formats
-    // exist in the DB and we can extend normalizeAcademicYear if needed.
-    const distinctYearFormats = [...new Set(allStudents.map(s =>
-      s.studentDetails?.academicYear || s.studentDetails?.academic?.academicYear || s.academicYear || s.currentAcademicYear
-    ).filter(Boolean))];
-    console.log(`📊 Total students fetched: ${allStudents.length}. Distinct academicYear formats found:`, distinctYearFormats);
+    const eligibleStudentsQuery = {
+      isActive: { $ne: false },
+      $or: [
+        { "studentDetails.academic.academicYear": { $in: uniqueYears } },
+        { "academicInfo.academicYear": { $in: uniqueYears } },
+        { "academicYear": { $in: uniqueYears } },
+        { "studentDetails.academicYear": { $in: uniqueYears } }
+      ]
+    };
 
-    const students = allStudents.filter(student => {
-      const academicYear = student.studentDetails?.academicYear ||
-                         student.studentDetails?.academic?.academicYear ||
-                         student.academicYear ||
-                         student.currentAcademicYear;
-      return academicYearsMatch(academicYear, fromYear) && (student.isActive !== false);
-    });
-
-    console.log(`📊 Students matching fromYear "${fromYear}" after normalization: ${students.length}`);
+    // Fetch students directly from collection (avoiding stale cache omissions)
+    const students = await usersCollection.find(eligibleStudentsQuery).toArray();
+    console.log(`📊 Students matching fromYear "${fromYear}": ${students.length}`);
 
     if (students.length === 0) {
       await session.abortTransaction();
@@ -230,18 +299,17 @@ exports.bulkPromotion = async (req, res) => {
     }
 
     const classOrder = ['LKG', 'UKG', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
-    const uniqueClasses = [...new Set(students.map(s =>
-      s.studentDetails?.currentClass || s.studentDetails?.academic?.currentClass
-    ).filter(Boolean))];
-    const finalYearClass = uniqueClasses.reduce((max, cls) => {
-      const maxIndex = classOrder.indexOf(max);
-      const clsIndex = classOrder.indexOf(cls);
-      return clsIndex > maxIndex ? cls : max;
-    }, 'LKG');
-
     const classesCollection = schoolConnection.collection('classes');
     const availableClasses = await classesCollection.find({ schoolCode, isActive: true }).toArray();
     const availableClassNames = new Set(availableClasses.map(c => c.className));
+
+    // Determine the highest configured class in the database
+    const configuredClassNames = Array.from(availableClassNames);
+    const finalYearClass = configuredClassNames.reduce((max, cls) => {
+      const maxIndex = classOrder.indexOf(max);
+      const clsIndex = classOrder.indexOf(cls);
+      return clsIndex > maxIndex ? cls : max;
+    }, configuredClassNames[0] || 'LKG');
 
     let promotedCount = 0;
     let graduatedCount = 0;
@@ -251,24 +319,34 @@ exports.bulkPromotion = async (req, res) => {
     const promotionRecords = [];
 
     for (const student of students) {
-      const currentClass = student.studentDetails?.currentClass || student.studentDetails?.academic?.currentClass;
-      const currentSection = student.studentDetails?.currentSection || student.studentDetails?.academic?.currentSection;
+      const currentClass = getStudentClass(student);
+      const currentSection = getStudentSection(student);
 
       if (!currentClass) {
         errors.push({ userId: student.userId, error: 'No current class found' });
         continue;
       }
 
-      const currentStudentYear = student.studentDetails?.academicYear ||
-                                 student.studentDetails?.academic?.academicYear ||
-                                 student.academicYear ||
-                                 student.currentAcademicYear;
-      if (academicYearsMatch(currentStudentYear, toYear)) {
-        throw new Error(`Student ${student.userId} has already been promoted/updated for academic year ${toYear}.`);
+      // Check if student already has a record in the destination year to prevent duplicate promotions
+      const existingDest = await usersCollection.findOne({
+        userId: student.userId,
+        $or: [
+          { "studentDetails.academic.academicYear": toYear },
+          { "academicInfo.academicYear": toYear },
+          { "academicYear": toYear },
+          { "studentDetails.academicYear": toYear }
+        ]
+      });
+
+      if (existingDest) {
+        console.log(`Student ${student.userId} already has enrollment in ${toYear}. Skipping duplicate.`);
+        skippedCount++;
+        continue;
       }
 
       if (currentClass === finalYearClass) {
         if (finalYearAction === 'graduate') {
+          // Add record to promotion history
           await promotionHistoryCollection.insertOne({
             batchId: promotionBatchId,
             studentId: student._id,
@@ -285,33 +363,33 @@ exports.bulkPromotion = async (req, res) => {
             processedBy: req.user?.userId || 'admin'
           }, { session });
 
+          // Clone student document to alumni collection
           const alumniRecord = {
             ...student,
+            _id: new mongoose.Types.ObjectId(),
             graduationYear: toYear,
             graduationClass: currentClass,
             graduationSection: currentSection,
             movedToAlumniAt: new Date(),
-            originalStudentId: student._id
+            originalStudentId: student._id,
+            status: 'passedOut'
           };
-
+          if (alumniRecord.studentDetails) {
+            alumniRecord.studentDetails = {
+              ...alumniRecord.studentDetails,
+              status: 'passedOut',
+              academicYear: toYear
+            };
+          }
           await alumniCollection.insertOne(alumniRecord, { session });
-          await usersCollection.updateOne(
-            { _id: student._id },
-            {
-              $set: {
-                isActive: false,
-                'studentDetails.status': 'alumni',
-                'studentDetails.academicYear': toYear,
-                updatedAt: new Date()
-              }
-            },
-            { session }
-          );
+
+          // Keep the original document in the students collection completely unchanged!
+          // We do not run updateOne on usersCollection for this student!
 
           graduatedCount++;
           promotionRecords.push({
             admissionNumber: student.userId,
-            rollNumber: student.studentDetails?.rollNo || '',
+            rollNumber: student.studentDetails?.rollNumber || student.studentDetails?.rollNo || '',
             studentName: `${student.name?.firstName || ''} ${student.name?.lastName || ''}`.trim(),
             currentClass,
             currentSection,
@@ -364,14 +442,69 @@ exports.bulkPromotion = async (req, res) => {
           });
           skippedCount++;
 
+          // Create a new record in the destination academic year in the same class (retained/held back)
+          // to preserve the historical record exactly as it was.
+          const targetClass = currentClass;
+          const targetSection = currentSection;
+
+          const newStudentDoc = {
+            ...student,
+            _id: new mongoose.Types.ObjectId(),
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            academicYear: toYear,
+            class: targetClass,
+            section: targetSection
+          };
+
+          if (newStudentDoc.academicInfo) {
+            newStudentDoc.academicInfo = {
+              ...newStudentDoc.academicInfo,
+              academicYear: toYear,
+              class: targetClass,
+              section: targetSection
+            };
+          }
+          if (newStudentDoc.studentDetails) {
+            newStudentDoc.studentDetails = {
+              ...newStudentDoc.studentDetails,
+              academicYear: toYear,
+              currentClass: targetClass,
+              currentSection: targetSection
+            };
+            if (newStudentDoc.studentDetails.academic) {
+              newStudentDoc.studentDetails.academic = {
+                ...newStudentDoc.studentDetails.academic,
+                academicYear: toYear,
+                currentClass: targetClass,
+                currentSection: targetSection
+              };
+            }
+            newStudentDoc.studentDetails.academicHistory = [
+              ...(newStudentDoc.studentDetails.academicHistory || [])
+            ];
+            newStudentDoc.studentDetails.academicHistory.push({
+              promotionBatchId,
+              academicYear: fromYear,
+              class: currentClass,
+              section: currentSection,
+              result: 'detained',
+              percentage: undefined,
+              rank: undefined,
+              attendance: undefined
+            });
+          }
+
+          await usersCollection.insertOne(newStudentDoc, { session });
+
           promotionRecords.push({
             admissionNumber: student.userId,
-            rollNumber: student.studentDetails?.rollNo || '',
+            rollNumber: student.studentDetails?.rollNumber || student.studentDetails?.rollNo || '',
             studentName: `${student.name?.firstName || ''} ${student.name?.lastName || ''}`.trim(),
             currentClass,
             currentSection,
-            promotedClass: currentClass,
-            promotedSection: currentSection,
+            promotedClass: targetClass,
+            promotedSection: targetSection,
             promotionStatus: 'Retained',
             promotionReason: `Next class ${nextClass} not configured`,
             academicYear: fromYear,
@@ -384,6 +517,7 @@ exports.bulkPromotion = async (req, res) => {
           continue;
         }
 
+        // Add record to promotion history
         await promotionHistoryCollection.insertOne({
           batchId: promotionBatchId,
           studentId: student._id,
@@ -401,37 +535,70 @@ exports.bulkPromotion = async (req, res) => {
           processedBy: req.user?.userId || 'admin'
         }, { session });
 
-        await usersCollection.updateOne(
-          { _id: student._id },
-          {
-            $set: {
-              'studentDetails.currentClass': nextClass,
-              'studentDetails.academicYear': toYear,
-              updatedAt: new Date()
-            },
-            $push: {
-              'studentDetails.academicHistory': {
-                promotionBatchId,
-                academicYear: fromYear,
-                class: currentClass,
-                section: currentSection,
-                result: 'promoted',
-                promotedAt: new Date()
-              }
-            }
-          },
-          { session }
-        );
+        // Clone student document to create a completely new enrollment record for the destination academic year toYear.
+        // The original document for fromYear is left completely unchanged!
+        const targetClass = nextClass;
+        const targetSection = currentSection;
+
+        const newStudentDoc = {
+          ...student,
+          _id: new mongoose.Types.ObjectId(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          academicYear: toYear,
+          class: targetClass,
+          section: targetSection
+        };
+
+        if (newStudentDoc.academicInfo) {
+          newStudentDoc.academicInfo = {
+            ...newStudentDoc.academicInfo,
+            academicYear: toYear,
+            class: targetClass,
+            section: targetSection
+          };
+        }
+        if (newStudentDoc.studentDetails) {
+          newStudentDoc.studentDetails = {
+            ...newStudentDoc.studentDetails,
+            academicYear: toYear,
+            currentClass: targetClass,
+            currentSection: targetSection
+          };
+          if (newStudentDoc.studentDetails.academic) {
+            newStudentDoc.studentDetails.academic = {
+              ...newStudentDoc.studentDetails.academic,
+              academicYear: toYear,
+              currentClass: targetClass,
+              currentSection: targetSection
+            };
+          }
+          newStudentDoc.studentDetails.academicHistory = [
+            ...(newStudentDoc.studentDetails.academicHistory || [])
+          ];
+          newStudentDoc.studentDetails.academicHistory.push({
+            promotionBatchId,
+            academicYear: fromYear,
+            class: currentClass,
+            section: currentSection,
+            result: 'promoted',
+            percentage: undefined,
+            rank: undefined,
+            attendance: undefined
+          });
+        }
+
+        await usersCollection.insertOne(newStudentDoc, { session });
 
         promotedCount++;
         promotionRecords.push({
           admissionNumber: student.userId,
-          rollNumber: student.studentDetails?.rollNo || '',
+          rollNumber: student.studentDetails?.rollNumber || student.studentDetails?.rollNo || '',
           studentName: `${student.name?.firstName || ''} ${student.name?.lastName || ''}`.trim(),
           currentClass,
           currentSection,
-          promotedClass: nextClass,
-          promotedSection: currentSection,
+          promotedClass: targetClass,
+          promotedSection: targetSection,
           promotionStatus: 'Promoted',
           promotionReason: '',
           academicYear: fromYear,
@@ -444,24 +611,55 @@ exports.bulkPromotion = async (req, res) => {
       }
     }
 
-    // Compile and upload CSV report (properly escaped, BOM-prefixed, CRLF line endings)
-    const csvBuffer = buildPromotionCsv(promotionRecords);
-    const uploadResult = await uploadPDFBufferToCloudinary(
-      csvBuffer,
-      `promotions/${schoolCode}`,
-      `bulk_promotion_report_${activeRequest._id}_${Date.now()}`,
-      'text/csv'
-    );
+    // Accumulate records into the request document
+    activeRequest.promotionRecords = [
+      ...(activeRequest.promotionRecords || []),
+      ...promotionRecords
+    ];
 
-    activeRequest.status = 'Completed';
-    activeRequest.excelReportUrl = uploadResult.downloadUrl;
-    activeRequest.excelReportFilename = `bulk_promotion_report_${fromYear}.csv`;
-    activeRequest.completedAt = new Date();
+    // Check if there are any remaining students in fromYear to be processed
+    const processedStudentIds = await promotionHistoryCollection.distinct('studentId', {
+      targetAcademicYear: toYear
+    });
+
+    const remainingStudentsCount = await usersCollection.countDocuments({
+      isActive: { $ne: false },
+      $or: [
+        { "studentDetails.academic.academicYear": { $in: uniqueYears } },
+        { "academicInfo.academicYear": { $in: uniqueYears } },
+        { "academicYear": { $in: uniqueYears } },
+        { "studentDetails.academicYear": { $in: uniqueYears } }
+      ],
+      _id: { $nin: processedStudentIds }
+    });
+
+    if (remainingStudentsCount === 0) {
+      // All students processed — generate the FINAL combined CSV
+      const allRecords = activeRequest.promotionRecords || promotionRecords;
+      const csvBuffer = buildPromotionCsv(allRecords);
+      const uploadResult = await uploadPDFBufferToCloudinary(
+        csvBuffer,
+        `promotions/${schoolCode}`,
+        `promotion_report_${activeRequest._id}_final`,
+        'text/csv'
+      );
+
+      activeRequest.status = 'Completed';
+      activeRequest.completedAt = new Date();
+      activeRequest.excelReportUrl = uploadResult.downloadUrl;
+      activeRequest.excelReportFilename = `promotion_report_${fromYear}_to_${toYear}.csv`;
+      activeRequest.totalStudents = allRecords.length;
+      console.log(`🎉 All students processed (${allRecords.length} records). Promotion request marked as Completed.`);
+    } else {
+      activeRequest.status = 'Approved';
+      console.log(`📊 ${remainingStudentsCount} students remaining. Request status kept as Approved.`);
+    }
+
     activeRequest.auditLog.push({
       action: 'Execute Promotion',
       doneBy: req.user?.userId || 'admin',
       timestamp: new Date(),
-      details: `Executed bulk promotion (${promotedCount} promoted, ${graduatedCount} graduated). Generated CSV report.`
+      details: `Executed bulk promotion (${promotedCount} promoted, ${graduatedCount} graduated, ${skippedCount} skipped). Status: ${activeRequest.status}`
     });
     await activeRequest.save();
 
@@ -473,7 +671,7 @@ exports.bulkPromotion = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: `Successfully executed bulk promotion. Report generated: ${uploadResult.downloadUrl}`,
+      message: `Successfully executed bulk promotion.${remainingStudentsCount === 0 ? ' All students processed. Excel report generated.' : ''}`,
       data: {
         promoted: promotedCount,
         graduated: graduatedCount,
@@ -498,19 +696,13 @@ exports.bulkPromotion = async (req, res) => {
 
 // Manual section promotion with exceptions
 exports.sectionPromotion = async (req, res) => {
-  const schoolCode = req.params.schoolCode.toUpperCase();
+  const schoolCode = req.params.schoolCode.trim().toUpperCase();
   const { fromYear, toYear, className, section, holdBackSequenceIds = [], graduateStudents = false } = req.body;
 
-  const activeRequest = await PromotionRequest.findOne({
-    schoolCode: { $regex: new RegExp(`^${schoolCode}$`, 'i') },
-    fromYear,
-    status: 'Approved'
-  });
-
-  if (!activeRequest) {
+  if (!fromYear || !toYear || !className || !section) {
     return res.status(400).json({
       success: false,
-      message: 'No approved promotion request found for this academic year. Promotion is blocked.'
+      message: 'Missing required parameters: fromYear, toYear, className, section'
     });
   }
 
@@ -519,38 +711,84 @@ exports.sectionPromotion = async (req, res) => {
     return res.status(404).json({ success: false, message: 'School not found' });
   }
 
+  // Validate that the destination Academic Year has been created and activated by the Super Admin
+  if (!school.settings?.academicYear?.currentYear || school.settings.academicYear.currentYear !== toYear) {
+    return res.status(400).json({
+      success: false,
+      message: 'The next Academic Year has not been created or activated by the Super Admin. Student promotion cannot proceed until the new Academic Year is set.'
+    });
+  }
+
+  // Check if promotion has already been completed for this transition (LOCK enforcement)
+  const completedRequest = await PromotionRequest.findOne({
+    schoolCode: schoolCode,
+    fromYear,
+    toYear,
+    status: 'Completed'
+  });
+
+  if (completedRequest) {
+    return res.status(400).json({
+      success: false,
+      message: `Student promotion for Academic Year ${fromYear} to ${toYear} has already been completed. The Promotion Module will be available again after the Super Admin activates the next Academic Year.`
+    });
+  }
+
+  // Retrieve approved promotion request matching both fromYear and toYear
+  const activeRequest = await PromotionRequest.findOne({
+    schoolCode: schoolCode,
+    fromYear,
+    toYear,
+    status: 'Approved'
+  });
+
+  if (!activeRequest) {
+    return res.status(400).json({
+      success: false,
+      message: `No approved promotion request found for transition ${fromYear} -> ${toYear}. Promotion is blocked.`
+    });
+  }
+
   const schoolConnection = await DatabaseManager.getSchoolConnection(schoolCode);
+  const mongoose = require('mongoose');
   const session = await schoolConnection.startSession();
 
   try {
     session.startTransaction();
 
-    let usersCollection = schoolConnection.collection('students');
+    const usersCollection = schoolConnection.collection('students');
     const alumniCollection = schoolConnection.collection('alumni');
     const promotionHistoryCollection = schoolConnection.collection('promotion_history');
 
-    let allStudents = await getCachedStudents(schoolCode);
+    // Build exact student matching query to avoid omissions
+    const yearFormats = [fromYear];
+    const matchShort = fromYear.match(/^(\d{4})-(\d{2})$/);
+    if (matchShort) yearFormats.push(`${matchShort[1]}-20${matchShort[2]}`);
+    const matchLong = fromYear.match(/^(\d{4})-(\d{4})$/);
+    if (matchLong) yearFormats.push(`${matchLong[1]}-${matchLong[2].substring(2)}`);
+    const uniqueYears = [...new Set(yearFormats)];
 
-    const distinctYearFormats = [...new Set(allStudents.map(s =>
-      s.studentDetails?.academicYear || s.studentDetails?.academic?.academicYear || s.academicYear || s.currentAcademicYear
-    ).filter(Boolean))];
-    console.log(`📊 Total students fetched: ${allStudents.length}. Distinct academicYear formats found:`, distinctYearFormats);
+    const eligibleStudentsQuery = {
+      isActive: { $ne: false },
+      $or: [
+        { "studentDetails.academic.academicYear": { $in: uniqueYears } },
+        { "academicInfo.academicYear": { $in: uniqueYears } },
+        { "academicYear": { $in: uniqueYears } },
+        { "studentDetails.academicYear": { $in: uniqueYears } }
+      ]
+    };
 
-    const students = allStudents.filter(student => {
-      const academicYear = student.studentDetails?.academicYear ||
-                         student.studentDetails?.academic?.academicYear ||
-                         student.academicYear ||
-                         student.currentAcademicYear;
-      const currentClass = student.studentDetails?.currentClass || student.studentDetails?.academic?.currentClass || student.currentClass;
-      const currentSection = student.studentDetails?.currentSection || student.studentDetails?.academic?.currentSection || student.currentSection;
+    // Fetch students directly from collection (avoiding stale cache omissions)
+    const allStudentsInDb = await usersCollection.find(eligibleStudentsQuery).toArray();
 
-      return academicYearsMatch(academicYear, fromYear) &&
-             currentClass === className &&
-             currentSection === section &&
-             (student.isActive !== false);
+    // Filter by class and section
+    const students = allStudentsInDb.filter(student => {
+      const currentClass = getStudentClass(student);
+      const currentSection = getStudentSection(student);
+      return currentClass === className && currentSection === section;
     });
 
-    console.log(`📊 Students matching Class ${className}-${section} for "${fromYear}" after normalization: ${students.length}`);
+    console.log(`📊 Students matching Class ${className}-${section} for "${fromYear}": ${students.length}`);
 
     if (students.length === 0) {
       await session.abortTransaction();
@@ -561,20 +799,54 @@ exports.sectionPromotion = async (req, res) => {
       });
     }
 
+    const classOrder = ['LKG', 'UKG', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
+    const classesCollection = schoolConnection.collection('classes');
+    const activeClasses = await classesCollection.find({ isActive: true }).toArray();
+    const configuredClassNames = activeClasses.map(c => c.className);
+
+    // Determine the highest configured class in the school
+    const finalYearClass = configuredClassNames.reduce((max, cls) => {
+      const maxIndex = classOrder.indexOf(max);
+      const clsIndex = classOrder.indexOf(cls);
+      return clsIndex > maxIndex ? cls : max;
+    }, configuredClassNames[0] || 'LKG');
+
+    const isFinalClass = className === finalYearClass;
+
+    // Determine next class from progression map
     const nextClass = classProgression[className];
-    if (!nextClass && !graduateStudents) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({
-        success: false,
-        message: `No progression defined for class ${className}. This may be the final year.`
-      });
+
+    // Backend-driven graduation decision:
+    // Graduate ONLY if this is the final configured class AND there is no valid next class to promote into.
+    // If a next class exists in classProgression AND is configured in the school, always promote (never graduate).
+    let shouldGraduate = false;
+    if (isFinalClass && (!nextClass || !configuredClassNames.includes(nextClass))) {
+      shouldGraduate = true;
+      console.log(`🎓 Class ${className} is the final configured class. Students will be graduated as Alumni.`);
+    } else if (!nextClass) {
+      // classProgression doesn't define a next class (e.g. '12' -> null),
+      // but the school may have custom classes beyond the standard progression.
+      // Check if there's any higher class configured
+      const currentIndex = classOrder.indexOf(className);
+      const higherConfigured = configuredClassNames.find(c => classOrder.indexOf(c) > currentIndex);
+      if (!higherConfigured) {
+        shouldGraduate = true;
+        console.log(`🎓 No higher class configured after ${className}. Students will be graduated as Alumni.`);
+      } else {
+        // There IS a higher class, but classProgression doesn't map to it.
+        // This is a configuration gap — block promotion with a clear error.
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(400).json({
+          success: false,
+          message: `No progression defined from Class ${className}. Higher classes exist (e.g. ${higherConfigured}) but no mapping is configured. Please contact support.`
+        });
+      }
     }
 
-    if (!graduateStudents) {
-      const classesCollection = schoolConnection.collection('classes');
+    if (!shouldGraduate) {
+      // Verify the destination class actually exists in the school
       const nextClassExists = await classesCollection.findOne({
-        schoolCode,
         className: nextClass,
         isActive: true
       });
@@ -588,25 +860,39 @@ exports.sectionPromotion = async (req, res) => {
           errorCode: 'CLASS_NOT_FOUND'
         });
       }
+      console.log(`📚 Class ${className} -> ${nextClass}. Students will be promoted (not graduated).`);
     }
 
     let promotedCount = 0;
     let heldBackCount = 0;
     let graduatedCount = 0;
+    let skippedCount = 0;
     let errors = [];
     const promotionBatchId = uuidv4();
     const promotionRecords = [];
 
     for (const student of students) {
-      const currentStudentYear = student.studentDetails?.academicYear ||
-                                 student.studentDetails?.academic?.academicYear ||
-                                 student.academicYear ||
-                                 student.currentAcademicYear;
-      if (academicYearsMatch(currentStudentYear, toYear)) {
-        throw new Error(`Student ${student.userId} has already been promoted/updated for academic year ${toYear}.`);
+      // Check duplicate promotion
+      const existingDest = await usersCollection.findOne({
+        userId: student.userId,
+        $or: [
+          { "studentDetails.academic.academicYear": toYear },
+          { "academicInfo.academicYear": toYear },
+          { "academicYear": toYear },
+          { "studentDetails.academicYear": toYear }
+        ]
+      });
+
+      if (existingDest) {
+        console.log(`Student ${student.userId} already has enrollment in ${toYear}. Skipping duplicate.`);
+        skippedCount++;
+        continue;
       }
 
-      if (holdBackSequenceIds.includes(student.userId)) {
+      const isHeldBack = holdBackSequenceIds.includes(student.userId);
+
+      if (isHeldBack) {
+        // Add to promotion history
         await promotionHistoryCollection.insertOne({
           batchId: promotionBatchId,
           studentId: student._id,
@@ -624,31 +910,64 @@ exports.sectionPromotion = async (req, res) => {
           processedBy: req.user?.userId || 'admin'
         }, { session });
 
-        await usersCollection.updateOne(
-          { _id: student._id },
-          {
-            $set: {
-              'studentDetails.academicYear': toYear,
-              updatedAt: new Date()
-            },
-            $push: {
-              'studentDetails.academicHistory': {
-                promotionBatchId,
-                academicYear: fromYear,
-                class: className,
-                section,
-                result: 'detained',
-                detainedAt: new Date()
-              }
-            }
-          },
-          { session }
-        );
+        // Clone student document for destination academic year, retaining class and section
+        const targetClass = className;
+        const targetSection = section;
+
+        const newStudentDoc = {
+          ...student,
+          _id: new mongoose.Types.ObjectId(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          academicYear: toYear,
+          class: targetClass,
+          section: targetSection
+        };
+
+        if (newStudentDoc.academicInfo) {
+          newStudentDoc.academicInfo = {
+            ...newStudentDoc.academicInfo,
+            academicYear: toYear,
+            class: targetClass,
+            section: targetSection
+          };
+        }
+        if (newStudentDoc.studentDetails) {
+          newStudentDoc.studentDetails = {
+            ...newStudentDoc.studentDetails,
+            academicYear: toYear,
+            currentClass: targetClass,
+            currentSection: targetSection
+          };
+          if (newStudentDoc.studentDetails.academic) {
+            newStudentDoc.studentDetails.academic = {
+              ...newStudentDoc.studentDetails.academic,
+              academicYear: toYear,
+              currentClass: targetClass,
+              currentSection: targetSection
+            };
+          }
+          newStudentDoc.studentDetails.academicHistory = [
+            ...(newStudentDoc.studentDetails.academicHistory || [])
+          ];
+          newStudentDoc.studentDetails.academicHistory.push({
+            promotionBatchId,
+            academicYear: fromYear,
+            class: className,
+            section,
+            result: 'detained',
+            percentage: undefined,
+            rank: undefined,
+            attendance: undefined
+          });
+        }
+
+        await usersCollection.insertOne(newStudentDoc, { session });
 
         heldBackCount++;
         promotionRecords.push({
           admissionNumber: student.userId,
-          rollNumber: student.studentDetails?.rollNo || '',
+          rollNumber: student.studentDetails?.rollNumber || student.studentDetails?.rollNo || '',
           studentName: `${student.name?.firstName || ''} ${student.name?.lastName || ''}`.trim(),
           currentClass: className,
           currentSection: section,
@@ -663,7 +982,8 @@ exports.sectionPromotion = async (req, res) => {
           promotedBy: req.user?.userId || 'admin',
           timestamp: new Date().toISOString()
         });
-      } else if (graduateStudents) {
+      } else if (shouldGraduate) {
+        // Add to promotion history
         await promotionHistoryCollection.insertOne({
           batchId: promotionBatchId,
           studentId: student._id,
@@ -680,8 +1000,10 @@ exports.sectionPromotion = async (req, res) => {
           processedBy: req.user?.userId || 'admin'
         }, { session });
 
+        // Clone student document to alumni collection
         const alumniRecord = {
           ...student,
+          _id: new mongoose.Types.ObjectId(),
           graduationYear: toYear,
           graduationClass: className,
           graduationSection: section,
@@ -689,35 +1011,21 @@ exports.sectionPromotion = async (req, res) => {
           originalStudentId: student._id,
           status: 'passedOut'
         };
-
+        if (alumniRecord.studentDetails) {
+          alumniRecord.studentDetails = {
+            ...alumniRecord.studentDetails,
+            status: 'passedOut',
+            academicYear: toYear
+          };
+        }
         await alumniCollection.insertOne(alumniRecord, { session });
-        await usersCollection.updateOne(
-          { _id: student._id },
-          {
-            $set: {
-              isActive: false,
-              'studentDetails.status': 'passedOut',
-              'studentDetails.academicYear': toYear,
-              updatedAt: new Date()
-            },
-            $push: {
-              'studentDetails.academicHistory': {
-                promotionBatchId,
-                academicYear: fromYear,
-                class: className,
-                section,
-                result: 'passedOut',
-                passedOutAt: new Date()
-              }
-            }
-          },
-          { session }
-        );
+
+        // Leave original record in students collection completely unchanged!
 
         graduatedCount++;
         promotionRecords.push({
           admissionNumber: student.userId,
-          rollNumber: student.studentDetails?.rollNo || '',
+          rollNumber: student.studentDetails?.rollNumber || student.studentDetails?.rollNo || '',
           studentName: `${student.name?.firstName || ''} ${student.name?.lastName || ''}`.trim(),
           currentClass: className,
           currentSection: section,
@@ -733,6 +1041,7 @@ exports.sectionPromotion = async (req, res) => {
           timestamp: new Date().toISOString()
         });
       } else {
+        // Add to promotion history
         await promotionHistoryCollection.insertOne({
           batchId: promotionBatchId,
           studentId: student._id,
@@ -750,37 +1059,69 @@ exports.sectionPromotion = async (req, res) => {
           processedBy: req.user?.userId || 'admin'
         }, { session });
 
-        await usersCollection.updateOne(
-          { _id: student._id },
-          {
-            $set: {
-              'studentDetails.currentClass': nextClass,
-              'studentDetails.academicYear': toYear,
-              updatedAt: new Date()
-            },
-            $push: {
-              'studentDetails.academicHistory': {
-                promotionBatchId,
-                academicYear: fromYear,
-                class: className,
-                section,
-                result: 'promoted',
-                promotedAt: new Date()
-              }
-            }
-          },
-          { session }
-        );
+        // Clone student document to destination academic year, advancing class
+        const targetClass = nextClass;
+        const targetSection = section;
+
+        const newStudentDoc = {
+          ...student,
+          _id: new mongoose.Types.ObjectId(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          academicYear: toYear,
+          class: targetClass,
+          section: targetSection
+        };
+
+        if (newStudentDoc.academicInfo) {
+          newStudentDoc.academicInfo = {
+            ...newStudentDoc.academicInfo,
+            academicYear: toYear,
+            class: targetClass,
+            section: targetSection
+          };
+        }
+        if (newStudentDoc.studentDetails) {
+          newStudentDoc.studentDetails = {
+            ...newStudentDoc.studentDetails,
+            academicYear: toYear,
+            currentClass: targetClass,
+            currentSection: targetSection
+          };
+          if (newStudentDoc.studentDetails.academic) {
+            newStudentDoc.studentDetails.academic = {
+              ...newStudentDoc.studentDetails.academic,
+              academicYear: toYear,
+              currentClass: targetClass,
+              currentSection: targetSection
+            };
+          }
+          newStudentDoc.studentDetails.academicHistory = [
+            ...(newStudentDoc.studentDetails.academicHistory || [])
+          ];
+          newStudentDoc.studentDetails.academicHistory.push({
+            promotionBatchId,
+            academicYear: fromYear,
+            class: className,
+            section,
+            result: 'promoted',
+            percentage: undefined,
+            rank: undefined,
+            attendance: undefined
+          });
+        }
+
+        await usersCollection.insertOne(newStudentDoc, { session });
 
         promotedCount++;
         promotionRecords.push({
           admissionNumber: student.userId,
-          rollNumber: student.studentDetails?.rollNo || '',
+          rollNumber: student.studentDetails?.rollNumber || student.studentDetails?.rollNo || '',
           studentName: `${student.name?.firstName || ''} ${student.name?.lastName || ''}`.trim(),
           currentClass: className,
           currentSection: section,
-          promotedClass: nextClass,
-          promotedSection: section,
+          promotedClass: targetClass,
+          promotedSection: targetSection,
           promotionStatus: 'Promoted',
           promotionReason: '',
           academicYear: fromYear,
@@ -793,23 +1134,56 @@ exports.sectionPromotion = async (req, res) => {
       }
     }
 
-    const csvBuffer = buildPromotionCsv(promotionRecords);
-    const uploadResult = await uploadPDFBufferToCloudinary(
-      csvBuffer,
-      `promotions/${schoolCode}`,
-      `section_promotion_report_${activeRequest._id}_${Date.now()}`,
-      'text/csv'
-    );
+    // Accumulate this section's records into the request document
+    // This ensures all sections' data is combined into one final Excel report
+    activeRequest.promotionRecords = [
+      ...(activeRequest.promotionRecords || []),
+      ...promotionRecords
+    ];
 
-    activeRequest.status = 'Completed';
-    activeRequest.excelReportUrl = uploadResult.downloadUrl;
-    activeRequest.excelReportFilename = `promotion_report_${className}_${section}_${fromYear}.csv`;
-    activeRequest.completedAt = new Date();
+    // Check if there are any remaining students in fromYear to be processed
+    const processedStudentIds = await promotionHistoryCollection.distinct('studentId', {
+      targetAcademicYear: toYear
+    });
+
+    const remainingStudentsCount = await usersCollection.countDocuments({
+      isActive: { $ne: false },
+      $or: [
+        { "studentDetails.academic.academicYear": { $in: uniqueYears } },
+        { "academicInfo.academicYear": { $in: uniqueYears } },
+        { "academicYear": { $in: uniqueYears } },
+        { "studentDetails.academicYear": { $in: uniqueYears } }
+      ],
+      _id: { $nin: processedStudentIds }
+    });
+
+    if (remainingStudentsCount === 0) {
+      // All students processed — generate the FINAL combined CSV from all accumulated records
+      const allRecords = activeRequest.promotionRecords || promotionRecords;
+      const csvBuffer = buildPromotionCsv(allRecords);
+      const uploadResult = await uploadPDFBufferToCloudinary(
+        csvBuffer,
+        `promotions/${schoolCode}`,
+        `promotion_report_${activeRequest._id}_final`,
+        'text/csv'
+      );
+
+      activeRequest.status = 'Completed';
+      activeRequest.completedAt = new Date();
+      activeRequest.excelReportUrl = uploadResult.downloadUrl;
+      activeRequest.excelReportFilename = `promotion_report_${fromYear}_to_${toYear}.csv`;
+      activeRequest.totalStudents = allRecords.length;
+      console.log(`🎉 All students processed (${allRecords.length} records). Promotion request marked as Completed. Excel: ${uploadResult.downloadUrl}`);
+    } else {
+      activeRequest.status = 'Approved';
+      console.log(`📊 ${remainingStudentsCount} students remaining. Request status kept as Approved. Accumulated ${activeRequest.promotionRecords.length} records so far.`);
+    }
+
     activeRequest.auditLog.push({
       action: 'Execute Promotion',
       doneBy: req.user?.userId || 'admin',
       timestamp: new Date(),
-      details: `Executed manual promotion for Class ${className}-${section} (${promotedCount} promoted, ${heldBackCount} held back, ${graduatedCount} graduated). Generated CSV report.`
+      details: `Executed promotion for Class ${className}-${section} (${promotedCount} promoted, ${heldBackCount} held back, ${graduatedCount} graduated, ${skippedCount} skipped). Status: ${activeRequest.status}`
     });
     await activeRequest.save();
 
@@ -821,11 +1195,12 @@ exports.sectionPromotion = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: `Successfully executed manual promotion. Report generated: ${uploadResult.downloadUrl}`,
+      message: `Successfully promoted Class ${className}-${section}.${remainingStudentsCount === 0 ? ' All sections complete. Excel report generated.' : ` ${remainingStudentsCount} students remaining in other sections.`}`,
       data: {
         promoted: promotedCount,
         graduated: graduatedCount,
         heldBack: heldBackCount,
+        skipped: skippedCount,
         fromYear,
         toYear
       }
@@ -846,24 +1221,11 @@ exports.sectionPromotion = async (req, res) => {
 // Submit Promotion Request
 exports.submitPromotionRequest = async (req, res) => {
   try {
-    const schoolCode = req.params.schoolCode.toUpperCase();
+    const schoolCode = req.params.schoolCode.trim().toUpperCase();
     const { fromYear, toYear, promotionDate, effectiveDate } = req.body;
 
     if (!fromYear || !toYear || !promotionDate || !effectiveDate) {
       return res.status(400).json({ success: false, message: 'Missing required configuration fields.' });
-    }
-
-    const existingActive = await PromotionRequest.findOne({
-      schoolCode: { $regex: new RegExp(`^${schoolCode}$`, 'i') },
-      fromYear,
-      status: { $in: ['Pending Approval', 'Approved'] }
-    });
-
-    if (existingActive) {
-      return res.status(400).json({
-        success: false,
-        message: 'A duplicate promotion request is already pending or approved for this academic year.'
-      });
     }
 
     const school = await School.findOne({ code: schoolCode });
@@ -871,14 +1233,99 @@ exports.submitPromotionRequest = async (req, res) => {
       return res.status(404).json({ success: false, message: 'School not found' });
     }
 
-    const allStudents = await getCachedStudents(schoolCode);
-    const eligibleStudents = allStudents.filter(student => {
-      const academicYear = student.studentDetails?.academicYear ||
-                         student.studentDetails?.academic?.academicYear ||
-                         student.academicYear ||
-                         student.currentAcademicYear;
-      return academicYearsMatch(academicYear, fromYear) && (student.isActive !== false);
+    // Verify next Academic Year has been created and activated by Super Admin
+    if (!school.settings?.academicYear?.currentYear || school.settings.academicYear.currentYear !== toYear) {
+      return res.status(400).json({
+        success: false,
+        message: 'The next Academic Year has not been created or activated by the Super Admin. Student promotion cannot proceed until the new Academic Year is set.'
+      });
+    }
+
+    // Verify Promotion Date and Effective Date are within the Destination Academic Year (toYear)
+    const acadStart = school.settings.academicYear.startDate;
+    const acadEnd = school.settings.academicYear.endDate;
+
+    if (!acadStart || !acadEnd) {
+      return res.status(400).json({
+        success: false,
+        message: 'Academic year start and end dates are not configured for the destination year.'
+      });
+    }
+
+    const getIsoDateOnly = (dateInput) => {
+      if (!dateInput) return null;
+      const d = new Date(dateInput);
+      if (isNaN(d.getTime())) return null;
+      return d.toISOString().split('T')[0];
+    };
+
+    const promoStr = getIsoDateOnly(promotionDate);
+    const effStr = getIsoDateOnly(effectiveDate);
+    const startStr = getIsoDateOnly(acadStart);
+    const endStr = getIsoDateOnly(acadEnd);
+
+    if (!promoStr || !effStr || !startStr || !endStr) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid date formats provided.'
+      });
+    }
+
+    if (promoStr < startStr || promoStr > endStr) {
+      return res.status(400).json({
+        success: false,
+        message: `Promotion Date (${promoStr}) must fall within the Destination Academic Year (${toYear}) range: ${startStr} to ${endStr}.`
+      });
+    }
+
+    if (effStr < startStr || effStr > endStr) {
+      return res.status(400).json({
+        success: false,
+        message: `Effective Date (${effStr}) must fall within the Destination Academic Year (${toYear}) range: ${startStr} to ${endStr}.`
+      });
+    }
+
+    // Check for any existing request (pending, approved, or already completed)
+    const existingActive = await PromotionRequest.findOne({
+      schoolCode: schoolCode,
+      fromYear,
+      toYear,
+      status: { $in: ['Pending Approval', 'Approved', 'Completed'] }
     });
+
+    if (existingActive) {
+      if (existingActive.status === 'Completed') {
+        return res.status(400).json({
+          success: false,
+          message: `Student promotion for Academic Year ${fromYear} to ${toYear} has already been completed. The Promotion Module will be available again after the Super Admin activates the next Academic Year.`
+        });
+      }
+      return res.status(400).json({
+        success: false,
+        message: 'A duplicate promotion request is already pending or approved for this academic year transition.'
+      });
+    }
+
+    // Direct database lookup for eligible students
+    const schoolConnection = await DatabaseManager.getSchoolConnection(schoolCode);
+    const studentsCollection = schoolConnection.collection('students');
+    const yearFormats = [fromYear];
+    const matchShort = fromYear.match(/^(\d{4})-(\d{2})$/);
+    if (matchShort) yearFormats.push(`${matchShort[1]}-20${matchShort[2]}`);
+    const matchLong = fromYear.match(/^(\d{4})-(\d{4})$/);
+    if (matchLong) yearFormats.push(`${matchLong[1]}-${matchLong[2].substring(2)}`);
+    const uniqueYears = [...new Set(yearFormats)];
+
+    const eligibleStudentsQuery = {
+      isActive: { $ne: false },
+      $or: [
+        { "studentDetails.academic.academicYear": { $in: uniqueYears } },
+        { "academicInfo.academicYear": { $in: uniqueYears } },
+        { "academicYear": { $in: uniqueYears } },
+        { "studentDetails.academicYear": { $in: uniqueYears } }
+      ]
+    };
+    const totalStudents = await studentsCollection.countDocuments(eligibleStudentsQuery);
 
     let displayName = 'Admin';
     if (req.user.name) {
@@ -900,13 +1347,13 @@ exports.submitPromotionRequest = async (req, res) => {
       toYear,
       promotionDate: new Date(promotionDate),
       effectiveDate: new Date(effectiveDate),
-      totalStudents: eligibleStudents.length,
+      totalStudents,
       status: 'Pending Approval',
       auditLog: [{
         action: 'Submit Request',
         doneBy: req.user.userId || req.user.email || req.user._id?.toString() || 'Admin',
         timestamp: new Date(),
-        details: `Submitted promotion request for academic year ${fromYear} -> ${toYear}. Total students: ${eligibleStudents.length}.`
+        details: `Submitted promotion request for academic year ${fromYear} -> ${toYear}. Total students: ${totalStudents}.`
       }]
     });
 
@@ -917,7 +1364,7 @@ exports.submitPromotionRequest = async (req, res) => {
       role: 'superadmin',
       schoolCode,
       title: 'New Promotion Request Received',
-      message: `School "${school.name}" has submitted a promotion request from ${fromYear} to ${toYear} for ${eligibleStudents.length} students.`,
+      message: `School "${school.name}" has submitted a promotion request from ${fromYear} to ${toYear} for ${totalStudents} students.`,
       metadata: { requestId: request._id, schoolCode }
     });
 
@@ -1029,7 +1476,7 @@ exports.rejectPromotionRequest = async (req, res) => {
 // Get active request for school
 exports.getActivePromotionRequest = async (req, res) => {
   try {
-    const schoolCode = req.params.schoolCode.toUpperCase();
+    const schoolCode = req.params.schoolCode.trim().toUpperCase();
     const cacheKey = CACHE_KEYS.activeRequest(schoolCode);
 
     const cached = cache.get(cacheKey);
@@ -1038,7 +1485,7 @@ exports.getActivePromotionRequest = async (req, res) => {
     }
 
     const request = await PromotionRequest.findOne({
-      schoolCode: { $regex: new RegExp(`^${schoolCode}$`, 'i') }
+      schoolCode: schoolCode
     }).sort({ createdAt: -1 });
 
     cache.set(cacheKey, request, 15);

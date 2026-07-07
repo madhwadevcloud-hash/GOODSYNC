@@ -7,6 +7,7 @@ import { toast } from 'react-hot-toast';
 import api from '../../../../services/api';
 import { useSchoolClasses } from '../../../../hooks/useSchoolClasses';
 import { normalizeAcademicYear, getDynamicFallbackYear } from '../../../../utils/academicYearUtils';
+import { teacherAssignmentAPI } from '../../../../services/api';
 
 interface StudentResult {
   id: string;
@@ -56,7 +57,10 @@ const ViewResults: React.FC = () => {
 
   // Freeze functionality
   const [isFrozen, setIsFrozen] = useState(false);
-  const [freezing, setFreezing] = useState(false);
+
+  // Teacher assignment awareness
+  const [assignedSubjects, setAssignedSubjects] = useState<string[]>([]);
+  const [assignmentsLoaded, setAssignmentsLoaded] = useState(false);
 
   // Comparator: sort by userId like SK-S-0847 (prefix, then numeric)
   const compareUserId = useCallback((a: string | undefined, b: string | undefined) => {
@@ -235,6 +239,33 @@ const ViewResults: React.FC = () => {
       }
       setSubjects(activeSubjects);
 
+      // 1b. Fetch teacher's subject assignments for this class-section
+      try {
+        const assignResp = await teacherAssignmentAPI.getMyAssignments({
+          academicYear: viewingAcademicYear
+        });
+        if (assignResp.data?.success && assignResp.data?.data?.rawAssignments) {
+          const myAssignments = assignResp.data.data.rawAssignments
+            .filter((a: any) => 
+              String(a.className) === String(selectedClass) && 
+              String(a.section).toUpperCase() === String(selectedSection).toUpperCase()
+            )
+            .map((a: any) => a.subjectName);
+          setAssignedSubjects(myAssignments);
+          setAssignmentsLoaded(true);
+        } else {
+          // If no assignments found, teacher can see all but edit none
+          setAssignedSubjects([]);
+          setAssignmentsLoaded(true);
+        }
+      } catch (assignErr) {
+        console.warn('Could not fetch teacher assignments:', assignErr);
+        // If the API fails (e.g., no assignments exist yet), allow all subjects
+        // The backend will still enforce authorization
+        setAssignedSubjects(activeSubjects);
+        setAssignmentsLoaded(true);
+      }
+
       // 2. Fetch class students
       let fetchedStudents: any[] = [];
       const studentsResp = await resultsAPI.getStudents(schoolCode, {
@@ -397,7 +428,12 @@ const ViewResults: React.FC = () => {
           studentId: student.id,
           studentName: student.name,
           userId: student.userId,
-          subjectMarks: student.subjectMarks
+          // Only include subjects the teacher is assigned to
+          subjectMarks: Object.fromEntries(
+            Object.entries(student.subjectMarks).filter(
+              ([subjectName]) => !assignmentsLoaded || assignedSubjects.includes(subjectName)
+            )
+          )
         }))
       };
 
@@ -416,37 +452,7 @@ const ViewResults: React.FC = () => {
     }
   };
 
-  const handleFreezeResults = async () => {
-    if (!selectedClass || !selectedSection || !selectedTestType) {
-      toast.error('Please select class, section, and test');
-      return;
-    }
 
-    const confirmed = window.confirm(
-      `Are you sure you want to FREEZE results for Class ${selectedClass}-${selectedSection} (${selectedTestType})?\n\nOnce frozen, marks for all subjects under this test CANNOT be edited anymore!`
-    );
-    if (!confirmed) return;
-
-    setFreezing(true);
-    try {
-      const schoolCode = localStorage.getItem('erp.schoolCode') || user?.schoolCode || '';
-      await resultsAPI.freezeResults({
-        schoolCode,
-        class: selectedClass,
-        section: selectedSection,
-        testType: selectedTestType,
-        academicYear: viewingAcademicYear || getDynamicFallbackYear()
-      });
-
-      setIsFrozen(true);
-      toast.success('Results frozen successfully! Marks are now locked.');
-    } catch (error) {
-      console.error('Error freezing results:', error);
-      toast.error('Failed to freeze results');
-    } finally {
-      setFreezing(false);
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -480,11 +486,16 @@ const ViewResults: React.FC = () => {
           <div className="flex flex-col">
             <label htmlFor="year-select" className="text-sm font-medium text-gray-700">Academic Year</label>
             <select
-              id="year-select"
-              value={viewingAcademicYear}
-              onChange={(e) => setViewingYear(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[150px]"
-            >
+  id="year-select"
+  value={viewingAcademicYear}
+  onChange={(e) => setViewingYear(e.target.value)}
+  disabled={user?.role !== "superadmin"}
+  className={`px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent min-w-[150px] ${
+    user?.role !== "superadmin"
+      ? "bg-gray-100 cursor-not-allowed"
+      : ""
+  }`}
+>
               {[...new Set(availableYears)].map((year) => (
                 <option key={year} value={year}>
                   {year} {year === currentAcademicYear && '(Current)'}
@@ -500,7 +511,7 @@ const ViewResults: React.FC = () => {
               id="class-select"
               value={selectedClass}
               onChange={(e) => setSelectedClass(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[150px]"
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent min-w-[150px]"
               disabled={classesLoading || !hasClasses()}
             >
               <option value="">{classesLoading ? 'Loading...' : 'Select Class'}</option>
@@ -517,7 +528,7 @@ const ViewResults: React.FC = () => {
               id="section-select"
               value={selectedSection}
               onChange={(e) => setSelectedSection(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[150px]"
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent min-w-[150px]"
               disabled={!selectedClass || availableSections.length === 0}
             >
               <option value="">{!selectedClass ? 'Select Class First' : 'Select Section'}</option>
@@ -534,7 +545,7 @@ const ViewResults: React.FC = () => {
               id="test-type-select"
               value={selectedTestType}
               onChange={(e) => setSelectedTestType(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[180px]"
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent min-w-[180px]"
               disabled={!selectedClass || loadingTestTypes}
             >
               <option value="">
@@ -553,7 +564,7 @@ const ViewResults: React.FC = () => {
           {/* Search Button */}
           <button
             onClick={fetchResultsOrStudents}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg flex items-center transition-colors self-end shadow-sm font-medium"
+            className="bg-violet-600 hover:bg-violet-700 text-white px-5 py-2 rounded-lg flex items-center transition-colors self-end shadow-sm font-medium"
             disabled={loading}
           >
             {loading ? (
@@ -567,17 +578,7 @@ const ViewResults: React.FC = () => {
             Search
           </button>
 
-          {/* Freeze Results Button */}
-          {showResultsTable && !isFrozen && (
-            <button
-              onClick={handleFreezeResults}
-              disabled={freezing || loading}
-              className="bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded-lg flex items-center transition-colors self-end shadow-sm font-medium"
-            >
-              <ShieldAlert className="h-4 w-4 mr-2" />
-              Freeze Results
-            </button>
-          )}
+
         </div>
       </div>
 
@@ -626,29 +627,41 @@ const ViewResults: React.FC = () => {
                     {subjects.map((subj) => {
                       const score = student.subjectMarks[subj];
                       const grade = calculateGrade(score, configuredMaxMarks);
+                      const isAssigned = !assignmentsLoaded || assignedSubjects.includes(subj);
+                      const isReadOnly = isFrozen || !isAssigned;
                       return (
-                        <td key={subj} className="px-6 py-4 whitespace-nowrap text-sm border-l border-gray-100 align-middle">
+                        <td key={subj} className={`px-6 py-4 whitespace-nowrap text-sm border-l border-gray-100 align-middle ${!isAssigned ? 'bg-gray-50/70' : ''}`}>
                           <div className="flex flex-col items-center gap-1">
-                            <input
-                              type="number"
-                              value={score !== null ? score : ''}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                const max = configuredMaxMarks ?? 100;
-                                if (val === '' || (val.length <= 3 && parseInt(val) <= max && parseInt(val) >= 0)) {
-                                  updateStudentMark(student.id, subj, val === '' ? null : parseInt(val));
-                                }
-                              }}
-                              disabled={isFrozen}
-                              className="w-20 px-2 py-1 text-center border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed font-medium"
-                              placeholder="-"
-                              min="0"
-                              max={configuredMaxMarks ?? 100}
-                            />
+                            <div className="relative">
+                              <input
+                                type="number"
+                                value={score !== null ? score : ''}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  const max = configuredMaxMarks ?? 100;
+                                  if (val === '' || (val.length <= 3 && parseInt(val) <= max && parseInt(val) >= 0)) {
+                                    updateStudentMark(student.id, subj, val === '' ? null : parseInt(val));
+                                  }
+                                }}
+                                disabled={isReadOnly}
+                                className={`w-20 px-2 py-1 text-center border rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent font-medium ${
+                                  isReadOnly
+                                    ? 'bg-gray-100 border-gray-200 cursor-not-allowed text-gray-500'
+                                    : 'border-gray-300'
+                                }`}
+                                placeholder="-"
+                                min="0"
+                                max={configuredMaxMarks ?? 100}
+                                title={!isAssigned ? 'Read-only: You are not assigned to this subject' : (isFrozen ? 'Results are frozen' : '')}
+                              />
+                              {!isAssigned && (
+                                <span className="absolute -top-1 -right-1 text-[8px] bg-gray-300 text-white rounded-full w-3 h-3 flex items-center justify-center" title="Not your subject">🔒</span>
+                              )}
+                            </div>
                             {score !== null && (
                               <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
                                 ['A1', 'A2', 'A+'].includes(grade) ? 'bg-green-50 text-green-700' :
-                                ['B1', 'B2', 'B'].includes(grade) ? 'bg-blue-50 text-blue-700' :
+                                ['B1', 'B2', 'B'].includes(grade) ? 'bg-violet-50 text-violet-700' :
                                 ['C1', 'C2', 'C'].includes(grade) ? 'bg-yellow-50 text-yellow-700 font-medium' :
                                 grade === 'D' ? 'bg-orange-50 text-orange-700' :
                                 'bg-red-50 text-red-700'

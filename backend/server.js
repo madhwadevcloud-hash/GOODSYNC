@@ -412,6 +412,9 @@ const academicYearRoutes = require('./routes/academicYear');
 const migrationRoutes = require('./routes/migration');
 const leaveRoutes = require('./routes/leaveRoutes');
 const chalanRoutes = require('./routes/chalanRoutes');
+const studentPortalRoutes = require('./routes/studentPortal');
+const teacherAssignmentRoutes = require('./routes/teacherAssignments');
+const calendarEventsRoutes = require('./routes/calendarEvents');
 
 // Route imports - some routes need upload middleware
 const schoolRoutes = require('./routes/schools');
@@ -439,6 +442,7 @@ app.use('/api/schools', schoolRoutes);
 app.use('/api/school-users', schoolUserRoutes);
 app.use('/api/admissions', admissionRoutes);
 app.use('/api/assignments', assignmentRoutes);
+app.use('/api/student', studentPortalRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/subjects', subjectRoutes);
 app.use('/api/timetables', timetableRoutes);
@@ -463,6 +467,8 @@ app.use('/api/leave-requests', leaveRoutes);
 app.use('/api/id-card-templates', idCardTemplateRoutes);
 app.use('/api/chalans', chalanRoutes);
 app.use('/api/permissions', permissionsRoutes);
+app.use('/api/teacher-assignments', teacherAssignmentRoutes);
+app.use('/api/calendar-events', calendarEventsRoutes);
 
 
 // --- Define Export/Import Routes Directly ---

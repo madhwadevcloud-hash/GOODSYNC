@@ -19,9 +19,16 @@ const MarkAttendance: React.FC = () => {
   const getCurrentSession = (): 'morning' | 'afternoon' => {
   const hour = new Date().getHours();
 
-  // 12:00 AM - 12:59 PM = Morning
-  // 1:00 PM - 11:59 PM = Afternoon
-  return hour < 13 ? 'morning' : 'afternoon';
+  if (hour >= 8 && hour < 13) {
+    return "morning";
+  }
+
+  return "afternoon";
+};
+
+const isAttendanceClosed = () => {
+  const hour = new Date().getHours();
+  return hour >= 19; // 7 PM onwards
 };
 
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -38,7 +45,21 @@ const MarkAttendance: React.FC = () => {
     canModify: boolean;
   }>({ isMarked: false, isFrozen: false, canModify: true });
 
-  
+  // Sticky filter bar height tracking (hooks must live INSIDE the component)
+  const filterBarRef = React.useRef<HTMLDivElement>(null);
+  const [filterBarHeight, setFilterBarHeight] = useState(0);
+
+  useEffect(() => {
+    const updateHeight = () => {
+      if (filterBarRef.current) {
+        setFilterBarHeight(filterBarRef.current.offsetHeight);
+      }
+    };
+    updateHeight();
+    window.addEventListener('resize', updateHeight);
+    return () => window.removeEventListener('resize', updateHeight);
+  }, [selectedClass, selectedSection, sessionStatus]);
+
 useEffect(() => {
   const updateSession = () => {
     setSelectedSession(getCurrentSession());
@@ -279,6 +300,10 @@ useEffect(() => {
       toast.error('Attendance is frozen and cannot be modified');
       return;
     }
+    if (isAttendanceClosed()) {
+  toast.error("Attendance is closed. You cannot mark attendance after 7:00 PM.");
+  return;
+}
 
     setLoading(true);
     try {
@@ -338,8 +363,12 @@ const response = await attendanceAPI.markSessionAttendance({
           )}
           <button
             onClick={markAllPresent}
-            disabled={students.length === 0 || loading || sessionStatus.isFrozen}
-            className={`flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed ${sessionStatus.isFrozen ? 'opacity-50' : ''}`}
+disabled={
+  students.length === 0 ||
+  loading ||
+  sessionStatus.isFrozen ||
+  isAttendanceClosed()
+}            className={`flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed ${sessionStatus.isFrozen ? 'opacity-50' : ''}`}
             title={sessionStatus.isFrozen ? 'Attendance is frozen and cannot be modified' : ''}
           >
             <CheckCircle className="h-4 w-4 mr-2" />
@@ -347,8 +376,12 @@ const response = await attendanceAPI.markSessionAttendance({
           </button>
           <button
             onClick={markAllAbsent}
-            disabled={students.length === 0 || loading || sessionStatus.isFrozen}
-            className={`flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed ${sessionStatus.isFrozen ? 'opacity-50' : ''}`}
+disabled={
+  students.length === 0 ||
+  loading ||
+  sessionStatus.isFrozen ||
+  isAttendanceClosed()
+}            className={`flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed ${sessionStatus.isFrozen ? 'opacity-50' : ''}`}
             title={sessionStatus.isFrozen ? 'Attendance is frozen and cannot be modified' : ''}
           >
             <XCircle className="h-4 w-4 mr-2" />
@@ -356,8 +389,12 @@ const response = await attendanceAPI.markSessionAttendance({
           </button>
           <button
             onClick={handleSaveAttendance}
-            disabled={students.length === 0 || loading || sessionStatus.isFrozen}
-            className={`flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed ${sessionStatus.isFrozen ? 'opacity-50' : ''}`}
+disabled={
+  students.length === 0 ||
+  loading ||
+  sessionStatus.isFrozen ||
+  isAttendanceClosed()
+}            className={`flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed ${sessionStatus.isFrozen ? 'opacity-50' : ''}`}
             title={sessionStatus.isFrozen ? 'Attendance is frozen and cannot be modified' : ''}
           >
             <Save className="h-4 w-4 mr-2" />
@@ -365,141 +402,166 @@ const response = await attendanceAPI.markSessionAttendance({
           </button>
         </div>
       </div>
+      {isAttendanceClosed() && (
+  <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+    Attendance is closed. Attendance can only be marked until 7:00 PM.
+  </div>
+)}
 
-      {/* Selection Controls */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
-            <input
-  type="date"
-  value={selectedDate}
-  min={new Date().toISOString().split('T')[0]}
-  max={new Date().toISOString().split('T')[0]}
-  onChange={(e) => setSelectedDate(e.target.value)}
-  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
-  disabled
-/>
+      {/* Sticky filter bar — stays visible while student list scrolls */}
+      <div ref={filterBarRef} className="sticky top-0 z-30 bg-gray-50 pt-1 pb-3 -mx-6 px-6 space-y-4 border-b border-gray-100">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
+              <input
+                type="date"
+                value={selectedDate}
+                min={new Date().toISOString().split('T')[0]}
+                max={new Date().toISOString().split('T')[0]}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                disabled
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Academic Year</label>
+              <input
+                type="text"
+                value={currentAcademicYear || 'Loading...'}
+                readOnly
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 font-semibold cursor-not-allowed"
+                title="Current academic year (set by Admin)"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Class</label>
+              <select
+                value={selectedClass}
+                onChange={(e) => {
+                  setSelectedClass(e.target.value);
+                  setSelectedSection('');
+                  setStudents([]);
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+              >
+                <option value="">Select Class</option>
+                {classList.map(cls => (
+                  <option key={cls} value={cls}>Class {cls}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Section</label>
+              <select
+                value={selectedSection}
+                onChange={(e) => setSelectedSection(e.target.value)}
+                disabled={!selectedClass}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+              >
+                <option value="">Select Class First</option>
+                {selectedClass && availableSections.map(section => (
+                  <option key={section.value} value={section.value}>{section.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Session</label>
+              <div className="flex gap-2">
+                <button
+                  disabled={selectedSession !== 'morning'}
+                  className={`flex-1 flex items-center justify-center px-3 py-2 rounded-lg border-2 transition-colors ${
+                    selectedSession === 'morning'
+                      ? 'bg-violet-600 border-violet-600 text-white'
+                      : 'bg-white border-gray-300 text-gray-700'
+                  } ${
+                    getCurrentSession() !== 'morning'
+                      ? 'opacity-50 cursor-not-allowed'
+                      : ''
+                  }`}
+                >
+                  <Sun className="h-4 w-4 mr-1" />
+                  Morning
+                </button>
+
+                <button
+                  disabled={selectedSession !== 'afternoon'}
+                  className={`flex-1 flex items-center justify-center px-3 py-2 rounded-lg border-2 transition-colors ${
+                    selectedSession === 'afternoon'
+                      ? 'bg-violet-600 border-violet-600 text-white'
+                      : 'bg-white border-gray-300 text-gray-700'
+                  } ${
+                    getCurrentSession() !== 'afternoon'
+                      ? 'opacity-50 cursor-not-allowed'
+                      : ''
+                  }`}
+                >
+                  <Moon className="h-4 w-4 mr-1" />
+                  Afternoon
+                </button>
+              </div>
+            </div>
           </div>
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Academic Year</label>
-            <input
-              type="text"
-              value={currentAcademicYear || 'Loading...'}
-              readOnly
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 font-semibold cursor-not-allowed"
-              title="Current academic year (set by Admin)"
-            />
-          </div>
+        {/* Attendance Session Information */}
+        <div className="bg-violet-50 border border-violet-200 rounded-lg px-4 py-2 text-sm flex flex-wrap items-center gap-4">
+          <span><strong>Morning:</strong> 8:00 AM – 12:59 PM</span>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Class</label>
-            <select
-              value={selectedClass}
-              onChange={(e) => {
-                setSelectedClass(e.target.value);
-                setSelectedSection('');
-                setStudents([]);
-              }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">Select Class</option>
-              {classList.map(cls => (
-                <option key={cls} value={cls}>Class {cls}</option>
-              ))}
-            </select>
-          </div>
+          <span
+            className={
+              isAttendanceClosed()
+                ? "text-gray-500"
+                : selectedSession === "morning"
+                ? "text-green-600 font-medium"
+                : "text-gray-500"
+            }
+          >
+            {isAttendanceClosed()
+              ? "● Completed"
+              : selectedSession === "morning"
+              ? "● Active"
+              : "● Completed"}
+          </span>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Section</label>
-            <select
-              value={selectedSection}
-              onChange={(e) => setSelectedSection(e.target.value)}
-              disabled={!selectedClass}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-            >
-              <option value="">Select Class First</option>
-              {selectedClass && availableSections.map(section => (
-                <option key={section.value} value={section.value}>{section.label}</option>
-              ))}
-            </select>
-          </div>
+          <span className="text-gray-300">|</span>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Session</label>
-            <div className="flex gap-2">
+          <span><strong>Afternoon:</strong> 1:00 PM – 7:00 PM</span>
 
-  {/* Morning */}
-  <button
-    disabled={selectedSession !== 'morning'}
-    className={`flex-1 flex items-center justify-center px-3 py-2 rounded-lg border-2 transition-colors ${
-      selectedSession === 'morning'
-        ? 'bg-blue-600 border-blue-600 text-white'
-        : 'bg-white border-gray-300 text-gray-700'
-    } ${
-      getCurrentSession() !== 'morning'
-        ? 'opacity-50 cursor-not-allowed'
-        : ''
-    }`}
-  >
-    <Sun className="h-4 w-4 mr-1" />
-    Morning
-  </button>
+          <span
+            className={
+              isAttendanceClosed()
+                ? "text-red-600 font-medium"
+                : selectedSession === "afternoon"
+                ? "text-green-600 font-medium"
+                : "text-orange-600"
+            }
+          >
+            {isAttendanceClosed()
+              ? "● Closed"
+              : selectedSession === "afternoon"
+              ? "● Active"
+              : "● Starts at 1:00 PM"}
+          </span>
 
-  {/* Afternoon */}
-  <button
-    disabled={selectedSession !== 'afternoon'}
-    className={`flex-1 flex items-center justify-center px-3 py-2 rounded-lg border-2 transition-colors ${
-      selectedSession === 'afternoon'
-        ? 'bg-blue-600 border-blue-600 text-white'
-        : 'bg-white border-gray-300 text-gray-700'
-    } ${
-      getCurrentSession() !== 'afternoon'
-        ? 'opacity-50 cursor-not-allowed'
-        : ''
-    }`}
-  >
-    <Moon className="h-4 w-4 mr-1" />
-    Afternoon
-  </button>
-
-</div>
-          </div>
+          <span className="text-xs text-gray-500">
+            Attendance is locked after saving.
+          </span>
         </div>
       </div>
 
-  {/* Attendance Session Information */}
-<div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 text-sm flex flex-wrap items-center gap-4">
-  <span><strong>Morning:</strong> 8:00 AM – 12:59 PM</span>
-
-  <span className={selectedSession === "morning" ? "text-green-600 font-medium" : "text-gray-500"}>
-    {selectedSession === "morning" ? "● Active" : "● Completed"}
-  </span>
-
-  <span className="text-gray-300">|</span>
-
-  <span><strong>Afternoon:</strong> 1:00 PM – 5:00 PM</span>
-
-  <span className={selectedSession === "afternoon" ? "text-green-600 font-medium" : "text-orange-600"}>
-    {selectedSession === "afternoon"
-      ? "● Active"
-      : "● Starts at 1:00 PM"}
-  </span>
-
-  <span className="text-xs text-gray-500">
-    Attendance is locked after saving.
-  </span>
-</div>
-
       {/* Get Started Instructions */}
       {students.length === 0 && (
-        <div className="bg-blue-50 rounded-lg p-6 border border-blue-200">
+        <div className="bg-violet-50 rounded-lg p-6 border border-violet-200">
           <div className="flex items-start">
-            <UsersIcon className="h-6 w-6 text-blue-600 mr-3 mt-1" />
+            <UsersIcon className="h-6 w-6 text-violet-600 mr-3 mt-1" />
             <div>
-              <h3 className="text-lg font-semibold text-blue-900 mb-2">Get Started</h3>
-              <ol className="space-y-1 text-sm text-blue-800">
+              <h3 className="text-lg font-semibold text-violet-900 mb-2">Get Started</h3>
+              <ol className="space-y-1 text-sm text-violet-800">
                 <li>1. Select a date for attendance</li>
                 <li>2. Choose a class from the dropdown</li>
                 <li>3. Select a section to view students</li>
@@ -513,9 +575,12 @@ const response = await attendanceAPI.markSessionAttendance({
       )}
 
       {/* Student List */}
-      {students.length > 0 && (
+      {students.length > 0 && !isAttendanceClosed() && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-          <div className="p-6 border-b border-gray-200">
+          <div
+            className="sticky z-20 bg-white p-6 border-b border-gray-200 rounded-t-xl shadow-sm"
+            style={{ top: `${filterBarHeight}px` }}
+          >
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900">Student Attendance</h2>
               <div className="flex gap-4 text-sm">
@@ -528,28 +593,27 @@ const response = await attendanceAPI.markSessionAttendance({
           
           <div className="divide-y divide-gray-200">
             {students.map((student, index) => (
-              <div key={student._id} className="p-6 hover:bg-gray-50 transition-colors">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-4 sm:space-y-0">
+              <div key={student._id} className="px-4 py-2.5 hover:bg-gray-50 transition-colors">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-2 sm:space-y-0">
                   <div className="flex items-center">
-                    <div className="flex-shrink-0 w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mr-4">
-                      <span className="text-base font-semibold text-blue-700">
+                    <div className="flex-shrink-0 w-9 h-9 bg-violet-100 rounded-full flex items-center justify-center mr-3">
+                      <span className="text-xs font-semibold text-violet-700">
                         {(student.name?.firstName?.[0] || '') + (student.name?.lastName?.[0] || '')}
                       </span>
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-900">
+                      <h3 className="text-sm font-semibold text-gray-900 leading-tight">
                         {student.name?.firstName} {student.name?.lastName}
                       </h3>
-                      <p className="text-sm text-gray-600">User ID: {student.userId || 'N/A'}</p>
-                      <p className="text-sm text-gray-600">{student.class} - Section {student.section}</p>
+                      <p className="text-xs text-gray-500 leading-tight">User ID: {student.userId || 'N/A'} &middot; {student.class} - Section {student.section}</p>
                     </div>
                   </div>
 
                   <div className="flex space-x-2">
                     <button
                       onClick={() => handleStatusChange(student._id, 'present')}
-                      disabled={sessionStatus.isFrozen}
-                      className={`flex items-center px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                      disabled={sessionStatus.isFrozen || isAttendanceClosed()}
+                      className={`flex items-center px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
                         attendance[student._id] === 'present'
                           ? 'bg-green-100 text-green-800 border-green-200' 
                           : attendance[student._id] === 'absent'
@@ -558,14 +622,14 @@ const response = await attendanceAPI.markSessionAttendance({
                       } ${sessionStatus.isFrozen ? 'opacity-50 cursor-not-allowed' : ''}`}
                       title={sessionStatus.isFrozen ? 'Attendance is frozen and cannot be modified' : ''}
                     >
-                      <CheckCircle className="h-4 w-4 mr-1" />
+                      <CheckCircle className="h-3.5 w-3.5 mr-1" />
                       Present
                     </button>
-                    
+
                     <button
                       onClick={() => handleStatusChange(student._id, 'absent')}
-                      disabled={sessionStatus.isFrozen}
-                      className={`flex items-center px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                      disabled={sessionStatus.isFrozen || isAttendanceClosed()}
+                      className={`flex items-center px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
                         attendance[student._id] === 'absent'
                           ? 'bg-red-100 text-red-800 border-red-200' 
                           : attendance[student._id] === 'present'
@@ -574,7 +638,7 @@ const response = await attendanceAPI.markSessionAttendance({
                       } ${sessionStatus.isFrozen ? 'opacity-50 cursor-not-allowed' : ''}`}
                       title={sessionStatus.isFrozen ? 'Attendance is frozen and cannot be modified' : ''}
                     >
-                      <XCircle className="h-4 w-4 mr-1" />
+                      <XCircle className="h-3.5 w-3.5 mr-1" />
                       Absent
                     </button>
                   </div>

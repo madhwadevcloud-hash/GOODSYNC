@@ -53,7 +53,7 @@ export function SuperAdminPromotionTab({ schoolCode }: PromotionTabProps) {
       if (resp.data.success) {
         let list = resp.data.data || [];
         if (schoolCode) {
-          list = list.filter((r: Request) => r.schoolCode?.toLowerCase() === schoolCode.toLowerCase());
+          list = list.filter((r: Request) => r.schoolCode?.trim().toLowerCase() === schoolCode.trim().toLowerCase());
         }
         // Only trigger a re-render if the data actually changed. The API
         // returns a brand-new array/object graph on every poll even when
@@ -88,6 +88,25 @@ export function SuperAdminPromotionTab({ schoolCode }: PromotionTabProps) {
       setNotifications(prev => prev.filter(n => n._id !== id));
     } catch (err) {
       console.error('Failed to mark notification as read:', err);
+    }
+  };
+
+  const handleDownloadReport = async (url: string, schoolCode: string, fromYear: string) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const excelBlob = new Blob([blob], { type: 'text/csv;charset=utf-8;' });
+      const blobUrl = window.URL.createObjectURL(excelBlob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.setAttribute('download', `promotion_report_${schoolCode}_${fromYear}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error('Error downloading report:', error);
+      window.open(url, '_blank');
     }
   };
 
@@ -148,22 +167,22 @@ export function SuperAdminPromotionTab({ schoolCode }: PromotionTabProps) {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fadeIn">
       {/* Alert Center */}
       {notifications.length > 0 && (
         <div className="space-y-2">
           {notifications.map((notif) => (
-            <div key={notif._id} className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between shadow-sm">
+            <div key={notif._id} className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 flex items-center justify-between shadow-sm">
               <div className="flex items-center space-x-3">
-                <Bell className="h-5 w-5 text-blue-600" />
+                <Bell className="h-5 w-5 text-indigo-600" />
                 <div>
-                  <h5 className="font-semibold text-sm text-blue-900">{notif.title}</h5>
-                  <p className="text-xs text-blue-700">{notif.message}</p>
+                  <h5 className="font-semibold text-sm text-indigo-900">{notif.title}</h5>
+                  <p className="text-xs text-indigo-700">{notif.message}</p>
                 </div>
               </div>
               <button 
                 onClick={() => handleMarkAsRead(notif._id)}
-                className="bg-blue-100 hover:bg-blue-200 text-blue-800 p-1.5 rounded-full"
+                className="bg-indigo-100 hover:bg-indigo-200 text-indigo-800 p-1.5 rounded-full"
                 title="Mark as Read"
               >
                 <Check className="h-4 w-4" />
@@ -179,9 +198,9 @@ export function SuperAdminPromotionTab({ schoolCode }: PromotionTabProps) {
           <button
             key={tab}
             onClick={() => setActiveSubTab(tab)}
-            className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors ${
+            className={`px-4 py-2 text-sm font-semibold rounded-md transition-all duration-200 ${
               activeSubTab === tab
-                ? 'bg-blue-600 text-white shadow-sm'
+                ? 'bg-indigo-600 text-white shadow-sm'
                 : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
             }`}
           >
@@ -192,7 +211,7 @@ export function SuperAdminPromotionTab({ schoolCode }: PromotionTabProps) {
 
       {loading ? (
         <div className="flex items-center justify-center py-12">
-          <Loader className="h-8 w-8 animate-spin text-blue-600" />
+          <Loader className="h-8 w-8 animate-spin text-indigo-600" />
           <span className="ml-3 text-gray-600 font-medium font-semibold">Loading promotion requests...</span>
         </div>
       ) : filteredRequests.length === 0 ? (
@@ -209,8 +228,12 @@ export function SuperAdminPromotionTab({ schoolCode }: PromotionTabProps) {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-6">
-          {filteredRequests.map((req) => (
-            <div key={req._id} className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+          {filteredRequests.map((req, i) => (
+            <div
+              key={req._id}
+              className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 opacity-0 animate-slideUp"
+              style={{ animationDelay: `${Math.min(i, 10) * 60}ms` }}
+            >
               <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-gray-100 pb-4 mb-4">
                 <div>
                   <h4 className="text-lg font-bold text-gray-900">{req.schoolName}</h4>
@@ -220,7 +243,7 @@ export function SuperAdminPromotionTab({ schoolCode }: PromotionTabProps) {
                   <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
                     req.status === 'Pending Approval' ? 'bg-yellow-100 text-yellow-800' :
                     req.status === 'Approved' ? 'bg-green-100 text-green-800' :
-                    req.status === 'Rejected' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
+                    req.status === 'Rejected' ? 'bg-red-100 text-red-800' : 'bg-indigo-100 text-indigo-800'
                   }`}>
                     {req.status}
                   </span>
@@ -284,7 +307,7 @@ export function SuperAdminPromotionTab({ schoolCode }: PromotionTabProps) {
                       onChange={(e) => setRejectionReason(e.target.value)}
                       required
                       placeholder="Specify why you are rejecting this request..."
-                      className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500"
+                      className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>
                   <div className="flex justify-end gap-2">
@@ -314,16 +337,13 @@ export function SuperAdminPromotionTab({ schoolCode }: PromotionTabProps) {
                   <span className="text-xs text-green-700 bg-green-50 border border-green-200 px-3 py-1 rounded-full font-semibold">
                     Promotion Cycle Completed
                   </span>
-                  <a
-                    href={req.excelReportUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    download={`promotion_report_${req.schoolCode}_${req.fromYear}.csv`}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold text-xs transition-colors flex items-center gap-2"
+                  <button
+                    onClick={() => handleDownloadReport(req.excelReportUrl!, req.schoolCode, req.fromYear)}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-semibold text-xs transition-colors flex items-center gap-2"
                   >
                     <Download className="h-4 w-4" />
-                    Download Promotion Report (CSV)
-                  </a>
+                    Download Promotion Report (Excel)
+                  </button>
                 </div>
               )}
             </div>

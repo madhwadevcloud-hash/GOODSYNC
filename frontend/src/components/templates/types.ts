@@ -49,6 +49,8 @@ export interface IDCardTemplateProps extends TemplateProps {
   templateId: 'landscape' | 'portrait';
   side: 'front' | 'back';
   theme?: 'modern' | 'classic' | 'minimalist';
+  principalSign?: string | null;
+  termsAndConditions?: string[];
 }
 
 export interface CustomIDCardTemplateProps extends IDCardTemplateProps {

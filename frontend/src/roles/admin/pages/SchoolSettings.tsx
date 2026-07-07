@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Calendar, GraduationCap, Clock, Users, Award, BookOpen, ChevronDown, ChevronRight, FileText, CheckCircle, X } from 'lucide-react';
+import { Save, Calendar, GraduationCap, Clock, Users, Award, BookOpen, ChevronDown, ChevronRight, FileText, CheckCircle, X, Settings } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import api from '../../../services/api';
 import { useAuth } from '../../../auth/AuthContext';
@@ -7,6 +7,27 @@ import { useAcademicYear } from '../../../contexts/AcademicYearContext';
 import { normalizeAcademicYear, getDynamicFallbackYear } from '../../../utils/academicYearUtils';
 import PromotionTab from '../components/PromotionTab';
 import UniversalTemplate from '../components/UniversalTemplate';
+
+const getPreviousAcademicYear = (currentYear: string): string => {
+  if (!currentYear) return '';
+  const match = currentYear.match(/^(\d{4})-(\d{2})$/);
+  if (match) {
+    const start = parseInt(match[1]);
+    const end = parseInt(match[2]);
+    return `${start - 1}-${(end - 1).toString().padStart(2, '0')}`;
+  }
+  const matchLong = currentYear.match(/^(\d{4})-(\d{4})$/);
+  if (matchLong) {
+    const start = parseInt(matchLong[1]);
+    const end = parseInt(matchLong[2]);
+    return `${start - 1}-${end - 1}`;
+  }
+  const start = parseInt(currentYear);
+  if (!isNaN(start)) {
+    return `${start - 1}`;
+  }
+  return currentYear;
+};
 
 interface TestData {
   _id: string;
@@ -184,12 +205,29 @@ const SchoolSettings: React.FC = () => {
       console.log('📡 Fetching classes from endpoint:', endpoint);
       console.log('📡 Using school code:', schoolCode, 'year:', yearToFetch);
 
-      const response = await api.get(endpoint);
+      let response = await api.get(endpoint);
 
       console.log('📥 Classes API Response:', response.data);
 
       if (response.data.success) {
-        const classes = response.data.data?.classes || response.data.classes || [];
+        let classes = response.data.data?.classes || response.data.classes || [];
+
+        // Fallback: if no classes are returned for the new year, fetch for the previous academic year
+        if (classes.length === 0) {
+          const prevYear = getPreviousAcademicYear(yearToFetch);
+          if (prevYear) {
+            const fallbackEndpoint = `/admin/classes/${schoolCode}/classes-sections?academicYear=${prevYear}`;
+            console.log('📡 Classes empty for current year, fetching from fallback year:', prevYear);
+            const fallbackResponse = await api.get(fallbackEndpoint);
+            if (fallbackResponse.data.success) {
+              const fallbackClasses = fallbackResponse.data.data?.classes || fallbackResponse.data.classes || [];
+              if (fallbackClasses.length > 0) {
+                classes = fallbackClasses;
+                response = fallbackResponse;
+              }
+            }
+          }
+        }
 
         // Fetch all students once (more efficient than per-class)
         let allStudents: any[] = [];
@@ -625,49 +663,67 @@ const SchoolSettings: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900">School Settings</h1>
-        {activeTab === 'scoring' && (
-          <button
-            onClick={handleSaveScoring}
-            disabled={isWeightageInvalid}
-            className={`px-4 py-2 rounded-lg flex items-center transition-colors ${isWeightageInvalid
-                ? 'bg-gray-400 text-gray-200 cursor-not-allowed opacity-60'
-                : 'bg-blue-600 hover:bg-blue-700 text-white'
-              }`}
-          >
-            <Save className="h-4 w-4 mr-2" />
-            Save Scoring
-          </button>
-        )}
+    <div className="space-y-6 relative">
+      {/* Header */}
+      <div className="flex flex-col gap-6 pt-4 pb-2 -mt-4 bg-[#f8fafc]">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sm:p-8 relative overflow-hidden mx-2 sm:mx-0">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50 rounded-full blur-3xl opacity-60 -mr-20 -mt-20 pointer-events-none"></div>
+          <div className="flex items-center justify-between relative z-10">
+            <div className="flex items-center space-x-4">
+              <div className="bg-indigo-600 p-3 rounded-xl flex items-center justify-center shadow-sm">
+                <Settings className="h-7 w-7 text-white" strokeWidth={2} />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-slate-900 tracking-tight">School Settings</h1>
+                <p className="text-sm font-medium text-slate-500 mt-1">Configure academic years, promotion rules, and templates</p>
+              </div>
+            </div>
+            {activeTab === 'scoring' && (
+              <button
+                onClick={handleSaveScoring}
+                disabled={isWeightageInvalid}
+                className={`px-5 py-2.5 rounded-xl flex items-center font-semibold text-sm transition-all ${isWeightageInvalid
+                  ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                  : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-md hover:shadow-lg hover:-translate-y-0.5'
+                  }`}
+              >
+                <Save className="h-4 w-4 mr-2" />
+                Save Scoring
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        {/* Tabs */}
-        <div className="border-b border-gray-200">
-          <nav className="flex space-x-8 px-6">
+      {/* Tabs */}
+      <div className="sticky top-[72px] z-[40] pt-2 pb-2 -mt-2 bg-[#f8fafc]">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mx-2 sm:mx-0">
+          <div className="p-6">
+          <nav className="inline-flex bg-slate-100/80 p-1.5 rounded-2xl w-full sm:w-auto overflow-x-auto custom-scrollbar">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => !tab.disabled && setActiveTab(tab.id)}
                 disabled={tab.disabled}
-                className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center transition-colors ${activeTab === tab.id
-                  ? 'border-blue-500 text-blue-600'
+                className={`flex items-center justify-center space-x-2 py-2.5 px-6 rounded-xl font-semibold text-sm transition-all duration-200 whitespace-nowrap ${activeTab === tab.id
+                  ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/50'
                   : tab.disabled
-                    ? 'border-transparent text-gray-400 cursor-not-allowed'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                    ? 'text-slate-400 cursor-not-allowed opacity-60'
+                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
                   }`}
                 title={tab.disabled ? 'Please save Academic Year first' : ''}
               >
-                <tab.icon className="h-4 w-4 mr-2" />
-                {tab.name}
+                <tab.icon className="h-4 w-4" />
+                <span>{tab.name}</span>
                 {tab.disabled && <span className="ml-1 text-xs">🔒</span>}
               </button>
             ))}
           </nav>
+          </div>
         </div>
+      </div>
 
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-visible mx-2 sm:mx-0">
         {/* Tab Content */}
         <div className="p-6">
           {activeTab === 'academic' && (
@@ -724,15 +780,17 @@ const SchoolSettings: React.FC = () => {
                   />
                 </div>
               </div>
-              <span title={user?.role !== 'superadmin' ? "Only super admins have the access to use this" : ""}>
-                <button
-                  onClick={handleSaveAcademicYear}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors disabled:bg-blue-400 disabled:cursor-not-allowed"
-                  disabled={user?.role !== 'superadmin'}
-                >
-                  Save Academic Year
-                </button>
-              </span>
+              <div className="mt-6">
+                <span title={user?.role !== 'superadmin' ? "Only super admins have the access to use this" : ""}>
+                  <button
+                    onClick={handleSaveAcademicYear}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors disabled:bg-blue-400 disabled:cursor-not-allowed"
+                    disabled={user?.role !== 'superadmin'}
+                  >
+                    Save Academic Year
+                  </button>
+                </span>
+              </div>
             </div>
           )}
 
@@ -752,11 +810,12 @@ const SchoolSettings: React.FC = () => {
                 </div>
               ) : (
                 <PromotionTab
-                  fromYear={fromYear}
+                  fromYear={getPreviousAcademicYear(currentAcademicYear)}
                   setFromYear={setFromYear}
-                  toYear={toYear}
+                  toYear={currentAcademicYear}
                   classes={classes}
                   loading={loading}
+                  currentAcademicYear={currentAcademicYear}
                 />
               )}
             </>
@@ -856,8 +915,8 @@ const SchoolSettings: React.FC = () => {
                                   </div>
                                 </div>
                                 <span className={`px-3 py-1 text-xs font-semibold rounded-full ${totalClassWeight === 100
-                                    ? 'bg-green-100 text-green-800'
-                                    : 'bg-yellow-100 text-yellow-800'
+                                  ? 'bg-green-100 text-green-800'
+                                  : 'bg-yellow-100 text-yellow-800'
                                   }`}>
                                   {totalClassWeight === 100 ? 'Configured (100%)' : 'Needs Configuration'}
                                 </span>
@@ -917,173 +976,171 @@ const SchoolSettings: React.FC = () => {
                   </div>
                 </div>
                 {/* Right column: Grading System (takes 1 col) */}
-                        <div className="space-y-4 bg-gray-50 p-6 rounded-xl border border-gray-200 h-fit">
-                          <div className="flex items-center justify-between border-b border-gray-200 pb-3 mb-2">
-                            <div>
-                              <h3 className="text-md font-semibold text-gray-900 flex items-center gap-2">
-                                <Award className="h-5 w-5 text-blue-600" />
-                                Grading Scale
-                              </h3>
-                              <p className="text-xs text-gray-500 mt-0.5">Customize grade name and percentage thresholds.</p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setGradingSystem(prev => [
-                                  ...prev,
-                                  { grade: `G${prev.length + 1}`, minPercentage: 0, maxPercentage: 0 }
-                                ]);
-                              }}
-                              className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline flex items-center"
-                            >
-                              + Add Grade
-                            </button>
-                          </div>
+                <div className="space-y-4 bg-gray-50 p-6 rounded-xl border border-gray-200 h-fit">
+                  <div className="flex items-center justify-between border-b border-gray-200 pb-3 mb-2">
+                    <div>
+                      <h3 className="text-md font-semibold text-gray-900 flex items-center gap-2">
+                        <Award className="h-5 w-5 text-blue-600" />
+                        Grading Scale
+                      </h3>
+                      <p className="text-xs text-gray-500 mt-0.5">Customize grade name and percentage thresholds.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGradingSystem(prev => [
+                          ...prev,
+                          { grade: `G${prev.length + 1}`, minPercentage: 0, maxPercentage: 0 }
+                        ]);
+                      }}
+                      className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline flex items-center"
+                    >
+                      + Add Grade
+                    </button>
+                  </div>
 
-                          <div className="space-y-3 max-h-[450px] overflow-y-auto pr-1">
-                            {gradingSystem.map((scale, index) => (
-                              <div key={index} className="flex items-center gap-2 bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
-                                <div className="w-16">
-                                  <label className="block text-[10px] font-bold text-gray-400 uppercase">Grade</label>
-                                  <input
-                                    type="text"
-                                    value={scale.grade}
-                                    onChange={(e) => {
-                                      const updated = [...gradingSystem];
-                                      updated[index].grade = e.target.value;
-                                      setGradingSystem(updated);
-                                    }}
-                                    placeholder="A+"
-                                    className="w-full text-sm font-semibold border-b border-gray-300 focus:border-blue-500 focus:ring-0 py-1 bg-transparent text-center"
-                                  />
-                                </div>
-                                <div className="flex-1">
-                                  <label className="block text-[10px] font-bold text-gray-400 uppercase text-center">Min (%)</label>
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    max="100"
-                                    value={scale.minPercentage}
-                                    onChange={(e) => {
-                                      const updated = [...gradingSystem];
-                                      updated[index].minPercentage = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
-                                      setGradingSystem(updated);
-                                    }}
-                                    className="w-full text-sm text-center border border-gray-300 rounded px-1.5 py-1 focus:ring-1 focus:ring-blue-500"
-                                  />
-                                </div>
-                                <div className="text-gray-400 text-sm font-medium pt-3">-</div>
-                                <div className="flex-1">
-                                  <label className="block text-[10px] font-bold text-gray-400 uppercase text-center">Max (%)</label>
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    max="100"
-                                    value={scale.maxPercentage}
-                                    onChange={(e) => {
-                                      const updated = [...gradingSystem];
-                                      updated[index].maxPercentage = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
-                                      setGradingSystem(updated);
-                                    }}
-                                    className="w-full text-sm text-center border border-gray-300 rounded px-1.5 py-1 focus:ring-1 focus:ring-blue-500"
-                                  />
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setGradingSystem(prev => prev.filter((_, i) => i !== index));
-                                  }}
-                                  className="text-red-500 hover:text-red-700 pt-3 flex-shrink-0"
-                                  title="Delete"
-                                >
-                                  <X className="h-4 w-4" />
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-
-                          <div className="pt-2 text-[11px] text-gray-500 italic flex items-start gap-1">
-                            <span>💡</span>
-                            <span>Click "Save Scoring" above to apply your changes to the grading scale.</span>
-                          </div>
+                  <div className="space-y-3 max-h-[450px] overflow-y-auto pr-1">
+                    {gradingSystem.map((scale, index) => (
+                      <div key={index} className="flex items-center gap-2 bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
+                        <div className="w-16">
+                          <label className="block text-[10px] font-bold text-gray-400 uppercase">Grade</label>
+                          <input
+                            type="text"
+                            value={scale.grade}
+                            onChange={(e) => {
+                              const updated = [...gradingSystem];
+                              updated[index].grade = e.target.value;
+                              setGradingSystem(updated);
+                            }}
+                            placeholder="A+"
+                            className="w-full text-sm font-semibold border-b border-gray-300 focus:border-blue-500 focus:ring-0 py-1 bg-transparent text-center"
+                          />
                         </div>
+                        <div className="flex-1">
+                          <label className="block text-[10px] font-bold text-gray-400 uppercase text-center">Min</label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={scale.minPercentage}
+                            onChange={(e) => {
+                              const updated = [...gradingSystem];
+                              updated[index].minPercentage = Math.max(0, parseFloat(e.target.value) || 0);
+                              setGradingSystem(updated);
+                            }}
+                            className="w-full text-sm text-center border border-gray-300 rounded px-1.5 py-1 focus:ring-1 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div className="text-gray-400 text-sm font-medium pt-3">-</div>
+                        <div className="flex-1">
+                          <label className="block text-[10px] font-bold text-gray-400 uppercase text-center">Max</label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={scale.maxPercentage}
+                            onChange={(e) => {
+                              const updated = [...gradingSystem];
+                              updated[index].maxPercentage = Math.max(0, parseFloat(e.target.value) || 0);
+                              setGradingSystem(updated);
+                            }}
+                            className="w-full text-sm text-center border border-gray-300 rounded px-1.5 py-1 focus:ring-1 focus:ring-blue-500"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setGradingSystem(prev => prev.filter((_, i) => i !== index));
+                          }}
+                          className="text-red-500 hover:text-red-700 pt-3 flex-shrink-0"
+                          title="Delete"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="pt-2 text-[11px] text-gray-500 italic flex items-start gap-1">
+                    <span>💡</span>
+                    <span>Click "Save Scoring" above to apply your changes to the grading scale.</span>
+                  </div>
+                </div>
               </div>
             </div>
           )}
 
-                {activeTab === 'classes' && (
-                  <div className="space-y-6">
-                    <h3 className="text-lg font-medium text-gray-900">Class Structure</h3>
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                      <p className="text-sm text-blue-800">
-                        <strong>Note:</strong> Classes and sections are managed by SuperAdmin. This is a read-only view.
-                      </p>
-                    </div>
+          {activeTab === 'classes' && (
+            <div className="space-y-6">
+              <h3 className="text-lg font-medium text-gray-900">Class Structure</h3>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <p className="text-sm text-blue-800">
+                  <strong>Note:</strong> Classes and sections are managed by SuperAdmin. This is a read-only view.
+                </p>
+              </div>
 
-                    {loading ? (
-                      <div className="text-center py-8">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                        <p className="mt-4 text-gray-600">Loading classes...</p>
+              {loading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                  <p className="mt-4 text-gray-600">Loading classes...</p>
+                </div>
+              ) : classes.length === 0 ? (
+                <div className="text-center py-12">
+                  <BookOpen className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Classes Found</h3>
+                  <p className="text-gray-600">Classes created by SuperAdmin will appear here.</p>
+                  <p className="text-sm text-gray-500 mt-2">Ask your SuperAdmin to create classes in the Academics section.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {classes.map((cls) => (
+                    <div key={cls._id} className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-medium text-gray-900">Class {cls.className}</h4>
+                        <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                          {cls.sections.length} sections
+                        </span>
                       </div>
-                    ) : classes.length === 0 ? (
-                      <div className="text-center py-12">
-                        <BookOpen className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                        <h3 className="text-lg font-medium text-gray-900 mb-2">No Classes Found</h3>
-                        <p className="text-gray-600">Classes created by SuperAdmin will appear here.</p>
-                        <p className="text-sm text-gray-500 mt-2">Ask your SuperAdmin to create classes in the Academics section.</p>
+
+                      {/* Total student count below class name */}
+                      <div className="mb-3 p-2 bg-gray-50 rounded-md">
+                        <p className="text-sm font-medium text-gray-700 flex items-center">
+                          <Users className="h-4 w-4 mr-1" />
+                          Total Students: {cls.studentCount !== undefined ? cls.studentCount : '...'}
+                        </p>
                       </div>
-                    ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {classes.map((cls) => (
-                          <div key={cls._id} className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
-                            <div className="flex items-center justify-between mb-2">
-                              <h4 className="font-medium text-gray-900">Class {cls.className}</h4>
-                              <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
-                                {cls.sections.length} sections
+
+                      {cls.sections.length > 0 ? (
+                        <div className="space-y-2">
+                          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Sections</p>
+                          {cls.sections.map((section, index) => (
+                            <div key={index} className="flex items-center justify-between text-sm bg-white border border-gray-100 rounded-md p-2">
+                              <div className="flex items-center">
+                                <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                                <span className="text-gray-700">Section {section}</span>
+                              </div>
+                              <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full font-medium">
+                                {cls.sectionCounts?.[section] !== undefined ? cls.sectionCounts[section] : '...'} students
                               </span>
                             </div>
-
-                            {/* Total student count below class name */}
-                            <div className="mb-3 p-2 bg-gray-50 rounded-md">
-                              <p className="text-sm font-medium text-gray-700 flex items-center">
-                                <Users className="h-4 w-4 mr-1" />
-                                Total Students: {cls.studentCount !== undefined ? cls.studentCount : '...'}
-                              </p>
-                            </div>
-
-                            {cls.sections.length > 0 ? (
-                              <div className="space-y-2">
-                                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Sections</p>
-                                {cls.sections.map((section, index) => (
-                                  <div key={index} className="flex items-center justify-between text-sm bg-white border border-gray-100 rounded-md p-2">
-                                    <div className="flex items-center">
-                                      <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                                      <span className="text-gray-700">Section {section}</span>
-                                    </div>
-                                    <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full font-medium">
-                                      {cls.sectionCounts?.[section] !== undefined ? cls.sectionCounts[section] : '...'} students
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <p className="text-sm text-gray-500 italic">No sections added</p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {activeTab === 'templates' && (
-                  <UniversalTemplate />
-                )}
-
-              </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-500 italic">No sections added</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
+          )}
+
+          {activeTab === 'templates' && (
+            <UniversalTemplate />
+          )}
+
+        </div>
+      </div>
     </div>
-        );
+  );
 };
 
-        export default SchoolSettings;
+export default SchoolSettings;

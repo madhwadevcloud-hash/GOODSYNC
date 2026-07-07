@@ -8,6 +8,8 @@ const NewIDCardTemplate: React.FC<IDCardTemplateProps> = ({
   side,
   mode = 'preview',
   theme = 'modern',
+  principalSign,
+  termsAndConditions,
   className = ''
 }) => {
   const isLandscape = templateId === 'landscape';
@@ -15,6 +17,9 @@ const NewIDCardTemplate: React.FC<IDCardTemplateProps> = ({
 
   const headerColor = settings.headerColor || '#1e3a8a';
   const accentColor = settings.accentColor || '#3b82f6';
+
+  const displayFatherName = (student as any).studentDetails?.family?.father?.name || (student as any).family?.father?.name ||
+    (typeof student.fatherName === 'string' && !student.fatherName.toLowerCase().startsWith('parent') && student.fatherName.trim() !== '' ? student.fatherName : 'Not Available');
 
   const baseCardStyle = {
     width: isLandscape ? '85.6mm' : '54mm',
@@ -52,10 +57,29 @@ const NewIDCardTemplate: React.FC<IDCardTemplateProps> = ({
     </div>
   );
 
+  // Helper for Dynamic Font Size
+  const getDynamicFontSize = (text: string, baseSize: number, minSize: number = 2.0, threshold: number = 20) => {
+    if (!text || text.length <= threshold) return `${baseSize}mm`;
+    const diff = text.length - threshold;
+    const newSize = baseSize - (diff * 0.08);
+    return `${Math.max(minSize, newSize)}mm`;
+  };
+
+  const renderPrincipalSignature = (color = '#1f2937', absolutePosition: React.CSSProperties = { bottom: '2mm', right: '4mm' }) => (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'absolute', ...absolutePosition, zIndex: 2, mixBlendMode: 'multiply' }}>
+      {principalSign ? (
+        <img src={principalSign} alt="Principal Signature" style={{ height: '6mm', objectFit: 'contain', marginBottom: '0.5mm' }} />
+      ) : (
+        <div style={{ height: '6mm', marginBottom: '0.5mm' }}></div>
+      )}
+      <div style={{ fontSize: '1.6mm', fontWeight: 'bold', color, textTransform: 'uppercase' }}>Principal</div>
+    </div>
+  );
+
   // ==========================================
   // LANDSCAPE DESIGNS
   // ==========================================
-  
+
   const renderModernLandscape = () => (
     <div style={{ ...baseCardStyle, background: 'linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%)' }}>
       {/* Curved Background Accent */}
@@ -65,12 +89,16 @@ const NewIDCardTemplate: React.FC<IDCardTemplateProps> = ({
       {/* Glassmorphism Header */}
       <div style={{ display: 'flex', alignItems: 'center', padding: '3mm 4mm', background: 'rgba(255, 255, 255, 0.6)', backdropFilter: 'blur(10px)', borderBottom: '1px solid rgba(255, 255, 255, 0.8)', zIndex: 1, position: 'relative' }}>
         <div style={{ marginRight: '3mm', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', borderRadius: '50%', padding: '1mm', backgroundColor: '#fff' }}>{renderLogo('7mm')}</div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: '3.8mm', fontWeight: '800', color: headerColor, letterSpacing: '0.2px' }}>{settings.schoolName}</div>
-          <div style={{ fontSize: '2.2mm', color: accentColor, fontWeight: '600' }}>{settings.schoolCode}</div>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <div style={{ fontSize: getDynamicFontSize(settings.schoolName, 3.8, 2.5, 20), fontWeight: '800', color: headerColor, letterSpacing: '0.2px', lineHeight: '1.2' }}>{settings.schoolName}</div>
+          {settings.address ? (
+            <div style={{ fontSize: '1.8mm', color: '#64748b', marginTop: '0.5mm', lineHeight: '1.2', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{settings.address}</div>
+          ) : (
+            <div style={{ fontSize: '2.2mm', color: accentColor, fontWeight: '600' }}>{settings.schoolCode}</div>
+          )}
         </div>
       </div>
-      
+
       {/* Body Area */}
       <div style={{ display: 'flex', padding: '3mm 4mm', flex: 1, position: 'relative', zIndex: 1, alignItems: 'center' }}>
         <div style={{ marginRight: '5mm', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 8px 16px rgba(0,0,0,0.15)', border: `2px solid #fff`, flexShrink: 0 }}>
@@ -84,13 +112,14 @@ const NewIDCardTemplate: React.FC<IDCardTemplateProps> = ({
           <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '0.8mm 2mm', fontSize: '2.1mm' }}>
             <span style={{ color: '#64748b', fontWeight: '600' }}>ID NO:</span> <span style={{ fontWeight: '700', color: '#334155' }}>{student.sequenceId || student.rollNumber}</span>
             <span style={{ color: '#64748b', fontWeight: '600' }}>CLASS:</span> <span style={{ fontWeight: '700', color: '#334155' }}>{student.className} - {student.section}</span>
+            {displayFatherName && <><span style={{ color: '#64748b', fontWeight: '600' }}>FATHER:</span> <span style={{ fontWeight: '700', color: '#334155' }}>{displayFatherName}</span></>}
             <span style={{ color: '#64748b', fontWeight: '600' }}>DOB:</span> <span style={{ fontWeight: '700', color: '#334155' }}>{student.dateOfBirth || 'N/A'}</span>
             <span style={{ color: '#64748b', fontWeight: '600' }}>BLOOD:</span> <span style={{ fontWeight: '700', color: '#334155' }}>{student.bloodGroup || 'N/A'}</span>
             <span style={{ color: '#64748b', fontWeight: '600' }}>PHONE:</span> <span style={{ fontWeight: '700', color: '#334155' }}>{student.phone || 'N/A'}</span>
-            <span style={{ color: '#64748b', fontWeight: '600' }}>ADDRESS:</span> <span style={{ fontWeight: '700', color: '#334155', lineHeight: '1.1' }} title={student.address || 'N/A'}>{student.address || 'N/A'}</span>
           </div>
         </div>
       </div>
+      {renderPrincipalSignature(headerColor, { bottom: '3mm', right: '5mm' })}
     </div>
   );
 
@@ -104,50 +133,60 @@ const NewIDCardTemplate: React.FC<IDCardTemplateProps> = ({
         </div>
         <div style={{ marginTop: 'auto', color: '#fff', fontSize: '2.5mm', fontWeight: 'bold', letterSpacing: '1px', flexShrink: 0 }}>{settings.schoolCode}</div>
       </div>
-      
+
       {/* Right Details Area */}
       <div style={{ flex: 1, padding: '3mm', display: 'flex', flexDirection: 'column', position: 'relative' }}>
         {/* Geometric Accent */}
         <div style={{ position: 'absolute', top: 0, right: 0, width: '0', height: '0', borderTop: `15mm solid ${accentColor}`, borderLeft: '15mm solid transparent' }}></div>
-        
-        <div style={{ fontSize: '4mm', fontWeight: 'bold', color: headerColor, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '1mm', maxWidth: '45mm', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: 0, lineHeight: 1.2 }}>
-          {settings.schoolName}
+
+        <div style={{ display: 'flex', flexDirection: 'column', marginBottom: '1mm', flexShrink: 0, paddingRight: '12mm' }}>
+          <div style={{ fontSize: getDynamicFontSize(settings.schoolName, 3.2, 1.8, 15), fontWeight: 'bold', color: headerColor, textTransform: 'uppercase', letterSpacing: '0.2px', lineHeight: '1.1' }}>
+            {settings.schoolName}
+          </div>
+          {settings.address && (
+            <div style={{ fontSize: '1.7mm', color: '#64748b', marginTop: '0.5mm', lineHeight: '1.2', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+              {settings.address}
+            </div>
+          )}
         </div>
-        <div style={{ height: '2px', backgroundColor: headerColor, width: '100%', marginBottom: '2.5mm', flexShrink: 0 }}></div>
-        
-        <div style={{ fontSize: '4.5mm', fontWeight: 'bold', color: '#000', marginBottom: '1mm', flexShrink: 0 }}>
+        <div style={{ height: '2px', backgroundColor: headerColor, width: '100%', marginBottom: '1.5mm', flexShrink: 0 }}></div>
+
+        <div style={{ fontSize: '3.8mm', fontWeight: 'bold', color: '#000', marginBottom: '1mm', flexShrink: 0 }}>
           {student.name}
         </div>
-        
+
         <table style={{ width: '100%', fontSize: '2.1mm', borderCollapse: 'collapse' }}>
           <tbody>
             <tr>
-              <td style={{ padding: '0.2mm 0', fontWeight: 'bold', color: headerColor, width: '18mm' }}>ID NO</td>
-              <td style={{ padding: '0.2mm 0', color: '#000', borderBottom: '1px solid #e5e7eb' }}>{student.sequenceId || student.rollNumber}</td>
+              <td style={{ padding: '0.1mm 0', fontWeight: 'bold', color: headerColor, width: '18mm' }}>ID NO</td>
+              <td style={{ padding: '0.1mm 0', color: '#000', borderBottom: '1px solid #e5e7eb' }}>{student.sequenceId || student.rollNumber}</td>
             </tr>
             <tr>
-              <td style={{ padding: '0.2mm 0', fontWeight: 'bold', color: headerColor }}>CLASS</td>
-              <td style={{ padding: '0.2mm 0', color: '#000', borderBottom: '1px solid #e5e7eb' }}>{student.className} - {student.section}</td>
+              <td style={{ padding: '0.1mm 0', fontWeight: 'bold', color: headerColor }}>CLASS</td>
+              <td style={{ padding: '0.1mm 0', color: '#000', borderBottom: '1px solid #e5e7eb' }}>{student.className} - {student.section}</td>
+            </tr>
+            {displayFatherName && (
+              <tr>
+                <td style={{ padding: '0.1mm 0', fontWeight: 'bold', color: headerColor }}>FATHER</td>
+                <td style={{ padding: '0.1mm 0', color: '#000', borderBottom: '1px solid #e5e7eb' }}>{displayFatherName}</td>
+              </tr>
+            )}
+            <tr>
+              <td style={{ padding: '0.1mm 0', fontWeight: 'bold', color: headerColor }}>D.O.B</td>
+              <td style={{ padding: '0.1mm 0', color: '#000', borderBottom: '1px solid #e5e7eb' }}>{student.dateOfBirth || 'N/A'}</td>
             </tr>
             <tr>
-              <td style={{ padding: '0.2mm 0', fontWeight: 'bold', color: headerColor }}>D.O.B</td>
-              <td style={{ padding: '0.2mm 0', color: '#000', borderBottom: '1px solid #e5e7eb' }}>{student.dateOfBirth || 'N/A'}</td>
+              <td style={{ padding: '0.1mm 0', fontWeight: 'bold', color: headerColor }}>BLOOD</td>
+              <td style={{ padding: '0.1mm 0', color: '#000', borderBottom: '1px solid #e5e7eb' }}>{student.bloodGroup || 'N/A'}</td>
             </tr>
             <tr>
-              <td style={{ padding: '0.2mm 0', fontWeight: 'bold', color: headerColor }}>BLOOD</td>
-              <td style={{ padding: '0.2mm 0', color: '#000', borderBottom: '1px solid #e5e7eb' }}>{student.bloodGroup || 'N/A'}</td>
-            </tr>
-            <tr>
-              <td style={{ padding: '0.2mm 0', fontWeight: 'bold', color: headerColor }}>PHONE</td>
-              <td style={{ padding: '0.2mm 0', color: '#000', borderBottom: '1px solid #e5e7eb' }}>{student.phone || 'N/A'}</td>
-            </tr>
-            <tr>
-              <td style={{ padding: '0.2mm 0', fontWeight: 'bold', color: headerColor }}>ADDRESS</td>
-              <td style={{ padding: '0.2mm 0', color: '#000', display: 'inline-block', lineHeight: '1.1' }} title={student.address || 'N/A'}>{student.address || 'N/A'}</td>
+              <td style={{ padding: '0.1mm 0', fontWeight: 'bold', color: headerColor }}>PHONE</td>
+              <td style={{ padding: '0.1mm 0', color: '#000' }}>{student.phone || 'N/A'}</td>
             </tr>
           </tbody>
         </table>
       </div>
+      {renderPrincipalSignature('#1f2937', { bottom: '2mm', right: '4mm' })}
     </div>
   );
 
@@ -156,13 +195,20 @@ const NewIDCardTemplate: React.FC<IDCardTemplateProps> = ({
       <div style={{ border: '1px solid #e5e7eb', borderRadius: '6px', height: '100%', display: 'flex', flexDirection: 'column', padding: '3mm', position: 'relative' }}>
         {/* Subtle accent border at the top */}
         <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '3px', backgroundColor: accentColor, borderTopLeftRadius: '5px', borderTopRightRadius: '5px' }}></div>
-        
+
         {/* Top Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3mm', marginTop: '1mm' }}>
-          <div style={{ fontSize: '3.5mm', fontWeight: '700', color: '#1f2937', letterSpacing: '0.5px', textTransform: 'uppercase', maxWidth: '50mm', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{settings.schoolName}</div>
-          <div>{renderLogo('7mm')}</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '3mm', marginTop: '1mm' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', maxWidth: '55mm' }}>
+            <div style={{ fontSize: getDynamicFontSize(settings.schoolName, 3.5, 2.2, 18), fontWeight: '700', color: '#1f2937', letterSpacing: '0.5px', textTransform: 'uppercase', lineHeight: '1.2' }}>{settings.schoolName}</div>
+            {settings.address && (
+              <div style={{ fontSize: '1.8mm', color: '#6b7280', marginTop: '0.5mm', lineHeight: '1.2', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                {settings.address}
+              </div>
+            )}
+          </div>
+          <div style={{ flexShrink: 0, marginLeft: '2mm' }}>{renderLogo('7mm')}</div>
         </div>
-        
+
         {/* Body */}
         <div style={{ display: 'flex', flex: 1 }}>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', paddingRight: '4mm' }}>
@@ -172,15 +218,18 @@ const NewIDCardTemplate: React.FC<IDCardTemplateProps> = ({
             <div style={{ fontSize: '2.1mm', display: 'flex', flexDirection: 'column', gap: '0.5mm', color: '#4b5563' }}>
               <div style={{ borderBottom: '1px dotted #e5e7eb', paddingBottom: '0.2mm' }}><span style={{ display: 'inline-block', width: '12mm', color: '#9ca3af', fontWeight: '500' }}>ID NO:</span> <span style={{ color: '#1f2937', fontWeight: '500' }}>{student.sequenceId || student.rollNumber}</span></div>
               <div style={{ borderBottom: '1px dotted #e5e7eb', paddingBottom: '0.2mm' }}><span style={{ display: 'inline-block', width: '12mm', color: '#9ca3af', fontWeight: '500' }}>CLASS:</span> <span style={{ color: '#1f2937', fontWeight: '500' }}>{student.className} - {student.section}</span></div>
+              {displayFatherName && (
+                <div style={{ paddingBottom: '0.2mm', borderBottom: '1px dotted #e5e7eb' }}><span style={{ display: 'inline-block', width: '12mm', color: '#9ca3af', fontWeight: '500' }}>FATHER:</span> <span style={{ color: '#1f2937', fontWeight: '500' }}>{displayFatherName}</span></div>
+              )}
               <div style={{ paddingBottom: '0.2mm', borderBottom: '1px dotted #e5e7eb' }}><span style={{ display: 'inline-block', width: '12mm', color: '#9ca3af', fontWeight: '500' }}>DOB:</span> <span style={{ color: '#1f2937', fontWeight: '500' }}>{student.dateOfBirth || 'N/A'}</span></div>
-              <div style={{ paddingBottom: '0.2mm', borderBottom: '1px dotted #e5e7eb' }}><span style={{ display: 'inline-block', width: '12mm', color: '#9ca3af', fontWeight: '500' }}>PHONE:</span> <span style={{ color: '#1f2937', fontWeight: '500' }}>{student.phone || 'N/A'}</span></div>
-              <div style={{ paddingBottom: '0.2mm', display: 'flex' }}><span style={{ display: 'inline-block', width: '12mm', color: '#9ca3af', fontWeight: '500', flexShrink: 0 }}>ADDR:</span> <span style={{ color: '#1f2937', fontWeight: '500', display: 'inline-block', flex: 1, lineHeight: '1.1' }} title={student.address || 'N/A'}>{student.address || 'N/A'}</span></div>
+              <div style={{ paddingBottom: '0.2mm' }}><span style={{ display: 'inline-block', width: '12mm', color: '#9ca3af', fontWeight: '500' }}>PHONE:</span> <span style={{ color: '#1f2937', fontWeight: '500' }}>{student.phone || 'N/A'}</span></div>
             </div>
           </div>
-          <div style={{ alignSelf: 'center' }}>
-            <div style={{ padding: '1mm', border: '1px solid #f3f4f6', borderRadius: '4px', backgroundColor: '#f9fafb' }}>
-              {renderPhoto('20mm', '25mm', 'none')}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ padding: '1mm', border: '1px solid #f3f4f6', borderRadius: '4px', backgroundColor: '#f9fafb', marginBottom: '1mm' }}>
+              {renderPhoto('20mm', '23mm', 'none')}
             </div>
+            {renderPrincipalSignature('#1f2937', { position: 'relative', bottom: 'auto', right: 'auto' })}
           </div>
         </div>
       </div>
@@ -200,10 +249,15 @@ const NewIDCardTemplate: React.FC<IDCardTemplateProps> = ({
       <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '3mm', flex: 1 }}>
         {/* Header Text & Logo */}
         <div style={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'center', marginBottom: '2mm' }}>
-          <div style={{ backgroundColor: '#fff', padding: '1mm', borderRadius: '50%', marginRight: '2mm', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>{renderLogo('8mm')}</div>
-          <div style={{ fontSize: '3.5mm', fontWeight: '800', color: '#ffffff', letterSpacing: '0.5px' }}>{settings.schoolName}</div>
+          <div style={{ backgroundColor: '#fff', padding: '1mm', borderRadius: '50%', marginRight: '2mm', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', flexShrink: 0 }}>{renderLogo('8mm')}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <div style={{ fontSize: getDynamicFontSize(settings.schoolName, 3.5, 2.5, 15), fontWeight: '800', color: '#ffffff', letterSpacing: '0.5px', lineHeight: '1.2' }}>{settings.schoolName}</div>
+            {settings.address && (
+              <div style={{ fontSize: '1.9mm', color: '#ffffff', marginTop: '0.3mm', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.2' }}>{settings.address}</div>
+            )}
+          </div>
         </div>
-        
+
         {/* Photo overlapping the curve */}
         <div style={{ marginTop: '1mm', marginBottom: '1.5mm', borderRadius: '50%', padding: '1mm', backgroundColor: '#fff', boxShadow: '0 8px 16px rgba(0,0,0,0.2)', flexShrink: 0 }}>
           <div style={{ borderRadius: '50%', overflow: 'hidden', width: '24mm', height: '24mm', border: `2px solid ${accentColor}` }}>
@@ -214,31 +268,34 @@ const NewIDCardTemplate: React.FC<IDCardTemplateProps> = ({
             )}
           </div>
         </div>
-        
+
         <div style={{ fontSize: '4mm', fontWeight: '900', color: '#1e293b', textAlign: 'center', marginBottom: '0.2mm', flexShrink: 0 }}>{student.name}</div>
         <div style={{ fontSize: '2mm', color: accentColor, fontWeight: '700', marginBottom: '1mm', textTransform: 'uppercase', letterSpacing: '1px', flexShrink: 0 }}>STUDENT</div>
-        
+
         {/* Details Grid (Glassmorphism look) */}
-        <div style={{ width: '90%', background: 'rgba(255, 255, 255, 0.7)', backdropFilter: 'blur(10px)', padding: '1.2mm', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.9)', fontSize: '2.0mm', display: 'grid', gridTemplateColumns: '1fr', gap: '0.3mm', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', flexShrink: 0, lineHeight: 1.1 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '0.2mm' }}>
+        <div style={{ width: '90%', background: 'rgba(255, 255, 255, 0.7)', backdropFilter: 'blur(10px)', padding: '1.0mm', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.9)', fontSize: '2.0mm', display: 'grid', gridTemplateColumns: '1fr', gap: '0.1mm', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', flexShrink: 0, lineHeight: 1.1 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '0.1mm' }}>
             <strong style={{ color: '#64748b' }}>ID NO:</strong> <span style={{ fontWeight: '700', color: '#334155' }}>{student.sequenceId || student.rollNumber}</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '0.2mm' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '0.1mm' }}>
             <strong style={{ color: '#64748b' }}>CLASS:</strong> <span style={{ fontWeight: '700', color: '#334155' }}>{student.className} - {student.section}</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '0.2mm' }}>
+          {displayFatherName && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '0.1mm' }}>
+              <strong style={{ color: '#64748b' }}>F/NAME:</strong> <span style={{ fontWeight: '700', color: '#334155' }}>{displayFatherName}</span>
+            </div>
+          )}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '0.1mm' }}>
             <strong style={{ color: '#64748b' }}>DOB:</strong> <span style={{ fontWeight: '700', color: '#334155' }}>{student.dateOfBirth || 'N/A'}</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '0.2mm' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '0.1mm' }}>
             <strong style={{ color: '#64748b' }}>BLOOD:</strong> <span style={{ fontWeight: '700', color: '#334155' }}>{student.bloodGroup || 'N/A'}</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '0.2mm' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '0.1mm' }}>
             <strong style={{ color: '#64748b' }}>PHONE:</strong> <span style={{ fontWeight: '700', color: '#334155' }}>{student.phone || 'N/A'}</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <strong style={{ color: '#64748b', marginRight: '2mm' }}>ADDR:</strong> <span style={{ fontWeight: '700', color: '#334155', textAlign: 'right', lineHeight: '1.1' }} title={student.address || 'N/A'}>{student.address || 'N/A'}</span>
-          </div>
         </div>
+        {renderPrincipalSignature('#1f2937', { bottom: '2mm', right: '4mm' })}
       </div>
     </div>
   );
@@ -248,94 +305,111 @@ const NewIDCardTemplate: React.FC<IDCardTemplateProps> = ({
       {/* Sharp Diagonal Background Split */}
       <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '35mm', backgroundColor: headerColor, clipPath: 'polygon(0 0, 100% 0, 100% 80%, 0 100%)', zIndex: 0 }}></div>
       <div style={{ position: 'absolute', top: 0, right: 0, width: '0', height: '0', borderTop: `15mm solid ${accentColor}`, borderLeft: '15mm solid transparent', zIndex: 1 }}></div>
-      
-      <div style={{ position: 'relative', zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '3mm', flex: 1 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', marginBottom: '2mm', flexShrink: 0 }}>
-          <div style={{ padding: '1mm', backgroundColor: '#fff' }}>{renderLogo('8mm')}</div>
-          <div style={{ fontSize: '3.2mm', fontWeight: 'bold', color: '#ffffff', marginLeft: '2mm', textTransform: 'uppercase' }}>{settings.schoolName}</div>
+
+      <div style={{ position: 'relative', zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '3mm', flex: 1, justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', flexShrink: 0 }}>
+          <div style={{ padding: '1mm', backgroundColor: '#fff', flexShrink: 0 }}>{renderLogo('6mm')}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', marginLeft: '2mm' }}>
+            <div style={{ fontSize: getDynamicFontSize(settings.schoolName, 3.2, 2.5, 15), fontWeight: 'bold', color: '#ffffff', textTransform: 'uppercase', lineHeight: '1.2' }}>{settings.schoolName}</div>
+            {settings.address && (
+              <div style={{ fontSize: '1.9mm', color: '#ffffff', marginTop: '0.3mm', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.2' }}>{settings.address}</div>
+            )}
+          </div>
         </div>
-        
-        {/* Photo sharp border */}
-        <div style={{ marginBottom: '1.5mm', backgroundColor: '#fff', padding: '1.5mm', border: `1px solid ${headerColor}`, flexShrink: 0 }}>
-          {renderPhoto('22mm', '28mm', 'none')}
+
+        <div style={{ backgroundColor: '#fff', padding: '1mm', border: `1px solid ${headerColor}`, flexShrink: 0 }}>
+          {renderPhoto('20mm', '24mm', 'none')}
         </div>
-        
-        <div style={{ fontSize: '4.5mm', fontWeight: 'bold', color: '#000', textAlign: 'center', marginBottom: '0.5mm', textTransform: 'uppercase', flexShrink: 0 }}>{student.name}</div>
-        <div style={{ height: '1px', width: '40mm', backgroundColor: accentColor, marginBottom: '1.5mm', flexShrink: 0 }}></div>
-        
-        <table style={{ width: '90%', fontSize: '2.1mm', borderCollapse: 'collapse', textAlign: 'left', flexShrink: 0 }}>
+
+        <div style={{ fontSize: '4.0mm', fontWeight: 'bold', color: '#000', textAlign: 'center', textTransform: 'uppercase', flexShrink: 0 }}>{student.name}</div>
+        <div style={{ height: '1px', width: '40mm', backgroundColor: accentColor, flexShrink: 0 }}></div>
+
+        <table style={{ width: '90%', fontSize: '1.9mm', borderCollapse: 'collapse', textAlign: 'left', flexShrink: 0 }}>
           <tbody>
             <tr>
-              <td style={{ padding: '0.2mm 0', fontWeight: 'bold', color: headerColor, borderBottom: '1px solid #e5e7eb', width: '20mm' }}>ID NO</td>
-              <td style={{ padding: '0.2mm 0', color: '#000', borderBottom: '1px solid #e5e7eb' }}>{student.sequenceId || student.rollNumber}</td>
+              <td style={{ padding: '0.1mm 0', fontWeight: 'bold', color: headerColor, borderBottom: '1px solid #e5e7eb', width: '20mm' }}>ID NO</td>
+              <td style={{ padding: '0.1mm 0', color: '#000', borderBottom: '1px solid #e5e7eb' }}>{student.sequenceId || student.rollNumber}</td>
             </tr>
             <tr>
-              <td style={{ padding: '0.2mm 0', fontWeight: 'bold', color: headerColor, borderBottom: '1px solid #e5e7eb' }}>CLASS</td>
-              <td style={{ padding: '0.2mm 0', color: '#000', borderBottom: '1px solid #e5e7eb' }}>{student.className} - {student.section}</td>
+              <td style={{ padding: '0.1mm 0', fontWeight: 'bold', color: headerColor, borderBottom: '1px solid #e5e7eb' }}>CLASS</td>
+              <td style={{ padding: '0.1mm 0', color: '#000', borderBottom: '1px solid #e5e7eb' }}>{student.className} - {student.section}</td>
+            </tr>
+            {displayFatherName && (
+              <tr>
+                <td style={{ padding: '0.1mm 0', fontWeight: 'bold', color: headerColor, borderBottom: '1px solid #e5e7eb' }}>FATHER</td>
+                <td style={{ padding: '0.1mm 0', color: '#000', borderBottom: '1px solid #e5e7eb' }}>{displayFatherName}</td>
+              </tr>
+            )}
+            <tr>
+              <td style={{ padding: '0.1mm 0', fontWeight: 'bold', color: headerColor, borderBottom: '1px solid #e5e7eb' }}>DOB</td>
+              <td style={{ padding: '0.1mm 0', color: '#000', borderBottom: '1px solid #e5e7eb' }}>{student.dateOfBirth || 'N/A'}</td>
             </tr>
             <tr>
-              <td style={{ padding: '0.2mm 0', fontWeight: 'bold', color: headerColor, borderBottom: '1px solid #e5e7eb' }}>DOB</td>
-              <td style={{ padding: '0.2mm 0', color: '#000', borderBottom: '1px solid #e5e7eb' }}>{student.dateOfBirth || 'N/A'}</td>
+              <td style={{ padding: '0.1mm 0', fontWeight: 'bold', color: headerColor, borderBottom: '1px solid #e5e7eb' }}>BLOOD</td>
+              <td style={{ padding: '0.1mm 0', color: '#000', borderBottom: '1px solid #e5e7eb' }}>{student.bloodGroup || 'N/A'}</td>
             </tr>
             <tr>
-              <td style={{ padding: '0.2mm 0', fontWeight: 'bold', color: headerColor, borderBottom: '1px solid #e5e7eb' }}>BLOOD</td>
-              <td style={{ padding: '0.2mm 0', color: '#000', borderBottom: '1px solid #e5e7eb' }}>{student.bloodGroup || 'N/A'}</td>
-            </tr>
-            <tr>
-              <td style={{ padding: '0.2mm 0', fontWeight: 'bold', color: headerColor, borderBottom: '1px solid #e5e7eb' }}>PHONE</td>
-              <td style={{ padding: '0.2mm 0', color: '#000', borderBottom: '1px solid #e5e7eb' }}>{student.phone || 'N/A'}</td>
-            </tr>
-            <tr>
-              <td style={{ padding: '0.2mm 0', fontWeight: 'bold', color: headerColor }}>ADDR</td>
-              <td style={{ padding: '0.2mm 0', color: '#000', display: 'inline-block', lineHeight: '1.1' }} title={student.address || 'N/A'}>{student.address || 'N/A'}</td>
+              <td style={{ padding: '0.1mm 0', fontWeight: 'bold', color: headerColor }}>PHONE</td>
+              <td style={{ padding: '0.1mm 0', color: '#000' }}>{student.phone || 'N/A'}</td>
             </tr>
           </tbody>
         </table>
+        <div style={{ alignSelf: 'flex-end', marginRight: '2mm' }}>
+          {renderPrincipalSignature('#1f2937', { position: 'relative', bottom: 'auto', right: 'auto' })}
+        </div>
       </div>
-      
+
       {/* Bottom accent line */}
-      <div style={{ height: '3mm', width: '100%', backgroundColor: headerColor }}></div>
+      <div style={{ height: '3mm', width: '100%', backgroundColor: headerColor, flexShrink: 0 }}></div>
     </div>
   );
 
   const renderMinimalistPortrait = () => (
     <div style={{ ...baseCardStyle, backgroundColor: '#ffffff', padding: '2mm' }}>
-      <div style={{ border: '1px solid #e5e7eb', borderRadius: '6px', height: '100%', display: 'flex', flexDirection: 'column', padding: '2mm', position: 'relative' }}>
+      <div style={{ border: '1px solid #e5e7eb', borderRadius: '6px', height: '100%', display: 'flex', flexDirection: 'column', padding: '1.5mm', position: 'relative', justifyContent: 'space-between' }}>
         <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '2px', backgroundColor: accentColor, borderTopLeftRadius: '5px', borderTopRightRadius: '5px' }}></div>
-        
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '2mm', marginTop: '1mm' }}>
-          <div style={{ marginBottom: '1mm' }}>{renderLogo('8mm')}</div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '1mm' }}>
+          <div>{renderLogo('6mm')}</div>
           <div style={{ fontSize: '3mm', fontWeight: '700', color: '#1f2937', textAlign: 'center', letterSpacing: '0.5px', textTransform: 'uppercase', lineHeight: '1.2' }}>{settings.schoolName}</div>
+          {settings.address && (
+            <div style={{ fontSize: '1.9mm', color: '#4b5563', fontWeight: '500', marginTop: '0.5mm', textAlign: 'center', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.2' }}>{settings.address}</div>
+          )}
         </div>
-        
-        <div style={{ alignSelf: 'center', marginBottom: '2mm' }}>
+
+        <div style={{ alignSelf: 'center' }}>
           <div style={{ padding: '1mm', border: '1px solid #f3f4f6', borderRadius: '4px', backgroundColor: '#f9fafb' }}>
-            {renderPhoto('20mm', '25mm', 'none')}
+            {renderPhoto('18mm', '22mm', 'none')}
           </div>
         </div>
-        
-        <div style={{ fontSize: '4mm', fontWeight: '600', color: '#111827', marginBottom: '1mm', textAlign: 'center', letterSpacing: '0.2px' }}>
+
+        <div style={{ fontSize: '3.5mm', fontWeight: '600', color: '#111827', textAlign: 'center', letterSpacing: '0.2px' }}>
           {student.name}
         </div>
-        
-        <div style={{ width: '100%', height: '1px', backgroundColor: '#f3f4f6', marginBottom: '1mm' }}></div>
-        
-        <div style={{ fontSize: '2.1mm', display: 'flex', flexDirection: 'column', gap: '0.3mm', color: '#4b5563', flex: 1, justifyContent: 'flex-start' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px dotted #e5e7eb', paddingBottom: '0.2mm' }}>
+
+        <div style={{ width: '100%', height: '1px', backgroundColor: '#f3f4f6', margin: '0.5mm 0' }}></div>
+
+        <div style={{ fontSize: '1.9mm', display: 'flex', flexDirection: 'column', color: '#4b5563', flex: 1, justifyContent: 'space-evenly' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px dotted #e5e7eb', paddingBottom: '0.1mm' }}>
             <span style={{ color: '#9ca3af', fontWeight: '500' }}>ID NO</span> <span style={{ color: '#1f2937', fontWeight: '500' }}>{student.sequenceId || student.rollNumber}</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px dotted #e5e7eb', paddingBottom: '0.2mm' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px dotted #e5e7eb', paddingBottom: '0.1mm' }}>
             <span style={{ color: '#9ca3af', fontWeight: '500' }}>CLASS</span> <span style={{ color: '#1f2937', fontWeight: '500' }}>{student.className} - {student.section}</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px dotted #e5e7eb', paddingBottom: '0.2mm' }}>
+          {displayFatherName && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px dotted #e5e7eb', paddingBottom: '0.1mm' }}>
+              <span style={{ color: '#9ca3af', fontWeight: '500' }}>FATHER</span> <span style={{ color: '#1f2937', fontWeight: '500' }}>{displayFatherName}</span>
+            </div>
+          )}
+          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px dotted #e5e7eb', paddingBottom: '0.1mm' }}>
             <span style={{ color: '#9ca3af', fontWeight: '500' }}>DOB</span> <span style={{ color: '#1f2937', fontWeight: '500' }}>{student.dateOfBirth || 'N/A'}</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px dotted #e5e7eb', paddingBottom: '0.2mm' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.1mm' }}>
             <span style={{ color: '#9ca3af', fontWeight: '500' }}>PHONE</span> <span style={{ color: '#1f2937', fontWeight: '500' }}>{student.phone || 'N/A'}</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <span style={{ color: '#9ca3af', fontWeight: '500', marginRight: '2mm' }}>ADDR</span> <span style={{ color: '#1f2937', fontWeight: '500', textAlign: 'right', lineHeight: '1.1' }} title={student.address || 'N/A'}>{student.address || 'N/A'}</span>
-          </div>
+        </div>
+        <div style={{ alignSelf: 'flex-end', marginRight: '1mm' }}>
+          {renderPrincipalSignature('#1f2937', { position: 'relative', bottom: 'auto', right: 'auto' })}
         </div>
       </div>
     </div>
@@ -349,16 +423,62 @@ const NewIDCardTemplate: React.FC<IDCardTemplateProps> = ({
     <div style={{ ...baseCardStyle, backgroundColor: theme === 'modern' ? '#f8fafc' : '#ffffff', border: theme === 'minimalist' ? `1px solid #d1d5db` : 'none' }}>
       {theme === 'modern' && <div style={{ position: 'absolute', bottom: '-20mm', right: '-20mm', width: '60mm', height: '60mm', backgroundColor: accentColor, borderRadius: '50%', opacity: 0.05, zIndex: 0 }}></div>}
       {theme === 'classic' && <div style={{ position: 'absolute', top: 0, left: 0, width: '4mm', height: '100%', backgroundColor: headerColor, zIndex: 0 }}></div>}
-      
+
       <div style={{ padding: '4mm', flex: 1, display: 'flex', flexDirection: 'column', fontSize: '2.5mm', zIndex: 1, marginLeft: theme === 'classic' ? '4mm' : '0' }}>
-        <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '3.2mm', marginBottom: '3mm', color: headerColor, borderBottom: theme !== 'minimalist' ? `2px solid ${accentColor}` : '1px solid #e5e7eb', paddingBottom: '1.5mm', letterSpacing: '0.5px' }}>TERMS & CONDITIONS</div>
-        
-        <ul style={{ paddingLeft: '4mm', margin: '0 0 3mm 0', color: '#4b5563', lineHeight: '1.6', flex: 1 }}>
-          <li>This card is the property of <strong style={{ color: '#111827' }}>{settings.schoolName}</strong>.</li>
-          <li>It must be carried at all times while in the school premises.</li>
-          <li>If found, please return to the school address.</li>
-          <li>This card is non-transferable.</li>
+
+        {student.address && (
+          <div style={{ textAlign: 'center', color: '#1f2937', fontSize: '2.2mm', borderBottom: '1px dashed #e5e7eb', paddingBottom: '1.5mm', marginBottom: '2mm', lineHeight: '1.2' }}>
+            <strong>Student Residential Address:</strong> {student.address}
+          </div>
+        )}
+
+        <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '3.2mm', marginBottom: '1.5mm', color: headerColor, letterSpacing: '0.5px' }}>TERMS & CONDITIONS</div>
+
+        <ul style={{ paddingLeft: '4mm', margin: '0 0 2mm 0', color: '#4b5563', lineHeight: '1.5', fontSize: '2.2mm', listStyleType: 'disc' }}>
+          {(termsAndConditions || [
+            `This card is the property of ${settings.schoolName}.`,
+            "It must be carried at all times while in the school premises.",
+            "If found, please return to the school address.",
+            "This card is non-transferable."
+          ]).map((term, idx) => (
+            <li key={idx} style={{ marginBottom: '0.3mm' }}>{term}</li>
+          ))}
         </ul>
+
+        <div style={{ marginTop: '3mm', display: 'flex', flexDirection: 'column', gap: '1mm', borderTop: '1px dashed #e5e7eb', paddingTop: '1.5mm' }}>
+          <strong style={{ color: headerColor, fontSize: '2.5mm', display: 'block', textAlign: 'center' }}>{settings.schoolName}</strong>
+          {(settings.website || settings.email || settings.phone) && (
+            <table style={{ margin: '0.5mm auto 0 auto', fontSize: '1.9mm', color: '#4b5563', lineHeight: '1.3', borderCollapse: 'collapse', textAlign: 'left' }}>
+              <tbody>
+                {settings.phone && (
+                  <tr>
+                    <td style={{ paddingRight: '2mm', fontWeight: '500' }}>Phone</td>
+                    <td style={{ paddingRight: '1mm' }}>:</td>
+                    <td>{settings.phone}</td>
+                  </tr>
+                )}
+                {settings.email && (
+                  <tr>
+                    <td style={{ paddingRight: '2mm', fontWeight: '500' }}>Mail</td>
+                    <td style={{ paddingRight: '1mm' }}>:</td>
+                    <td>{settings.email}</td>
+                  </tr>
+                )}
+                {settings.website && (
+                  <tr>
+                    <td style={{ paddingRight: '2mm', fontWeight: '500' }}>Website</td>
+                    <td style={{ paddingRight: '1mm' }}>:</td>
+                    <td>{settings.website}</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
+        </div>
+        
+        <div style={{ marginTop: 'auto', textAlign: 'right', fontSize: '1.7mm', color: '#64748b', letterSpacing: '0.3px', paddingTop: '0.5mm' }}>
+          Powered by <strong style={{ color: '#0f172a', fontWeight: '800' }}>GoodSync</strong>
+        </div>
       </div>
     </div>
   );
@@ -368,19 +488,61 @@ const NewIDCardTemplate: React.FC<IDCardTemplateProps> = ({
       <div style={{ border: theme === 'minimalist' ? '1px solid #e5e7eb' : 'none', height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
         {theme === 'modern' && <div style={{ position: 'absolute', top: '-20mm', left: '-20mm', width: '60mm', height: '60mm', backgroundColor: accentColor, borderRadius: '50%', opacity: 0.05, zIndex: 0 }}></div>}
         {theme === 'classic' && <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '4mm', backgroundColor: headerColor, zIndex: 0 }}></div>}
-        
+
         <div style={{ padding: '3mm', flex: 1, display: 'flex', flexDirection: 'column', fontSize: '2.6mm', zIndex: 1, marginTop: theme === 'classic' ? '4mm' : '0' }}>
-          <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '3.5mm', marginBottom: '2mm', color: headerColor, borderBottom: theme !== 'minimalist' ? `2px solid ${accentColor}` : '1px solid #e5e7eb', paddingBottom: '1mm', letterSpacing: '0.5px', flexShrink: 0 }}>TERMS & CONDITIONS</div>
-          
-          <ul style={{ paddingLeft: '4mm', margin: '0 0 2mm 0', color: '#4b5563', lineHeight: '1.4', flex: 1 }}>
-            <li style={{ marginBottom: '0.5mm' }}>This card is the property of <strong style={{ color: '#111827' }}>{settings.schoolName}</strong>.</li>
-            <li style={{ marginBottom: '0.5mm' }}>It must be carried at all times while in the school premises.</li>
-            <li style={{ marginBottom: '0.5mm' }}>If found, please return to the school address.</li>
-            <li>This card is non-transferable.</li>
+
+          {student.address && (
+            <div style={{ textAlign: 'center', color: '#1f2937', fontSize: '2.2mm', borderBottom: '1px dashed #e5e7eb', paddingBottom: '1.5mm', marginBottom: '2mm', lineHeight: '1.2' }}>
+              <strong>Student Residential Address:</strong> {student.address}
+            </div>
+          )}
+
+          <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '3.5mm', marginBottom: '1.5mm', color: headerColor, borderBottom: theme !== 'minimalist' ? `2px solid ${accentColor}` : 'none', paddingBottom: theme !== 'minimalist' ? '1mm' : '0', letterSpacing: '0.5px', flexShrink: 0 }}>TERMS & CONDITIONS</div>
+
+          <ul style={{ paddingLeft: '4mm', margin: '0 0 2mm 0', color: '#4b5563', lineHeight: '1.4', fontSize: '2.3mm', listStyleType: 'disc' }}>
+            {(termsAndConditions || [
+              `This card is the property of ${settings.schoolName}.`,
+              "It must be carried at all times while in the school premises.",
+              "If found, please return to the school address.",
+              "This card is non-transferable."
+            ]).map((term, idx) => (
+              <li key={idx} style={{ marginBottom: '0.5mm' }}>{term}</li>
+            ))}
           </ul>
+
+          <div style={{ marginTop: '3mm', textAlign: 'center', lineHeight: '1.4', backgroundColor: theme === 'modern' ? '#fff' : theme === 'classic' ? '#f3f4f6' : 'transparent', padding: theme === 'minimalist' ? '1.5mm 0 0 0' : '1.5mm', borderRadius: theme === 'modern' ? '8px' : '0', border: theme === 'modern' ? '1px solid #e5e7eb' : theme === 'classic' ? `1px solid ${headerColor}` : 'none', borderTop: theme === 'minimalist' ? '1px solid #e5e7eb' : undefined, boxShadow: theme === 'modern' ? '0 2px 4px rgba(0,0,0,0.02)' : 'none', flexShrink: 0 }}>
+            <strong style={{ color: headerColor, fontSize: '2.8mm', display: 'block', marginBottom: '0.5mm' }}>{settings.schoolName}</strong>
+            {(settings.website || settings.email || settings.phone) && (
+              <table style={{ margin: '0 auto 1mm auto', fontSize: '1.9mm', color: '#4b5563', lineHeight: '1.3', borderCollapse: 'collapse', textAlign: 'left' }}>
+                <tbody>
+                  {settings.phone && (
+                    <tr>
+                      <td style={{ paddingRight: '2mm', fontWeight: '500' }}>Phone</td>
+                      <td style={{ paddingRight: '1mm' }}>:</td>
+                      <td>{settings.phone}</td>
+                    </tr>
+                  )}
+                  {settings.email && (
+                    <tr>
+                      <td style={{ paddingRight: '2mm', fontWeight: '500' }}>Mail</td>
+                      <td style={{ paddingRight: '1mm' }}>:</td>
+                      <td>{settings.email}</td>
+                    </tr>
+                  )}
+                  {settings.website && (
+                    <tr>
+                      <td style={{ paddingRight: '2mm', fontWeight: '500' }}>Website</td>
+                      <td style={{ paddingRight: '1mm' }}>:</td>
+                      <td>{settings.website}</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            )}
+          </div>
           
-          <div style={{ marginTop: 'auto', textAlign: 'center', lineHeight: '1.4', backgroundColor: theme === 'modern' ? '#fff' : theme === 'classic' ? '#f3f4f6' : 'transparent', padding: theme === 'minimalist' ? '2mm 0 0 0' : '2mm', borderRadius: theme === 'modern' ? '8px' : '0', border: theme === 'modern' ? '1px solid #e5e7eb' : theme === 'classic' ? `1px solid ${headerColor}` : 'none', borderTop: theme === 'minimalist' ? '1px solid #e5e7eb' : undefined, boxShadow: theme === 'modern' ? '0 2px 4px rgba(0,0,0,0.02)' : 'none', flexShrink: 0 }}>
-            <strong style={{ color: headerColor, fontSize: '2.8mm', display: 'block' }}>{settings.schoolName}</strong>
+          <div style={{ marginTop: 'auto', textAlign: 'center', fontSize: '1.8mm', color: '#64748b', letterSpacing: '0.3px', borderTop: '1px solid #cbd5e1', paddingTop: '1mm' }}>
+            Powered by <strong style={{ color: '#0f172a', fontWeight: '800' }}>GoodSync</strong>
           </div>
         </div>
       </div>

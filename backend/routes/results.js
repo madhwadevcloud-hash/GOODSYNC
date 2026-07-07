@@ -3,6 +3,7 @@ const router = express.Router();
 const authMiddleware = require('../middleware/auth');
 const resultController = require('../controllers/resultController');
 const checkPermission = require('../middleware/permissionCheck');
+const { enforceSubjectAuthorization, attachTeacherAssignments } = require('../middleware/subjectAuthorization');
 
 // Apply authentication to all routes
 router.use(authMiddleware.auth);
@@ -15,53 +16,58 @@ router.post('/create',
 );
 
 // Save results (simple endpoint for Results page) - requires viewResults permission
+// For teachers: enforceSubjectAuthorization filters out subjects they're not assigned to
 router.post('/save',
   authMiddleware.authorize(['admin', 'teacher']),
   checkPermission('viewResults'),
+  enforceSubjectAuthorization({ mode: 'filter' }),
   resultController.saveResults
 );
 
+// Get the logged-in student's own results (self-service, no query params needed)
+router.get('/my-results',
+  authMiddleware.authorize(['student']),
+  resultController.getMyResults
+);
+
 // Get existing results for a class and section
-// Students can view their results without permission check (controller handles filtering)
-// Teachers/Admins need viewResults permission
+// Students/Parents can view results without general permission check (controller handles ownership/child checks and secure publication filtering)
 router.get('/',
   (req, res, next) => {
-    // Allow students to bypass permission check - controller handles student-specific filtering
-    if (req.user && req.user.role === 'student') {
-      console.log('[RESULTS] Student access granted - bypassing permission check');
+    if (req.user && (req.user.role === 'student' || req.user.role === 'parent')) {
+      console.log(`[RESULTS] ${req.user.role.toUpperCase()} access granted - bypassing viewResults permission check`);
       return next();
     }
-    // For other roles, check permission
     return checkPermission('viewResults')(req, res, next);
   },
   resultController.getResults
 );
 
 // Update a single student result - requires viewResults permission
+// For teachers: enforceSubjectAuthorization validates subject ownership
 router.put('/:resultId',
   authMiddleware.authorize(['admin', 'teacher']),
   checkPermission('viewResults'),
+  enforceSubjectAuthorization({ mode: 'strict' }),
   resultController.updateResult
 );
 
-// Freeze results for a class/section/subject/test - requires viewResults permission
+// Freeze results for a class/section/subject/test - requires freezeResults permission (Admin only)
 router.post('/freeze',
-  authMiddleware.authorize(['admin', 'teacher']),
-  checkPermission('viewResults'),
+  authMiddleware.authorize(['admin']),
+  checkPermission('freezeResults'),
   resultController.freezeResults
 );
 
 // Get student result history
-// Students can view their own history without permission check
-// Teachers/Admins need viewResults permission
+// Get student result history
+// Students/Parents can view history without general permission check (controller handles ownership/child checks and secure publication filtering)
 router.get('/student/:studentId/history',
   (req, res, next) => {
-    // Allow students to bypass permission check - controller handles student-specific filtering
-    if (req.user && req.user.role === 'student') {
-      console.log('[RESULTS] Student access granted for history - bypassing permission check');
+    if (req.user && (req.user.role === 'student' || req.user.role === 'parent')) {
+      console.log(`[RESULTS] ${req.user.role.toUpperCase()} history access granted - bypassing viewResults permission check`);
       return next();
     }
-    // For other roles, check permission
     return checkPermission('viewResults')(req, res, next);
   },
   resultController.getStudentResultHistory
@@ -74,8 +80,10 @@ router.get('/class/:grade/:section/report',
 );
 
 // Teacher-specific endpoint to view results
+// Attaches teacher assignment info for frontend editable/read-only indicators
 router.get('/teacher/view',
   authMiddleware.auth,
+  attachTeacherAssignments,
   resultController.getResultsForTeacher
 );
 
