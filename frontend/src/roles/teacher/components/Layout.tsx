@@ -126,16 +126,19 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
               <img
                 src={schoolLogoUrl}
                 alt={schoolInfo?.name || 'School logo'}
-                className="w-10 h-10 rounded-lg object-cover mr-3 flex-shrink-0"
+                className="w-12 h-12 rounded-lg object-cover mr-3 flex-shrink-0"
               />
             ) : (
-              <div className="flex items-center justify-center w-9 h-9 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-xl mr-2.5 shadow-sm shadow-violet-200 flex-shrink-0">
-                <ShieldCheck className="h-5 w-5 text-white" />
+              <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-xl mr-2.5 shadow-sm shadow-violet-200 flex-shrink-0">
+                <ShieldCheck className="h-6 w-6 text-white" />
               </div>
             )}
             <div className="min-w-0">
-              <p className="text-base font-semibold text-violet-600">
+              <p className="text-base font-semibold text-violet-600 leading-tight">
                 {schoolInfo?.code || user?.schoolCode || "—"}
+              </p>
+              <p className="text-[11px] font-medium text-gray-400 tracking-wide uppercase leading-tight">
+                Teacher Portal
               </p>
             </div>
           </div>
@@ -156,19 +159,19 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
                 <button
                   key={item.name}
                   onClick={() => handleMenuClick(item)}
-                  className={`w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-colors ${isActive
+                  className={`w-full flex items-center px-3 py-2.5 text-base font-medium rounded-xl transition-colors ${isActive
                       ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-sm shadow-violet-200'
                       : 'text-gray-600 hover:bg-violet-50 hover:text-violet-700'
                     }`}
                 >
-                  <Icon className={`h-4.5 w-4.5 mr-3 ${isActive ? 'text-white' : 'text-gray-400'}`} />
+                  <Icon className={`h-5 w-5 mr-3 ${isActive ? 'text-white' : 'text-gray-400'}`} />
                   {item.name}
                 </button>
               );
             })}
           </nav>
 
-          <div className="px-4 pb-2 text-center">
+          <div className="px-4 py-3 text-center border-t border-gray-100">
             <p className="text-[11px] text-gray-400 font-medium">Powered by <span className="text-violet-500 font-semibold">GoodSync ERP</span></p>
           </div>
 
@@ -177,12 +180,12 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
               <button
                 onClick={onLogout}
                 title="Logout"
-                className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors"
+                className="w-full flex items-center px-3 py-2.5 rounded-xl text-base font-medium text-red-500 bg-red-50/60 hover:bg-red-50 hover:text-red-600 transition-colors"
               >
-                <LogOut className="h-4 w-4" />
+                <LogOut className="h-5 w-5 mr-3" />
                 Logout
               </button>
-              <div className="flex items-center min-w-0">
+              <div className="flex items-center min-w-0 rounded-xl bg-gray-50 px-2.5 py-2">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center mr-3 flex-shrink-0">
                   <span className="text-white font-bold text-sm">
                     {user?.name ? user.name.substring(0, 2).toUpperCase() : 'T'}
@@ -207,7 +210,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="bg-white border-b border-gray-100 flex-shrink-0">
           <div className="flex items-center justify-between h-16 px-4 lg:px-6 gap-4">
-            <div className="flex items-center gap-3 flex-1 min-w-0">
+            <div className="flex items-center gap-3 flex-shrink-0 min-w-0">
               <button
                 onClick={() => setSidebarOpen(true)}
                 className="lg:hidden p-2 rounded-md text-gray-600 hover:bg-gray-100 flex-shrink-0"
@@ -219,36 +222,51 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
                 {currentPage.replace(/-/g, ' ')}
               </h2>
 
-              <div className="flex items-center ml-2 gap-3 min-w-0">
-
+              <div className="hidden sm:flex items-center gap-3 min-w-0">
                 {schoolLogoUrl ? (
                   <img
                     src={schoolLogoUrl}
                     alt={schoolInfo?.name || 'School logo'}
-                    className="w-11 h-11 rounded-lg object-cover flex-shrink-0"
+                    className="w-14 h-14 rounded-lg object-cover flex-shrink-0"
                   />
                 ) : (
-                  <div className="hidden sm:flex items-center justify-center w-11 h-11 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-lg shadow-sm shadow-violet-200 flex-shrink-0">
-                    <ShieldCheck className="h-6 w-6 text-white" />
+                  <div className="flex items-center justify-center w-14 h-14 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-lg shadow-sm shadow-violet-200 flex-shrink-0">
+                    <ShieldCheck className="h-7 w-7 text-white" />
                   </div>
                 )}
 
                 <span className="text-2xl sm:text-3xl font-bold text-gray-900 whitespace-nowrap truncate">
                   {schoolInfo?.name || "School"}
                 </span>
+              </div>
+            </div>
 
+            {/* Search is pushed to the right, sitting close to the avatar (mirrors the admin portal reference) */}
+            <div className="flex-1 flex items-center justify-end min-w-0">
+              <div className="flex items-center w-full max-w-[260px]">
                 <button
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => setSearchOpen((o) => !o)}
-                  className="p-2.5 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors flex-shrink-0"
+                  className="p-2.5 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors flex-shrink-0 sm:hidden"
                   title="Search"
                 >
                   {searchOpen ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
                 </button>
 
+                <div className="hidden sm:flex items-center w-full relative">
+                  <Search className="absolute left-3 h-4.5 w-4.5 text-gray-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search anything..."
+                    className="w-full pl-10 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 outline-none"
+                  />
+                </div>
+
                 <div
-                  className={`flex items-center overflow-hidden transition-all duration-300 ease-in-out ${
-                    searchOpen ? "w-56 sm:w-72 opacity-100" : "w-0 opacity-0"
+                  className={`sm:hidden flex items-center overflow-hidden transition-all duration-300 ease-in-out ${
+                    searchOpen ? "w-full opacity-100 ml-2" : "w-0 opacity-0"
                   }`}
                 >
                   <input
@@ -257,11 +275,10 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     onBlur={() => setSearchOpen(false)}
-                    placeholder="Search students, classes, assignments..."
+                    placeholder="Search..."
                     className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 outline-none"
                   />
                 </div>
-
               </div>
             </div>
 
