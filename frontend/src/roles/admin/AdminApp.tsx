@@ -17,6 +17,9 @@ import MessagesPage from './pages/MessagesPage'
 import FeesPage from './pages/FeesPage'
 import ReportsPage from './pages/ReportsPage'
 import LeaveManagement from './pages/LeaveManagement'
+
+import TeacherAssignments from './pages/TeacherAssignments'
+
 import ErrorBoundary from '../../components/ErrorBoundary'
 import { PermissionGuard } from '../../components/PermissionGuard'
 import { PermissionProvider } from '../../hooks/usePermissions'
@@ -135,16 +138,100 @@ export function AdminApp() {
               </PermissionGuard>
             } />
 
-            {/* Reports - Requires viewReports permission */}
-            <Route path="reports" element={
-              <PermissionGuard permission="viewReports" permissionName="Reports">
-                <ReportsPage />
-              </PermissionGuard>
-            } />
-            
-            <Route path="*" element={<Navigate to="/admin" />} />
-          </Routes>
-        </AdminLayout>
+          {/* Attendance - Requires viewAttendance permission */}
+          <Route path="attendance" element={
+            <PermissionGuard permission="viewAttendance" permissionName="Attendance">
+              <AttendanceHome />
+            </PermissionGuard>
+
+          } />
+          <Route path="attendance/mark" element={
+            <PermissionGuard permission="viewAttendance" permissionName="Mark Attendance">
+              <AttendanceHome />
+            </PermissionGuard>
+
+          } />
+          <Route path="attendance/view" element={
+            <PermissionGuard permission="viewAttendance" permissionName="View Attendance">
+              <AttendanceHome />
+            </PermissionGuard>
+
+          } />
+
+          {/* Assignments - Requires viewAssignments permission */}
+          <Route path="assignments" element={
+            <PermissionGuard permission="viewAssignments" permissionName="Assignments">
+              <ErrorBoundary>
+                <Assignments />
+              </ErrorBoundary>
+            </PermissionGuard>
+
+          } />
+
+          {/* Results - Requires viewResults permission */}
+          <Route path="results" element={
+            <PermissionGuard permission="viewResults" permissionName="Results">
+              <Results />
+            </PermissionGuard>
+
+          } />
+          {/* Results Entry */}
+          <Route path="results/entry" element={
+            <PermissionGuard permission="viewResults" permissionName="Results Entry">
+              <ErrorBoundary>
+                <AcademicResultsEntry />
+              </ErrorBoundary>
+            </PermissionGuard>
+
+          } />
+
+          {/* Teacher Subject Assignments */}
+          <Route path="teacher-assignments" element={
+            <PermissionGuard permission="viewResults" permissionName="Teacher Assignments">
+              <TeacherAssignments />
+            </PermissionGuard>
+          } />
+
+          {/* Messages - Requires messageStudentsParents permission */}
+          <Route path="messages" element={
+            <PermissionGuard permission="messageStudentsParents" permissionName="Messages">
+              <MessagesPage />
+            </PermissionGuard>
+
+          } />
+
+          {/* Leave Management - Requires viewLeaves permission */}
+          <Route path="leave-management" element={
+            <PermissionGuard permission="viewLeaves" permissionName="Leave Management">
+              <LeaveManagement />
+            </PermissionGuard>
+
+          } />
+
+          {/* Fees - Requires viewFees permission */}
+          <Route path="fees/structure" element={
+            <PermissionGuard permission="viewFees" permissionName="Fee Structure">
+              <FeesPage />
+            </PermissionGuard>
+
+          } />
+          <Route path="fees/payments" element={
+            <PermissionGuard permission="viewFees" permissionName="Fee Payments">
+              <FeesPage />
+            </PermissionGuard>
+
+          } />
+
+          {/* Reports - Requires viewReports permission */}
+          <Route path="reports" element={
+            <PermissionGuard permission="viewReports" permissionName="Reports">
+              <ReportsPage />
+            </PermissionGuard>
+
+          } />
+          <Route path="*" element={<Navigate to="/admin" />} />
+        </Routes>
+      </AdminLayout>
       </AcademicYearProvider>
     </PermissionProvider>
   )

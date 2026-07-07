@@ -3,7 +3,6 @@ import {
   MessageCircle,
   CalendarDays,
   Clock,
-  User,
 } from "lucide-react";
 import api from "../../../services/api";
 
@@ -15,6 +14,8 @@ interface Message {
   class: string;
   section: string;
   sender: string;
+  senderName?: string;
+  senderRole?: string;
   createdAt: string;
   messageAge: string;
   isRead: boolean;
@@ -115,13 +116,23 @@ export default function Message() {
 
                 <div className="space-y-4 flex-1">
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 flex-wrap">
 
                     <MessageCircle className="text-blue-600" />
 
                     <h2 className="text-xl font-semibold">
                       {message.title}
                     </h2>
+
+                    <span
+                      className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold ${
+                        message.senderRole === 'teacher'
+                          ? 'bg-purple-100 text-purple-700'
+                          : 'bg-indigo-100 text-indigo-700'
+                      }`}
+                    >
+                      {message.senderRole === 'teacher' ? '🧑‍🏫' : '🛡️'} From {message.senderName || message.sender}
+                    </span>
 
                   </div>
 
@@ -141,15 +152,10 @@ export default function Message() {
                     {message.content}
                   </p>
 
-                  <div className="flex gap-8 flex-wrap text-gray-600">
+                  <div className="flex gap-8 flex-wrap text-gray-500 text-sm">
 
                     <div className="flex items-center gap-2">
-                      <User size={18} />
-                      From : {message.sender}
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <CalendarDays size={18} />
+                      <CalendarDays size={16} />
                       {new Date(message.createdAt).toLocaleDateString("en-GB", {
                         day: "2-digit",
                         month: "short",
@@ -158,7 +164,7 @@ export default function Message() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <Clock size={18} />
+                      <Clock size={16} />
                       {message.messageAge}
                     </div>
 
