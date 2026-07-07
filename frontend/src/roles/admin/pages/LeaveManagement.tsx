@@ -255,159 +255,179 @@ const LeaveManagement: React.FC = () => {
   }
 
   return (
-    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-4 sm:space-y-6">
-      {/* Header */}
-      <div className="mb-4 sm:mb-6">
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Leave Management</h1>
-        <p className="text-sm sm:text-base text-gray-600">Review and manage teacher leave requests</p>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
-        <div className="bg-white p-3 sm:p-4 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs sm:text-sm text-gray-600">Total Requests</p>
-              <p className="text-lg sm:text-2xl font-bold text-gray-900">{leaveRequests.length}</p>
+    <div className="space-y-6 relative">
+      <div className="sticky top-[72px] z-20 flex flex-col gap-6 pt-4 pb-2 -mt-4 bg-[#f8fafc]">
+        {/* Header */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sm:p-8 relative overflow-hidden mx-2 sm:mx-0">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50 rounded-full blur-3xl opacity-60 -mr-20 -mt-20 pointer-events-none"></div>
+          <div className="flex items-center justify-between relative z-10">
+            <div className="flex items-center space-x-4">
+              <div className="bg-indigo-600 p-3 rounded-xl flex items-center justify-center shadow-sm">
+                <Calendar className="h-7 w-7 text-white" strokeWidth={2} />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Leave Management</h1>
+                <p className="text-sm font-medium text-slate-500 mt-1">Review and manage teacher leave requests</p>
+              </div>
             </div>
-            <Calendar className="h-6 w-6 sm:h-8 sm:w-8 text-gray-400" />
           </div>
         </div>
-        <div className="bg-white p-3 sm:p-4 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex items-center justify-between">
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mx-2 sm:mx-0">
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between hover:shadow-md transition-shadow">
             <div>
-              <p className="text-xs sm:text-sm text-gray-600">Pending</p>
-              <p className="text-lg sm:text-2xl font-bold text-yellow-600">
+              <p className="text-sm font-bold text-slate-500">Total Requests</p>
+              <p className="text-3xl font-black text-slate-800 mt-1">{leaveRequests.length}</p>
+            </div>
+            <div className="bg-slate-100 p-4 rounded-2xl shadow-inner text-slate-500">
+              <Calendar className="h-7 w-7" strokeWidth={2} />
+            </div>
+          </div>
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between hover:shadow-md transition-shadow">
+            <div>
+              <p className="text-sm font-bold text-slate-500">Pending</p>
+              <p className="text-3xl font-black text-amber-500 mt-1">
                 {leaveRequests.filter(r => r.status === 'pending').length}
               </p>
             </div>
-            <Clock className="h-6 w-6 sm:h-8 sm:w-8 text-yellow-400" />
+            <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl shadow-inner text-amber-500">
+              <Clock className="h-7 w-7" strokeWidth={2} />
+            </div>
           </div>
-        </div>
-        <div className="bg-white p-3 sm:p-4 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex items-center justify-between">
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between hover:shadow-md transition-shadow">
             <div>
-              <p className="text-xs sm:text-sm text-gray-600">Approved</p>
-              <p className="text-lg sm:text-2xl font-bold text-green-600">
+              <p className="text-sm font-bold text-slate-500">Approved</p>
+              <p className="text-3xl font-black text-emerald-500 mt-1">
                 {leaveRequests.filter(r => r.status === 'approved').length}
               </p>
             </div>
-            <Check className="h-6 w-6 sm:h-8 sm:w-8 text-green-400" />
+            <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl shadow-inner text-emerald-500">
+              <Check className="h-7 w-7" strokeWidth={3} />
+            </div>
           </div>
-        </div>
-        <div className="bg-white p-3 sm:p-4 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex items-center justify-between">
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between hover:shadow-md transition-shadow">
             <div>
-              <p className="text-xs sm:text-sm text-gray-600">Rejected</p>
-              <p className="text-lg sm:text-2xl font-bold text-red-600">
+              <p className="text-sm font-bold text-slate-500">Rejected</p>
+              <p className="text-3xl font-black text-rose-500 mt-1">
                 {leaveRequests.filter(r => r.status === 'rejected').length}
               </p>
             </div>
-            <X className="h-6 w-6 sm:h-8 sm:w-8 text-red-400" />
-          </div>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="bg-white p-3 sm:p-4 rounded-lg shadow-sm border border-gray-200 mb-4 sm:mb-6">
-        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-          {/* Search */}
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search by teacher name, email, or reason..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 sm:pl-10 pr-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
+            <div className="bg-rose-50 border border-rose-100 p-4 rounded-2xl shadow-inner text-rose-500">
+              <X className="h-7 w-7" strokeWidth={3} />
             </div>
           </div>
+        </div>
 
-          {/* Status Filter */}
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <Filter className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 flex-shrink-0" />
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as any)}
-              className="flex-1 sm:flex-initial px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="all">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
-            </select>
+        {/* Filters */}
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 mx-2 sm:mx-0">
+          <div className="flex flex-col sm:flex-row gap-4">
+            {/* Search */}
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3.5 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search by teacher name, email, or reason..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 focus:bg-white transition-all text-sm font-medium text-slate-700 placeholder:text-slate-400"
+                />
+              </div>
+            </div>
+
+            {/* Status Filter */}
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <Filter className="h-5 w-5 text-slate-400 flex-shrink-0" />
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as any)}
+                className="flex-1 sm:flex-initial px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 focus:bg-white transition-all text-sm font-medium text-slate-700"
+              >
+                <option value="all">All Status</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Leave Requests Table */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mx-2 sm:mx-0">
         {filteredRequests.length === 0 ? (
-          <div className="px-6 py-8 text-center text-gray-500">
-            <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-lg font-medium text-gray-900 mb-2">No leave requests found</p>
-            <p className="text-gray-600">No leave requests match your current filters.</p>
+          <div className="px-6 py-16 text-center text-slate-500">
+            <div className="h-20 w-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Calendar className="h-10 w-10 text-slate-300" />
+            </div>
+            <p className="text-lg font-bold text-slate-900 mb-1">No leave requests found</p>
+            <p className="text-sm font-medium text-slate-500">No leave requests match your current filters.</p>
           </div>
         ) : (
           <>
             {/* Desktop Table View */}
-            <div className="hidden lg:block overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+            <div className="hidden lg:block overflow-x-auto custom-scrollbar">
+              <table className="min-w-full divide-y divide-slate-100">
+                <thead className="bg-slate-50/50 backdrop-blur-md border-b border-slate-100">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">
                       Teacher
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">
                       Duration
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">
                       Applied On
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">
                       Status
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white divide-y divide-slate-50">
                   {filteredRequests.map((request) => (
-                    <tr key={request._id} className="hover:bg-gray-50">
+                    <tr key={request._id} className="hover:bg-slate-50/80 transition-colors duration-150 border-b border-slate-50 last:border-0 group/row">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
-                            <User className="h-5 w-5 text-blue-600" />
+                        <div className="flex items-center gap-4">
+                          <div className="h-11 w-11 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-500 flex items-center justify-center text-white font-black shadow-sm border-2 border-white shrink-0 group-hover/row:scale-105 transition-transform duration-300">
+                            {request.teacherName ? request.teacherName.charAt(0).toUpperCase() : 'T'}
                           </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">{request.teacherName}</div>
-                            <div className="text-sm text-gray-500">{request.teacherId}</div>
+                          <div className="flex flex-col">
+                            <div className="text-[15px] font-bold text-slate-800">{request.teacherName}</div>
+                            <div className="text-xs font-medium text-slate-500 mt-0.5">
+                              ID: {request.teacherId}
+                            </div>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
+                        <div className="text-sm font-semibold text-slate-800">
                           {formatDate(request.startDate)} - {formatDate(request.endDate)}
                         </div>
-                        <div className="text-sm text-gray-500">{request.days} day{request.days > 1 ? 's' : ''}</div>
+                        <div className="text-xs font-medium text-slate-500 mt-0.5">{request.days} day{request.days > 1 ? 's' : ''}</div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-600">
                         {formatDate(request.appliedOn)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(request.status)}`}>
+                        <span className={`px-3 py-1.5 inline-flex text-xs font-bold rounded-xl border bg-opacity-10 backdrop-blur-sm ${
+                          request.status === 'pending' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                          request.status === 'approved' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                          'bg-rose-50 text-rose-700 border-rose-200'
+                        }`}>
                           {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <button
                           onClick={() => openModal(request)}
-                          className="text-blue-600 hover:text-blue-900 flex items-center gap-1"
+                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-100 text-slate-600 rounded-xl font-bold text-xs hover:bg-indigo-500 hover:text-white hover:shadow-md hover:shadow-indigo-200/50 hover:scale-105 transition-all duration-300"
                         >
-                          <FileText className="h-4 w-4" />
+                          <FileText className="h-3.5 w-3.5" strokeWidth={2.5} />
                           View Details
                         </button>
                       </td>

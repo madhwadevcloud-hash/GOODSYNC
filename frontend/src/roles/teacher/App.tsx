@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import Attendance from './components/Attendance/Attendance';
@@ -11,23 +12,20 @@ import ViewResults from './components/Results/ViewResults';
 import Messages from './components/Messages/Messages';
 import LeaveRequestManagement from './components/LeaveRequest/LeaveRequestManagement';
 import StudentDetails from './components/StudentDetails/StudentDetails';
+import SchoolSettings from './components/Settings/SchoolSettings';
 import { PermissionProvider } from '../../hooks/usePermissions';
 import { PermissionGuard } from '../../components/PermissionGuard';
 import { AcademicYearProvider } from '../../contexts/AcademicYearContext';
 import { useAuth } from '../../auth/AuthContext';
 
 function App() {
-  const { user } = useAuth();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState('dashboard');
 
-  const handleLogin = () => {
-    setIsLoggedIn(true);
-  };
-
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-    setCurrentPage('dashboard');
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login', { replace: true });
   };
 
   const handleNavigate = (page: string) => {
@@ -62,6 +60,8 @@ function App() {
         );
       case 'student-details':
         return <StudentDetails />;
+      case 'settings':
+        return <SchoolSettings />;
       default:
         return <Dashboard onNavigate={handleNavigate} />;
     }

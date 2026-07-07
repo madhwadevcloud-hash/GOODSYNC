@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route, Navigate, useNavigate, Link } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import ProtectedRoute from './auth/ProtectedRoute';
 import RoleGuard from './auth/RoleGuard';
 import { useAuth } from './auth/AuthContext';
@@ -19,34 +19,6 @@ function RootRedirect() {
   return <Navigate to="/login" replace />;
 }
 
-function TopBar() {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
-
-  if (!user) return null;
-  return (
-    <div className="w-full bg-slate-100 border-b">
-      <div className="max-w-6xl mx-auto px-4 py-2 flex items-center justify-between">
-        <div className="text-sm text-slate-700">
-          Signed in as <b>{user.name}</b> ({user.role})
-        </div>
-        <div className="flex items-center gap-3">
-          <Link className="text-blue-600 hover:underline" to="/">Home</Link>
-          <button
-            className="px-3 py-1 rounded-lg bg-slate-800 text-white hover:bg-black"
-            onClick={() => {
-              logout();
-              navigate('/login', { replace: true });
-            }}
-          >
-            Logout
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function App() {
   const { user, loading, token } = useAuth();
   
@@ -60,7 +32,6 @@ export default function App() {
 
   return (
     <>
-      <TopBar />
       <Routes>
         {/* Public */}
         <Route path="/login" element={<Login />} />

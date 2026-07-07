@@ -352,6 +352,12 @@ exports.getMyProfileOverview = async (req, res) => {
 
 // Cache instance for student portal (TTL: 120 seconds)
 const portalCache = new NodeCache({ stdTTL: 120, checkperiod: 60 });
+// Allows other controllers (e.g. feesController's admin payment recording) to
+// invalidate a student's cached fee overview after they record a payment.
+exports.invalidateFeesCache = (schoolCode, studentId, academicYear) => {
+  const key = `fees:${schoolCode}:${String(studentId)}:${academicYear}`;
+  portalCache.del(key);
+};
 
 // GET /api/student/fees
 exports.getMyFeesOverview = async (req, res) => {
@@ -508,9 +514,21 @@ exports.getMyFeesOverview = async (req, res) => {
       };
     }
 
+    const formattedPayments = (feeRecord?.payments || [])
+      .map(p => ({
+        receiptNumber: p.receiptNumber,
+        installmentName: p.installmentName,
+        amount: p.amount || 0,
+        paymentDate: p.paymentDate ? new Date(p.paymentDate).toISOString() : null,
+        paymentMethod: p.paymentMethod || '',
+        paymentReference: p.paymentReference || ''
+      }))
+      .sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime());
+
     const result = {
       feeRecord: formattedFeeRecord,
       challans: formattedChalans,
+      payments: formattedPayments,
       bankDetails: bankDetails,
       schoolName: schoolInfo?.name || 'School Name'
     };
@@ -522,5 +540,247 @@ exports.getMyFeesOverview = async (req, res) => {
   } catch (err) {
     console.error('[STUDENT PORTAL] getMyFeesOverview error:', err);
     res.status(500).json({ message: 'Unable to load fees information', error: err.message });
+  }
+};
+
+// Helper: generate a chalan number (mirrors the format used elsewhere: CRN-SCHOOLCODE-0000)
+async function generateStudentChalanNumber(schoolCode, db) {
+  try {
+    const safeSchoolCode = (schoolCode || 'SCH').toUpperCase();
+    const countersCol = db.collection('counters');
+    const counterKey = `chalan:${safeSchoolCode}`;
+
+    const seqDoc = await countersCol.findOneAndUpdate(
+      { _id: counterKey },
+      { $setOnInsert: { createdAt: new Date() }, $inc: { seq: 1 }, $set: { updatedAt: new Date() } },
+      { upsert: true, returnDocument: 'after' }
+    );
+
+    let seqVal = (seqDoc && seqDoc.value && typeof seqDoc.value.seq === 'number') ? seqDoc.value.seq : undefined;
+    if (typeof seqVal !== 'number') {
+      const doc = await countersCol.findOne({ _id: counterKey });
+      seqVal = (doc && typeof doc.seq === 'number') ? doc.seq : 1;
+    }
+
+    return `CRN-${safeSchoolCode}-${String(seqVal).padStart(4, '0')}`;
+  } catch (error) {
+    console.error('[STUDENT PORTAL] Error generating chalan number:', error);
+    return `CRN-${schoolCode || 'SCH'}-${Date.now().toString().slice(-6)}`;
+  }
+}
+
+// Shared: resolve the logged-in student's fee record (student + school db + academic year + feeRecord)
+async function resolveStudentFeeContext(req) {
+  const studentIdParam = req.user.userId || req.user._id;
+  const schoolCode = req.user.schoolCode;
+
+  if (!schoolCode) {
+    const err = new Error('School code not found');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const schoolConnection = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
+  const db = schoolConnection.db || schoolConnection;
+
+  const studentQuery = ObjectId.isValid(studentIdParam)
+    ? { $or: [{ userId: studentIdParam }, { _id: new ObjectId(studentIdParam) }] }
+    : { userId: studentIdParam };
+
+  const student = await db.collection('students').findOne(studentQuery);
+  if (!student) {
+    const err = new Error('Student not found in school database');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  let academicYear = null;
+  try {
+    const School = require('../models/School');
+    const school = await School.findById(req.user.schoolId).select('settings.academicYear.currentYear name').lean();
+    academicYear = school?.settings?.academicYear?.currentYear;
+  } catch (err) {
+    console.warn('[STUDENT PORTAL] Failed to resolve academic year:', err.message);
+  }
+  if (!academicYear) {
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth() + 1;
+    academicYear = currentMonth >= 4 ? `${currentYear}-${currentYear + 1}` : `${currentYear - 1}-${currentYear}`;
+  }
+
+  const feeRecord = await db.collection('studentfeerecords').findOne({
+    studentId: student._id,
+    academicYear
+  });
+
+  if (!feeRecord) {
+    const err = new Error('Fee record not found');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  return { db, schoolCode, student, academicYear, feeRecord };
+}
+
+// Determine the installment a student is currently allowed to view a challan for:
+// the first installment (in structure order) that isn't fully paid yet.
+function resolveCurrentPayableInstallment(feeRecord) {
+  const installments = feeRecord.installments || [];
+  return installments.find(inst => {
+    const statusLower = String(inst.status || 'pending').toLowerCase();
+    return statusLower !== 'paid';
+  }) || null;
+}
+
+// POST /api/student/fees/challan
+// Get (or create) a challan for the CURRENT payable installment, for the logged-in student.
+// Read-only preview — students cannot pay through this endpoint.
+exports.getMyInstallmentChalan = async (req, res) => {
+  try {
+    if (req.user.role !== 'student') {
+      return res.status(403).json({ success: false, message: 'This endpoint is only for students' });
+    }
+
+    const { installmentName } = req.body;
+    if (!installmentName) {
+      return res.status(400).json({ success: false, message: 'Installment name is required' });
+    }
+
+    const { db, schoolCode, student, feeRecord } = await resolveStudentFeeContext(req);
+
+    const installment = (feeRecord.installments || []).find(i => i.name === installmentName);
+    if (!installment) {
+      return res.status(404).json({ success: false, message: 'Installment not found' });
+    }
+
+    if (String(installment.status || '').toLowerCase() === 'paid') {
+      return res.status(400).json({ success: false, message: 'This installment has already been paid in full.' });
+    }
+
+    // Queue enforcement: only the current (earliest unpaid) installment can be viewed
+    const currentInstallment = resolveCurrentPayableInstallment(feeRecord);
+    if (!currentInstallment || currentInstallment.name !== installmentName) {
+      return res.status(400).json({
+        success: false,
+        message: currentInstallment
+          ? `Please complete "${currentInstallment.name}" before this installment becomes available.`
+          : 'No pending installments found.'
+      });
+    }
+
+    const remainingAmount = Math.max(0, (installment.amount || 0) - (installment.paidAmount || 0));
+    const chalansCol = db.collection('chalans');
+    const studentFeeCol = db.collection('studentfeerecords');
+
+    let challanEntry = (feeRecord.challans || []).find(
+      c => c.installmentName === installmentName && c.status !== 'paid'
+    );
+
+    if (!challanEntry) {
+      const chalanNumber = await generateStudentChalanNumber(schoolCode, db);
+
+      const chalanDoc = {
+        chalanNumber,
+        schoolId: new ObjectId(req.user.schoolId),
+        studentId: student._id,
+        feeRecordId: feeRecord._id,
+        class: feeRecord.studentClass,
+        section: feeRecord.studentSection,
+        amount: remainingAmount,
+        paidAmount: installment.paidAmount || 0,
+        dueDate: installment.dueDate,
+        status: 'unpaid',
+        installmentName,
+        academicYear: feeRecord.academicYear,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      const chalanResult = await chalansCol.insertOne(chalanDoc);
+
+      challanEntry = {
+        chalanId: chalanResult.insertedId,
+        chalanNumber,
+        installmentName,
+        amount: remainingAmount,
+        paidAmount: installment.paidAmount || 0,
+        dueDate: installment.dueDate,
+        issueDate: new Date(),
+        status: 'unpaid',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      await studentFeeCol.updateOne(
+        { _id: feeRecord._id },
+        { $push: { challans: challanEntry } }
+      );
+
+      portalCache.del(`fees:${schoolCode}:${student._id.toString()}:${feeRecord.academicYear}`);
+
+      console.log(`✅ [STUDENT PORTAL] Auto-generated pre-payment challan ${chalanNumber} for installment: ${installmentName}`);
+    } else {
+      // Keep the challan's amount/paidAmount in sync with the installment
+      // (in case an admin recorded a partial payment since this challan was created)
+      const chalanIdForUpdate = challanEntry.chalanId;
+      if (chalanIdForUpdate) {
+        await chalansCol.updateOne(
+          { _id: chalanIdForUpdate },
+          { $set: { amount: remainingAmount, paidAmount: installment.paidAmount || 0, updatedAt: new Date() } }
+        );
+        await studentFeeCol.updateOne(
+          { _id: feeRecord._id, 'challans.chalanId': chalanIdForUpdate },
+          { $set: { 'challans.$.amount': remainingAmount, 'challans.$.paidAmount': installment.paidAmount || 0, 'challans.$.updatedAt': new Date() } }
+        );
+      }
+      challanEntry = { ...challanEntry, amount: remainingAmount, paidAmount: installment.paidAmount || 0 };
+
+      // FIX: previously the cache was only invalidated on creation. If a
+      // challan already existed and an admin recorded a payment afterward,
+      // the student's cached /student/fees response could stay stale
+      // (showing old totalPaid/amount) for up to the cache TTL (120s).
+      // Invalidate here too, on every sync, so the student overview reflects
+      // the update as soon as they next open the challan.
+      portalCache.del(`fees:${schoolCode}:${student._id.toString()}:${feeRecord.academicYear}`);
+    }
+
+    const schoolInfo = await db.collection('school_info').findOne({});
+
+    res.json({
+      success: true,
+      data: {
+        chalanId: (challanEntry.chalanId || challanEntry._id)?.toString(),
+        chalanNumber: challanEntry.chalanNumber,
+        installmentName: challanEntry.installmentName,
+        amount: challanEntry.amount,
+        paidAmount: challanEntry.paidAmount || 0,
+        dueDate: challanEntry.dueDate,
+        issueDate: challanEntry.issueDate,
+        status: challanEntry.status,
+
+        studentName: feeRecord.studentName,
+        studentId: student._id.toString(),
+        userId: student.userId || '',
+        rollNumber: feeRecord.rollNumber || student.rollNumber || '',
+        className: feeRecord.studentClass,
+        section: feeRecord.studentSection,
+        academicYear: feeRecord.academicYear,
+
+        schoolName: schoolInfo?.name || '',
+        schoolData: schoolInfo ? {
+          name: schoolInfo.name,
+          code: schoolInfo.code,
+          address: schoolInfo.address,
+          contact: schoolInfo.contact,
+          logo: schoolInfo.logo,
+          logoUrl: schoolInfo.logoUrl,
+          bankDetails: schoolInfo.bankDetails
+        } : undefined,
+        bankDetails: schoolInfo?.bankDetails || undefined
+      }
+    });
+  } catch (err) {
+    console.error('[STUDENT PORTAL] getMyInstallmentChalan error:', err);
+    res.status(err.statusCode || 500).json({ success: false, message: err.message || 'Failed to load challan' });
   }
 };

@@ -8,7 +8,6 @@ import Assignments from "./pages/Assignments";
 import Results from "./pages/Results";
 import Fees from "./pages/Fees";
 import Profile from "./pages/Profile";
-import Activity from "./pages/Activity";
 import Message from "./pages/Message";
 
 export function StudentApp() {
@@ -21,9 +20,7 @@ export function StudentApp() {
         <Route path="results" element={<Results />} />
         <Route path="fees" element={<Fees />} />
         <Route path="profile" element={<Profile />} />
-        <Route path="activity" element={<Activity />} />
         <Route path="messages" element={<Message />} />
-
         <Route path="*" element={<Navigate to="." replace />} />
       </Routes>
     </Layout>

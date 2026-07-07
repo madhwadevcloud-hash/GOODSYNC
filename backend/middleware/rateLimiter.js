@@ -37,7 +37,7 @@ const loginLimiter = rateLimit({
  */
 const apiLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 100,
+  max: process.env.NODE_ENV === 'development' ? 2000 : 500,
   standardHeaders: true,
   legacyHeaders: false,
   validate: { default: false },

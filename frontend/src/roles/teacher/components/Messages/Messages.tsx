@@ -110,7 +110,7 @@ const Messages: React.FC = () => {
 
             {loading ? (
               <div className="p-12 text-center">
-                <div className="animate-spin h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+                <div className="animate-spin h-12 w-12 border-4 border-violet-500 border-t-transparent rounded-full mx-auto mb-4"></div>
                 <p className="text-gray-600">Loading messages...</p>
               </div>
             ) : messages.length > 0 ? (
@@ -118,14 +118,14 @@ const Messages: React.FC = () => {
                 {messages.map((message) => (
                   <div 
                     key={message.id} 
-                    className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-5 border border-blue-100 hover:shadow-md transition-all duration-200"
+                    className="bg-gradient-to-r from-violet-50 to-purple-50 rounded-xl p-5 border border-violet-100 hover:shadow-md transition-all duration-200"
                   >
                     {/* Header */}
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex-1 min-w-0">
                         <h3 className="text-lg font-bold text-gray-900 mb-1">{message.title}</h3>
                         <div className="flex items-center space-x-2 text-sm">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-violet-100 text-violet-800">
                             Class {message.class}-{message.section}
                           </span>
                           <span className="text-gray-500">•</span>
@@ -155,7 +155,7 @@ const Messages: React.FC = () => {
                     </div>
                     
                     {/* Footer */}
-                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-blue-100">
+                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-violet-100">
                       <div className="flex items-center space-x-2">
                         <div className="flex items-center text-xs text-gray-600">
                           <div className="w-2 h-2 bg-green-500 rounded-full mr-1.5"></div>

@@ -229,7 +229,7 @@ const AddAssignments: React.FC = () => {
                 value={newAssignment.title}
                 onChange={(e) => setNewAssignment({ ...newAssignment, title: e.target.value })}
                 placeholder="Enter assignment title"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent"
               />
             </div>
 
@@ -240,7 +240,7 @@ const AddAssignments: React.FC = () => {
                 <select
                   value={newAssignment.class}
                   onChange={(e) => setNewAssignment({ ...newAssignment, class: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent"
                   disabled={classesLoading}
                 >
                   <option value="">{classesLoading ? 'Loading...' : 'Select Class'}</option>
@@ -255,7 +255,7 @@ const AddAssignments: React.FC = () => {
                 <select
                   value={newAssignment.section}
                   onChange={(e) => setNewAssignment({ ...newAssignment, section: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent disabled:bg-gray-100"
                   disabled={!newAssignment.class || availableSections.length === 0}
                 >
                   <option value="">{!newAssignment.class ? 'Select Class First' : 'Select Section'}</option>
@@ -270,7 +270,7 @@ const AddAssignments: React.FC = () => {
                 <select
                   value={newAssignment.subject}
                   onChange={(e) => setNewAssignment({ ...newAssignment, subject: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent disabled:bg-gray-100"
                   disabled={!newAssignment.section || loadingSubjects}
                 >
                   <option value="">
@@ -296,7 +296,7 @@ const AddAssignments: React.FC = () => {
                   value={newAssignment.startDate}
                   onChange={(e) => setNewAssignment({ ...newAssignment, startDate: e.target.value })}
                   placeholder="dd-mm-yyyy"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent"
                 />
               </div>
 
@@ -308,7 +308,7 @@ const AddAssignments: React.FC = () => {
                   onChange={(e) => setNewAssignment({ ...newAssignment, dueDate: e.target.value })}
                   placeholder="dd-mm-yyyy"
                   min={newAssignment.startDate || new Date().toISOString().split('T')[0]}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent"
                 />
               </div>
             </div>
@@ -321,7 +321,7 @@ const AddAssignments: React.FC = () => {
                 onChange={(e) => setNewAssignment({ ...newAssignment, description: e.target.value })}
                 rows={6}
                 placeholder="Write detailed instructions for the assignment..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent"
               />
             </div>
 
@@ -378,7 +378,7 @@ const AddAssignments: React.FC = () => {
               <button
                 onClick={handleAddAssignment}
                 disabled={saving}
-                className="flex items-center px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                className="flex items-center px-6 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 {saving ? 'Creating...' : 'Create Assignment'}

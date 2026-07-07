@@ -144,7 +144,7 @@ const LeaveRequest: React.FC = () => {
                 value={leaveRequest.subjectLine}
                 onChange={handleChange}
                 placeholder="e.g., Medical Leave, Personal Leave"
-                className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent text-sm"
                 required
               />
             </div>
@@ -158,7 +158,7 @@ const LeaveRequest: React.FC = () => {
                   name="startDate"
                   value={leaveRequest.startDate}
                   onChange={handleChange}
-                  className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent text-sm"
                   required
                 />
               </div>
@@ -169,7 +169,7 @@ const LeaveRequest: React.FC = () => {
                   name="endDate"
                   value={leaveRequest.endDate}
                   onChange={handleChange}
-                  className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent text-sm"
                   required
                 />
               </div>
@@ -184,7 +184,7 @@ const LeaveRequest: React.FC = () => {
                 onChange={handleChange}
                 rows={4}
                 placeholder="Provide details about your leave request..."
-                className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
+                className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none text-sm"
                 required
               />
             </div>
@@ -211,7 +211,7 @@ const LeaveRequest: React.FC = () => {
                 type="submit"
                 onClick={handleSubmit}
                 disabled={saving}
-                className="px-4 sm:px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 text-sm sm:text-base w-full sm:w-auto"
+                className="px-4 sm:px-6 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 text-sm sm:text-base w-full sm:w-auto"
               >
                 {saving ? (
                   <>

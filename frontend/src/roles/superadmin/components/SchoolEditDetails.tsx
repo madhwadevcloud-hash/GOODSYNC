@@ -291,7 +291,7 @@ const SchoolEditDetails: React.FC = () => {
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-6 max-w-6xl mx-auto animate-fadeIn">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center space-x-4">
           <button onClick={() => setCurrentView('school-details')} className="flex items-center space-x-2 text-gray-600 hover:text-gray-900">
@@ -443,7 +443,7 @@ const SchoolEditDetails: React.FC = () => {
 
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-center space-x-3 mb-6">
-            <Building className="h-6 w-6 text-blue-600" />
+            <Building className="h-6 w-6 text-indigo-600" />
             <h2 className="text-lg font-semibold text-gray-900">School Details</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -548,7 +548,7 @@ const SchoolEditDetails: React.FC = () => {
                 {imagePreview ? 'Change Image' : 'Upload New Image'}
               </label>
               <div className="flex items-center space-x-4">
-                <label className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer transition-colors">
+                <label className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 cursor-pointer transition-colors">
                   <Upload className="h-4 w-4" />
                   <span>Choose Image</span>
                   <input

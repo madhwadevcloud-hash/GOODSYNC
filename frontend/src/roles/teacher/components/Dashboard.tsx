@@ -4,24 +4,20 @@ import {
   BookOpen,
   Calendar,
   MessageSquare,
-  TrendingUp,
   Clock,
   CheckCircle,
-  AlertCircle,
-  UserCheck,
   FileText,
   ClipboardCheck,
   Send,
-  Eye,
-  Award,
-  BarChart3
+  BarChart3,
+  GraduationCap,
+  UserPlus
 } from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { useAuth } from '../../../auth/AuthContext';
-import AcademicYearCard from './AcademicYearCard';
-import StudentDetails from './StudentDetails/StudentDetails';
 import ViewAssignmentModal from './Assignments/ViewAssignmentModal';
 import api from '../../../services/api';
-import { useAcademicYear } from '../../../contexts/AcademicYearContext'; // *** MODIFICATION: Import useAcademicYear ***
+import { useAcademicYear } from '../../../contexts/AcademicYearContext';
 
 interface DashboardProps {
   onNavigate: (page: string) => void;
@@ -35,112 +31,98 @@ interface DashboardStats {
     pending: number;
     approved: number;
   };
-  todayAttendance: {
-    marked: boolean;
-    classesCount: number;
-  };
+}
+
+interface ClassCount {
+  className: string;
+  section: string;
+  count: number;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
-  const { user, token } = useAuth();
-  const { currentAcademicYear } = useAcademicYear(); // *** MODIFICATION: Get currentAcademicYear ***
+  const { user } = useAuth();
+  const { currentAcademicYear } = useAcademicYear();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<DashboardStats>({
     totalAssignments: 0,
     activeAssignments: 0,
-    leaveRequests: { total: 0, pending: 0, approved: 0 },
-    todayAttendance: { marked: false, classesCount: 0 }
+    leaveRequests: { total: 0, pending: 0, approved: 0 }
   });
   const [assignments, setAssignments] = useState<any[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
-  const [latestMessage, setLatestMessage] = useState<any>(null);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [classCounts, setClassCounts] = useState<ClassCount[]>([]);
+  const [attendanceTrend, setAttendanceTrend] = useState<any[]>([]);
   const [selectedAssignmentId, setSelectedAssignmentId] = useState<string | null>(null);
 
   useEffect(() => {
-    // *** MODIFICATION: Pass currentAcademicYear to fetchDashboardData ***
     if (currentAcademicYear) {
       fetchDashboardData(currentAcademicYear);
     }
-  }, [token, currentAcademicYear]); // *** MODIFICATION: Add currentAcademicYear to dependency array ***
+  }, [currentAcademicYear]);
 
-  // *** MODIFICATION: Accept academicYear as an argument ***
   const fetchDashboardData = async (academicYear: string) => {
     setLoading(true);
     try {
-      console.log(`📊 Fetching dashboard data for academic year: ${academicYear}`);
-
-      // *** MODIFICATION START ***
-      // Fetch assignments ses in the current academic year
-      // The backend (assignmentController) removes teacher-specific filtering for teachers
+      // Assignments
       let assignmentsData: any = { assignments: [] };
       let totalAssignments = 0;
       try {
-        // Fetch all assignments for the current year.
-        const assignmentsRes = await api.get(
-          `/assignments?limit=10&page=1&academicYear=${academicYear}`
-        );
+        const assignmentsRes = await api.get(`/assignments?limit=10&page=1&academicYear=${academicYear}`);
         assignmentsData = assignmentsRes.data;
-        console.log('✅ Assignments data:', assignmentsData);
-        
-        // Use total from response if available, otherwise array length
         totalAssignments = assignmentsData.total || (assignmentsData.assignments || []).length;
       } catch (error) {
         console.warn('⚠️ Assignments API failed:', error);
       }
-      // *** MODIFICATION END ***
 
-      // Fetch leave requests (specific to teacher)
-      let leaveData: any = { requests: [] };
+      // Leave requests
+      let leaveData: any = { data: { leaveRequests: [] } };
       try {
         const leaveRes = await api.get('/leave-requests/teacher/my-requests');
         leaveData = leaveRes.data;
-        console.log('✅ Leave requests data:', leaveData);
       } catch (error) {
         console.warn('⚠️ Leave requests API failed:', error);
       }
 
-      // Fetch latest message (teacher-specific endpoint)
-      let messagesData: any = { messages: [] };
+      // Messages
       try {
-        const messagesRes = await api.get('/messages/teacher/messages?limit=1');
-        messagesData = messagesRes.data;
-        console.log('✅ Messages data:', messagesData);
-
-        // Store the latest message in state
-        const messages = messagesData.messages || messagesData.data || [];
-        if (messages.length > 0) {
-          setLatestMessage(messages[0]);
-          console.log('✅ Latest message stored:', messages[0]);
-        }
+        const messagesRes = await api.get('/messages/teacher/messages?limit=5');
+        const messagesData = messagesRes.data;
+        setMessages(messagesData.messages || messagesData.data || []);
       } catch (error) {
         console.warn('⚠️ Messages API failed:', error);
       }
 
-      // Filter and validate in frontend only as a secondary check
-      const assignmentsArray = (assignmentsData.assignments || []).filter((assignment: any) => {
-        if (!assignment || typeof assignment !== 'object') return false;
-        
-        // Trust backend for academic year filtering if it was passed, 
-        // otherwise perform a loose check
-        if (!academicYear) return true;
-        
-        const assignmentAY = assignment.academicYear;
-        if (!assignmentAY) return true; // Show if year is missing (legacy)
+      // Class / student counts
+      try {
+        const classRes = await api.get('/users/stats/student-counts', { params: { academicYear } });
+        if (classRes.data?.success) {
+          setClassCounts(classRes.data.data || []);
+        }
+      } catch (error) {
+        console.warn('⚠️ Class counts API failed:', error);
+      }
 
-        // Robust matching for formats like "2024-25" vs "2024-2025"
-        const normalize = (ay: string) => ay.replace(/20(\d{2})$/, '$1'); // Normalize 2025 to 25
-        return normalize(assignmentAY) === normalize(academicYear) || 
-               assignmentAY.includes(academicYear) || 
-               academicYear.includes(assignmentAY);
-      });
+      // Weekly attendance trend (last 7 days, school-wide)
+      try {
+        const trendRes = await api.get('/attendance/daily-stats');
+        const dailyStats = trendRes.data?.dailyStats || [];
+        setAttendanceTrend(
+          dailyStats.map((d: any) => ({
+            day: new Date(d.date).toLocaleDateString('en-US', { weekday: 'short' }),
+            rate: d.attendanceRate || 0
+          }))
+        );
+      } catch (error) {
+        console.warn('⚠️ Attendance trend API failed:', error);
+      }
 
+      const assignmentsArray = (assignmentsData.assignments || []).filter((a: any) => a && typeof a === 'object');
       const leaveRequestsArray = leaveData.data?.leaveRequests || [];
+
       setAssignments(assignmentsArray.slice(0, 4));
       setLeaveRequests(leaveRequestsArray);
 
-      // totalAssignments was already calculated from the API response above
-
-      // Active assignments can still be calculated from the full list
       const activeAssignments = assignmentsArray.filter((a: any) => {
         const dueDate = new Date(a.dueDate);
         const today = new Date();
@@ -148,27 +130,14 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
         return dueDate >= today;
       }).length;
 
-      const totalLeaves = leaveRequestsArray.length;
-      const pendingLeaves = leaveRequestsArray.filter((l: any) => l.status === 'pending').length;
-      const approvedLeaves = leaveRequestsArray.filter((l: any) => l.status === 'approved').length;
-
-      console.log('📈 Calculated stats:', {
+      setStats({
         totalAssignments,
         activeAssignments,
-        totalLeaves,
-        pendingLeaves,
-        approvedLeaves
-      });
-
-      setStats({
-        totalAssignments, // This now reflects the new requirement
-        activeAssignments,
         leaveRequests: {
-          total: totalLeaves,
-          pending: pendingLeaves,
-          approved: approvedLeaves
-        },
-        todayAttendance: { marked: false, classesCount: 0 }
+          total: leaveRequestsArray.length,
+          pending: leaveRequestsArray.filter((l: any) => l.status === 'pending').length,
+          approved: leaveRequestsArray.filter((l: any) => l.status === 'approved').length
+        }
       });
     } catch (error) {
       console.error('❌ Error fetching dashboard data:', error);
@@ -177,328 +146,348 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
     }
   };
 
-  const statCards = [
-    {
-      name: 'Total Assignments',
-      value: stats.totalAssignments.toString(),
-      icon: BookOpen,
-      color: 'bg-blue-500',
-      change: `(All Classes, This Year)`, // *** MODIFICATION: Updated subtitle ***
-      onClick: () => onNavigate('assignments')
-    },
-    {
-      name: 'Leave Requests',
-      value: stats.leaveRequests.total.toString(),
-      icon: Calendar,
-      color: 'bg-green-500',
-      change: `${stats.leaveRequests.pending} pending`,
-      onClick: () => onNavigate('leave-request')
-    },
-    {
-      name: 'Approved Leaves',
-      value: stats.leaveRequests.approved.toString(),
-      icon: CheckCircle,
-      color: 'bg-emerald-500',
-      change: 'This year',
-      onClick: () => onNavigate('leave-request')
-    },
-    {
-      name: 'Attendance',
-      value: stats.todayAttendance.marked ? 'Marked' : 'Pending',
-      icon: UserCheck,
-      color: stats.todayAttendance.marked ? 'bg-green-500' : 'bg-orange-500',
-      change: 'Today',
-      onClick: () => onNavigate('attendance')
-    }
+  const totalStudents = classCounts.reduce((sum, c) => sum + (c.count || 0), 0);
+  const avgAttendance = attendanceTrend.length
+    ? Math.round(attendanceTrend.reduce((s, d) => s + d.rate, 0) / attendanceTrend.length)
+    : null;
+
+  const overviewCards = [
+    { label: 'Active Classes', sub: 'This Year', value: classCounts.length, icon: BookOpen, color: 'text-violet-600', bg: 'bg-violet-50' },
+    { label: 'Total Students', sub: 'Across Classes', value: totalStudents, icon: Users, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+    { label: 'Avg. Attendance', sub: 'Last 7 Days', value: avgAttendance !== null ? `${avgAttendance}%` : '—', icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+    { label: 'Pending Tasks', sub: 'To Review', value: stats.activeAssignments, icon: FileText, color: 'text-amber-600', bg: 'bg-amber-50' }
   ];
 
-  // Calculate days until next deadline
+  const quickActions = [
+    { label: 'Mark Attendance', icon: UserPlus, page: 'attendance', color: 'bg-violet-50 text-violet-700 border-violet-100' },
+    { label: 'Create Assignment', icon: ClipboardCheck, page: 'assignments', color: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+    { label: 'View Results', icon: BarChart3, page: 'view-results', color: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
+    { label: 'Send Message', icon: Send, page: 'messages', color: 'bg-amber-50 text-amber-700 border-amber-100' },
+    { label: 'Leave Request', icon: Calendar, page: 'leave-request', color: 'bg-rose-50 text-rose-700 border-rose-100' },
+    { label: 'My Classes', icon: GraduationCap, page: 'student-details', color: 'bg-sky-50 text-sky-700 border-sky-100' }
+  ];
+
   const getDeadlineStatus = (dueDate: string) => {
     const due = new Date(dueDate);
     const today = new Date();
-    const diffTime = due.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const diffDays = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
     if (diffDays < 0) return { text: 'Overdue', color: 'text-red-600', bgColor: 'bg-red-50' };
     if (diffDays === 0) return { text: 'Due Today', color: 'text-orange-600', bgColor: 'bg-orange-50' };
     if (diffDays === 1) return { text: 'Due Tomorrow', color: 'text-yellow-600', bgColor: 'bg-yellow-50' };
-    return { text: `${diffDays} days left`, color: 'text-blue-600', bgColor: 'bg-blue-50' };
+    return { text: `${diffDays} days left`, color: 'text-violet-600', bgColor: 'bg-violet-50' };
   };
+
+  const todayLabel = new Date().toLocaleDateString('en-US', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
 
   return (
     <div className="space-y-6">
       {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-xl p-6 text-white">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold mb-2">
-              Welcome back, {user?.name || 'Teacher'}!
-            </h1>
-            <p className="text-blue-100 mb-4 sm:mb-0">
-              {user?.userId && `ID: ${user.userId} • `}
-              {user?.schoolCode && `School: ${user.schoolCode}`}
-            </p>
-          </div>
-          <div className="flex items-center bg-white bg-opacity-20 rounded-lg px-4 py-2">
-            <Clock className="h-5 w-5 mr-2" />
-            <span className="font-medium">
-              {new Date().toLocaleDateString('en-US', {
-                weekday: 'long',
-                month: 'short',
-                day: 'numeric'
-              })}
-            </span>
-          </div>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+            Welcome back, {user?.name || 'Teacher'}! 👋
+          </h1>
+          <p className="text-gray-500 mt-1">Here's your class overview and tasks.</p>
+        </div>
+        <div className="flex items-center bg-white border border-gray-100 shadow-sm rounded-xl px-4 py-2.5">
+          <Clock className="h-4 w-4 mr-2 text-violet-600" />
+          <span className="text-sm font-medium text-gray-700">{todayLabel}</span>
         </div>
       </div>
 
-      {/* Academic Year Card */}
-      <AcademicYearCard />
-
-      {/* Stats Grid */}
-      {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 animate-pulse">
-              <div className="h-12 bg-gray-200 rounded mb-4"></div>
-              <div className="h-8 bg-gray-200 rounded mb-2"></div>
-              <div className="h-4 bg-gray-200 rounded"></div>
+      {/* Hero row: schedule/class snapshot + overview */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Class snapshot */}
+        <div className="lg:col-span-2 bg-gradient-to-br from-violet-600 to-indigo-700 rounded-2xl p-6 text-white relative overflow-hidden">
+          <div className="absolute -right-10 -top-10 w-40 h-40 rounded-full bg-white/10" />
+          <div className="absolute right-16 bottom-0 w-24 h-24 rounded-full bg-white/5" />
+          <div className="flex items-center justify-between mb-5 relative">
+            <div>
+              <h2 className="text-lg font-semibold">Your Classes</h2>
+              <p className="text-sm text-white/70">{currentAcademicYear || 'Current academic year'}</p>
             </div>
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {statCards.map((stat, index) => {
-            const Icon = stat.icon;
-            return (
-              <button
-                key={index}
-                onClick={stat.onClick}
-                className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200 hover:scale-105 text-left"
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <div className={`p-2 rounded-lg ${stat.color}`}>
-                    <Icon className="h-6 w-6 text-white" />
-                  </div>
-                </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-1">{stat.value}</h3>
-                <p className="text-sm font-medium text-gray-600 mb-1">{stat.name}</p>
-                <p className="text-xs text-gray-500">{stat.change}</p>
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Upcoming Assignment Deadlines */}
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-gray-900">Upcoming Deadlines</h2>
             <button
-              onClick={() => onNavigate('assignments')}
-              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+              onClick={() => onNavigate('student-details')}
+              className="text-sm bg-white/15 hover:bg-white/25 px-4 py-2 rounded-lg font-medium transition-colors"
             >
-              View All →
+              View All Classes
             </button>
           </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-            {assignments.length === 0 ? (
-              <div className="p-8 text-center">
-                <BookOpen className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-500 text-sm">No assignments yet</p>
-                <button
-                  onClick={() => onNavigate('assignments')}
-                  className="mt-3 text-sm text-blue-600 hover:text-blue-700 font-medium"
-                >
-                  Create your first assignment
-                </button>
-              </div>
-            ) : (
-              <div className="divide-y divide-gray-100">
-                {assignments.slice(0, 4).map((assignment: any, index: number) => {
-                  const deadline = getDeadlineStatus(assignment.dueDate);
-                  return (
-                    <div key={index} className="p-4 hover:bg-gray-50 transition-colors group">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <h4 className="font-medium text-gray-900 text-sm mb-1">
-                            {assignment.title}
-                          </h4>
-                          <div className="flex items-center space-x-3 text-xs text-gray-500">
-                            <span className="flex items-center">
-                              <BookOpen className="h-3 w-3 mr-1" />
-                              {assignment.subject}
-                            </span>
-                            <span className="flex items-center">
-                              <Users className="h-3 w-3 mr-1" />
-                              Class {assignment.class}-{assignment.section}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <button
-                            onClick={() => setSelectedAssignmentId(assignment._id)}
-                            className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
-                            title="View Assignment"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </button>
-                          <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-tight ${deadline.bgColor} ${deadline.color}`}>
-                            {deadline.text}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
 
-          {/* Recent Messages */}
-          <div className="mt-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-gray-900">Recent Messages</h2>
-              <button
-                onClick={() => onNavigate('messages')}
-                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-              >
-                View All →
-              </button>
+          {loading ? (
+            <div className="space-y-3 relative">
+              {[1, 2, 3].map((i) => <div key={i} className="h-14 bg-white/10 rounded-xl animate-pulse" />)}
             </div>
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-              {!latestMessage ? (
-                <div className="p-6 text-center">
-                  <MessageSquare className="h-10 w-10 text-gray-300 mx-auto mb-2" />
-                  <p className="text-gray-500 text-xs">No messages yet</p>
-                  <button
-                    onClick={() => onNavigate('messages')}
-                    className="mt-2 text-xs text-blue-600 hover:text-blue-700 font-medium"
-                  >
-                    Send a message
-                  </button>
-                </div>
-              ) : (
-                <div className="p-4 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => onNavigate('messages')}>
-                  <div className="flex items-start space-x-3">
-                    <div className="flex-shrink-0">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
-                        <span className="text-white font-semibold text-sm">
-                          {latestMessage.senderName?.charAt(0).toUpperCase() || 'U'}
-                        </span>
-                      </div>
+          ) : classCounts.length === 0 ? (
+            <div className="text-center py-8 relative">
+              <GraduationCap className="h-10 w-10 mx-auto mb-2 text-white/60" />
+              <p className="text-sm text-white/80">No classes assigned yet</p>
+            </div>
+          ) : (
+            <div className="space-y-2.5 relative">
+              {classCounts.slice(0, 3).map((c, idx) => (
+                <div key={idx} className="flex items-center justify-between bg-white/10 hover:bg-white/15 transition-colors rounded-xl px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-white/20 flex items-center justify-center font-semibold text-sm">
+                      {c.className}{c.section}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <p className="text-sm font-semibold text-gray-900 truncate">
-                          {latestMessage.senderName || 'Unknown Sender'}
-                        </p>
-                        <span className="text-xs text-gray-500">
-                          {new Date(latestMessage.createdAt).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </span>
-                      </div>
-                      <p className="text-sm font-medium text-gray-700 mb-1">
-                        {latestMessage.subject}
-                      </p>
-                      <p className="text-xs text-gray-500 line-clamp-2">
-                        {latestMessage.message}
-                      </p>
-                      {latestMessage.recipientType && (
-                        <span className="inline-block mt-2 px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded-full">
-                          To: {latestMessage.recipientType}
-                        </span>
-                      )}
+                    <div>
+                      <p className="text-sm font-medium">Class {c.className} - Section {c.section.toUpperCase()}</p>
+                      <p className="text-xs text-white/70">{c.count} students</p>
                     </div>
                   </div>
+                  <span className="text-xs bg-emerald-400/20 text-emerald-100 px-2 py-1 rounded-full font-medium">Active</span>
                 </div>
-              )}
+              ))}
             </div>
-          </div>
+          )}
         </div>
 
-        {/* Leave Status & Quick Info */}
-        <div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Leave Status</h2>
-          <div className="space-y-4">
-            {/* Pending Leaves */}
-            {stats.leaveRequests.pending > 0 && (
-              <div className="bg-yellow-50 rounded-xl p-4 border-2 border-yellow-200">
-                <div className="flex items-start space-x-3">
-                  <div className="p-2 rounded-lg bg-yellow-100">
-                    <Clock className="h-5 w-5 text-yellow-600" />
+        {/* Class Overview */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+          <h2 className="text-base font-semibold text-gray-900 mb-4">Class Overview</h2>
+          <div className="grid grid-cols-2 gap-4">
+            {overviewCards.map((card, idx) => {
+              const Icon = card.icon;
+              return (
+                <div key={idx} className="text-center">
+                  <div className={`w-11 h-11 mx-auto rounded-full ${card.bg} flex items-center justify-center mb-2`}>
+                    <Icon className={`h-5 w-5 ${card.color}`} />
                   </div>
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-yellow-900 text-sm">
-                      {stats.leaveRequests.pending} Pending Leave Request{stats.leaveRequests.pending > 1 ? 's' : ''}
-                    </h3>
-                    <p className="text-xs text-yellow-700 mt-1">
-                      Awaiting admin approval
-                    </p>
-                    <button
-                      onClick={() => onNavigate('leave-request')}
-                      className="mt-2 text-xs text-yellow-800 hover:text-yellow-900 font-medium"
-                    >
-                      View Details →
-                    </button>
-                  </div>
+                  <p className="text-xl font-bold text-gray-900">{loading ? '—' : card.value}</p>
+                  <p className="text-xs font-medium text-gray-600">{card.label}</p>
+                  <p className="text-[11px] text-gray-400">{card.sub}</p>
                 </div>
-              </div>
-            )}
-
-            {/* Recent Leave Requests */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-              <div className="p-4 border-b border-gray-100">
-                <h3 className="font-semibold text-gray-900 text-sm">Recent Leave Requests</h3>
-              </div>
-              {leaveRequests.length === 0 ? (
-                <div className="p-6 text-center">
-                  <Calendar className="h-10 w-10 text-gray-300 mx-auto mb-2" />
-                  <p className="text-gray-500 text-xs">No leave requests</p>
-                  <button
-                    onClick={() => onNavigate('leave-request')}
-                    className="mt-2 text-xs text-blue-600 hover:text-blue-700 font-medium"
-                  >
-                    Apply for leave
-                  </button>
-                </div>
-              ) : (
-                <div className="divide-y divide-gray-100">
-                  {leaveRequests.slice(0, 3).map((leave: any, index: number) => (
-                    <div key={index} className="p-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-gray-900">{leave.subjectLine}</p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            {new Date(leave.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(leave.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                            <span className="mx-1">•</span>
-                            {leave.numberOfDays} day{leave.numberOfDays > 1 ? 's' : ''}
-                          </p>
-                        </div>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${leave.status === 'approved' ? 'bg-green-100 text-green-700' :
-                          leave.status === 'rejected' ? 'bg-red-100 text-red-700' :
-                            'bg-yellow-100 text-yellow-700'
-                          }`}>
-                          {leave.status.charAt(0).toUpperCase() + leave.status.slice(1)}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+              );
+            })}
           </div>
         </div>
       </div>
-      
-      {/* Student Details Section - Added below the grid for better layout */}
-      <div className="mt-8 pt-8 border-t border-gray-100">
-        <StudentDetails />
+
+      {/* Middle row: attendance chart, tasks, announcements */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Attendance chart */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-base font-semibold text-gray-900">Attendance Overview</h2>
+            <span className="text-xs text-gray-400 font-medium">Last 7 Days</span>
+          </div>
+          <div className="h-56 -ml-4">
+            {attendanceTrend.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-sm text-gray-400">
+                No attendance data yet
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={attendanceTrend} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="attendanceFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#7c3aed" stopOpacity={0.35} />
+                      <stop offset="95%" stopColor="#7c3aed" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="day" tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                  <YAxis domain={[0, 100]} tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} />
+                  <Tooltip formatter={(value: any) => [`${value}%`, 'Attendance']} />
+                  <Area type="monotone" dataKey="rate" stroke="#7c3aed" strokeWidth={2.5} fill="url(#attendanceFill)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+
+        {/* Upcoming Tasks */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+          <div className="flex items-center justify-between p-6 pb-4">
+            <h2 className="text-base font-semibold text-gray-900">Upcoming Tasks</h2>
+            <button onClick={() => onNavigate('assignments')} className="text-sm text-violet-600 hover:text-violet-700 font-medium">
+              View All
+            </button>
+          </div>
+          {loading ? (
+            <div className="px-6 pb-6 space-y-3">
+              {[1, 2, 3].map(i => <div key={i} className="h-14 bg-gray-100 rounded-xl animate-pulse" />)}
+            </div>
+          ) : assignments.length === 0 ? (
+            <div className="p-6 pt-0 text-center">
+              <BookOpen className="h-10 w-10 text-gray-300 mx-auto mb-2" />
+              <p className="text-gray-500 text-sm">No tasks yet</p>
+              <button onClick={() => onNavigate('assignments')} className="mt-2 text-sm text-violet-600 hover:text-violet-700 font-medium">
+                Create your first assignment
+              </button>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {assignments.map((assignment: any, index: number) => {
+                const deadline = getDeadlineStatus(assignment.dueDate);
+                return (
+                  <div key={index} className="px-6 py-3 hover:bg-gray-50 transition-colors group cursor-pointer" onClick={() => setSelectedAssignmentId(assignment._id)}>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{assignment.title}</p>
+                        <p className="text-xs text-gray-500">
+                          {assignment.subject} · Class {assignment.class}-{assignment.section}
+                        </p>
+                      </div>
+                      <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase whitespace-nowrap ${deadline.bgColor} ${deadline.color}`}>
+                        {deadline.text}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Recent Messages */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+          <div className="flex items-center justify-between p-6 pb-4">
+            <h2 className="text-base font-semibold text-gray-900">Recent Messages</h2>
+            <button onClick={() => onNavigate('messages')} className="text-sm text-violet-600 hover:text-violet-700 font-medium">
+              View All
+            </button>
+          </div>
+          {messages.length === 0 ? (
+            <div className="p-6 pt-0 text-center">
+              <MessageSquare className="h-10 w-10 text-gray-300 mx-auto mb-2" />
+              <p className="text-gray-500 text-sm">No messages yet</p>
+              <button onClick={() => onNavigate('messages')} className="mt-2 text-sm text-violet-600 hover:text-violet-700 font-medium">
+                Send a message
+              </button>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {messages.slice(0, 3).map((m: any, idx: number) => (
+                <div key={idx} className="px-6 py-3 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => onNavigate('messages')}>
+                  <div className="flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center flex-shrink-0">
+                      <span className="text-white font-semibold text-xs">{m.senderName?.charAt(0).toUpperCase() || 'U'}</span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-gray-900 truncate">{m.subject || 'Message'}</p>
+                      <p className="text-xs text-gray-500 line-clamp-1">{m.message}</p>
+                      <p className="text-[11px] text-gray-400 mt-0.5">
+                        {m.createdAt ? new Date(m.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Bottom row: my classes, quick actions, leave status */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* My Classes table */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+          <div className="flex items-center justify-between p-6 pb-4">
+            <h2 className="text-base font-semibold text-gray-900">My Classes</h2>
+            <button onClick={() => onNavigate('student-details')} className="text-sm text-violet-600 hover:text-violet-700 font-medium">
+              View All
+            </button>
+          </div>
+          {classCounts.length === 0 ? (
+            <div className="p-6 pt-0 text-center text-sm text-gray-400">No classes to show</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-[11px] uppercase text-gray-400 border-b border-gray-100">
+                    <th className="px-6 py-2 font-medium">Class</th>
+                    <th className="px-6 py-2 font-medium">Section</th>
+                    <th className="px-6 py-2 font-medium">Students</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {classCounts.slice(0, 5).map((c, idx) => (
+                    <tr key={idx} className="hover:bg-gray-50 cursor-pointer" onClick={() => onNavigate('student-details')}>
+                      <td className="px-6 py-3 font-medium text-gray-900">Class {c.className}</td>
+                      <td className="px-6 py-3 text-gray-600">{c.section.toUpperCase()}</td>
+                      <td className="px-6 py-3 text-gray-600">{c.count}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Quick Actions */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+          <h2 className="text-base font-semibold text-gray-900 mb-4">Quick Actions</h2>
+          <div className="grid grid-cols-2 gap-3">
+            {quickActions.map((action, idx) => {
+              const Icon = action.icon;
+              return (
+                <button
+                  key={idx}
+                  onClick={() => onNavigate(action.page)}
+                  className={`flex flex-col items-center justify-center gap-2 py-4 rounded-xl border ${action.color} hover:opacity-80 transition-opacity`}
+                >
+                  <Icon className="h-5 w-5" />
+                  <span className="text-xs font-semibold text-center leading-tight">{action.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Leave Status */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+          <div className="p-6 pb-4 flex items-center justify-between">
+            <h2 className="text-base font-semibold text-gray-900">Leave Status</h2>
+            <button onClick={() => onNavigate('leave-request')} className="text-sm text-violet-600 hover:text-violet-700 font-medium">
+              View All
+            </button>
+          </div>
+
+          {stats.leaveRequests.pending > 0 && (
+            <div className="mx-6 mb-4 bg-amber-50 border border-amber-100 rounded-xl p-3 flex items-start gap-3">
+              <Clock className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-amber-900">
+                  {stats.leaveRequests.pending} Pending Request{stats.leaveRequests.pending > 1 ? 's' : ''}
+                </p>
+                <p className="text-xs text-amber-700">Awaiting admin approval</p>
+              </div>
+            </div>
+          )}
+
+          {leaveRequests.length === 0 ? (
+            <div className="p-6 pt-0 text-center">
+              <Calendar className="h-10 w-10 text-gray-300 mx-auto mb-2" />
+              <p className="text-gray-500 text-sm">No leave requests</p>
+              <button onClick={() => onNavigate('leave-request')} className="mt-2 text-sm text-violet-600 hover:text-violet-700 font-medium">
+                Apply for leave
+              </button>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {leaveRequests.slice(0, 3).map((leave: any, index: number) => (
+                <div key={index} className="px-6 py-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{leave.subjectLine}</p>
+                      <p className="text-xs text-gray-500">
+                        {new Date(leave.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(leave.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </p>
+                    </div>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${leave.status === 'approved' ? 'bg-green-100 text-green-700' :
+                        leave.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
+                      }`}>
+                      {leave.status.charAt(0).toUpperCase() + leave.status.slice(1)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Assignment View Modal */}

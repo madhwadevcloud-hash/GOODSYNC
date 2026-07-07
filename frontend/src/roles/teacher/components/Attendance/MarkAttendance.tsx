@@ -430,7 +430,7 @@ disabled={
                 setSelectedSection('');
                 setStudents([]);
               }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent"
             >
               <option value="">Select Class</option>
               {classList.map(cls => (
@@ -445,7 +445,7 @@ disabled={
               value={selectedSection}
               onChange={(e) => setSelectedSection(e.target.value)}
               disabled={!selectedClass}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
             >
               <option value="">Select Class First</option>
               {selectedClass && availableSections.map(section => (
@@ -463,7 +463,7 @@ disabled={
     disabled={selectedSession !== 'morning'}
     className={`flex-1 flex items-center justify-center px-3 py-2 rounded-lg border-2 transition-colors ${
       selectedSession === 'morning'
-        ? 'bg-blue-600 border-blue-600 text-white'
+        ? 'bg-violet-600 border-violet-600 text-white'
         : 'bg-white border-gray-300 text-gray-700'
     } ${
       getCurrentSession() !== 'morning'
@@ -480,7 +480,7 @@ disabled={
     disabled={selectedSession !== 'afternoon'}
     className={`flex-1 flex items-center justify-center px-3 py-2 rounded-lg border-2 transition-colors ${
       selectedSession === 'afternoon'
-        ? 'bg-blue-600 border-blue-600 text-white'
+        ? 'bg-violet-600 border-violet-600 text-white'
         : 'bg-white border-gray-300 text-gray-700'
     } ${
       getCurrentSession() !== 'afternoon'
@@ -498,7 +498,7 @@ disabled={
       </div>
 
   {/* Attendance Session Information */}
-<div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 text-sm flex flex-wrap items-center gap-4">
+<div className="bg-violet-50 border border-violet-200 rounded-lg px-4 py-2 text-sm flex flex-wrap items-center gap-4">
   <span><strong>Morning:</strong> 8:00 AM – 12:59 PM</span>
 
   <span
@@ -544,12 +544,12 @@ disabled={
 
       {/* Get Started Instructions */}
       {students.length === 0 && (
-        <div className="bg-blue-50 rounded-lg p-6 border border-blue-200">
+        <div className="bg-violet-50 rounded-lg p-6 border border-violet-200">
           <div className="flex items-start">
-            <UsersIcon className="h-6 w-6 text-blue-600 mr-3 mt-1" />
+            <UsersIcon className="h-6 w-6 text-violet-600 mr-3 mt-1" />
             <div>
-              <h3 className="text-lg font-semibold text-blue-900 mb-2">Get Started</h3>
-              <ol className="space-y-1 text-sm text-blue-800">
+              <h3 className="text-lg font-semibold text-violet-900 mb-2">Get Started</h3>
+              <ol className="space-y-1 text-sm text-violet-800">
                 <li>1. Select a date for attendance</li>
                 <li>2. Choose a class from the dropdown</li>
                 <li>3. Select a section to view students</li>
@@ -581,8 +581,8 @@ disabled={
               <div key={student._id} className="p-6 hover:bg-gray-50 transition-colors">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-4 sm:space-y-0">
                   <div className="flex items-center">
-                    <div className="flex-shrink-0 w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mr-4">
-                      <span className="text-base font-semibold text-blue-700">
+                    <div className="flex-shrink-0 w-12 h-12 bg-violet-100 rounded-full flex items-center justify-center mr-4">
+                      <span className="text-base font-semibold text-violet-700">
                         {(student.name?.firstName?.[0] || '') + (student.name?.lastName?.[0] || '')}
                       </span>
                     </div>
