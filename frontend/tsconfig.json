@@ -20,9 +20,7 @@
     "forceConsistentCasingInFileNames": true,
     "strict": false,
     "noImplicitAny": false,
-    "strictNullChecks": false,
-    "baseUrl": ".",
-    "paths": {}
+    "strictNullChecks": false
   },
   "include": [
     "src"

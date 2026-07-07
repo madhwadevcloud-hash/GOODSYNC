@@ -10,9 +10,8 @@ import {
   MessageSquare,
   LogOut,
 } from "lucide-react";
-
-import api from "../../../services/api";
 import { useAuth } from "../../../auth/AuthContext";
+import api from "../../../services/api";
 
 interface StudentProfile {
   grade?: string;
@@ -85,10 +84,7 @@ export default function Sidebar() {
       //-----------------------------
       // School Details
       //-----------------------------
-
-      const school =
-        schoolRes.data?.data ??
-        schoolRes.data;
+      const school = schoolRes.data?.data ?? schoolRes.data;
 
       setSchoolName(
         school.name ||
@@ -111,7 +107,6 @@ export default function Sidebar() {
       //-----------------------------
       // Unread Messages
       //-----------------------------
-
       const messages =
         messageRes.data?.data ||
         messageRes.data ||
@@ -130,22 +125,17 @@ export default function Sidebar() {
     }
   };
 
-  const handleLogout = () => {
-    logout();
-    navigate("/login");
+  const handleLogout = async () => {
+    await logout();
+    navigate("/login", { replace: true });
   };
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 bg-white border-r shadow-sm flex flex-col justify-between z-40">
-
       {/* Top */}
-
       <div>
-
         <div className="border-b p-5">
-
           <div className="flex items-center gap-3">
-
             {schoolLogo ? (
               <img
                 src={schoolLogo}
@@ -159,27 +149,18 @@ export default function Sidebar() {
             )}
 
             <div>
-
               <h2 className="font-bold text-gray-900">
                 {schoolId || "School ID"}
               </h2>
-
               <p className="text-xs text-gray-500">
                 {schoolName}
               </p>
-
             </div>
-
           </div>
-
         </div>
         
         {/* Navigation */}
-
-        {/* Navigation */}
-
         <nav className="p-4 space-y-2">
-
           {menu.map((item) => {
             const Icon = item.icon;
 
@@ -198,26 +179,21 @@ export default function Sidebar() {
                 }
               >
                 <div className="flex items-center gap-3">
-
                   <Icon size={18} />
-
                   <span>{item.title}</span>
-
                 </div>
 
-                {item.title === "Messages" &&
-                  unreadMessages > 0 && (
-                    <span className="flex items-center justify-center bg-blue-600 text-white text-xs rounded-full w-6 h-6 font-semibold">
-                      {unreadMessages}
-                    </span>
-                  )}
+                {item.title === "Messages" && unreadMessages > 0 && (
+                  <span className="flex items-center justify-center bg-blue-600 text-white text-xs rounded-full w-6 h-6 font-semibold">
+                    {unreadMessages}
+                  </span>
+                )}
               </NavLink>
             );
           })}
-
         </nav>
-
       </div>
+
       <div className="border-t border-gray-100 px-5 py-4">
         <p className="text-center text-xs text-gray-400">
           Powered by{" "}
@@ -228,9 +204,7 @@ export default function Sidebar() {
       </div>
       
       {/* Logout + Profile */}
-
       <div className="border-t p-4 space-y-2">
-
         <button
           onClick={handleLogout}
           className="w-full flex items-center gap-3 rounded-xl px-4 py-3 text-red-600 hover:bg-red-50 transition-all hover:scale-[1.02]"
@@ -240,7 +214,6 @@ export default function Sidebar() {
         </button>
 
         <div className="flex items-center min-w-0 rounded-xl bg-gray-50 px-2.5 py-2">
-
           <div className="w-10 h-10 rounded-full bg-green-100 text-green-700 font-semibold flex items-center justify-center mr-3 flex-shrink-0">
             {(user?.name ?? "S")
               .split(" ")
@@ -264,11 +237,8 @@ export default function Sidebar() {
                 : (user?.userId || user?.email || "Student")}
             </p>
           </div>
-
         </div>
-
       </div>
-
     </aside>
   );
 }
