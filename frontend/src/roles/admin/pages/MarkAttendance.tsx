@@ -36,13 +36,41 @@ const MarkAttendance: React.FC = () => {
   const [selectedClass, setSelectedClass] = useState('');
   const [selectedSection, setSelectedSection] = useState('');
   const [availableSections, setAvailableSections] = useState<any[]>([]);
-  const [session, setSession] = useState<'morning' | 'afternoon'>('morning');
+ const getCurrentSession = (): 'morning' | 'afternoon' => {
+  const hour = new Date().getHours();
+
+  if (hour >= 8 && hour < 13) {
+    return "morning";
+  }
+
+  return "afternoon";
+};
+
+const isAttendanceClosed = () => {
+  const hour = new Date().getHours();
+  return hour >= 19; // 7 PM onwards
+};
+
+const [session, setSession] = useState<'morning' | 'afternoon'>(getCurrentSession());
+useEffect(() => {
+  const updateSession = () => {
+    setSession(getCurrentSession());
+  };
+
+  updateSession();
+
+  const timer = setInterval(updateSession, 60000);
+
+  return () => clearInterval(timer);
+}, []);
   const [students, setStudents] = useState<Student[]>([]);
   const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [allClasses, setAllClasses] = useState(false);
+const [allSections, setAllSections] = useState(false);
 
   // Session status tracking
   const [sessionStatus, setSessionStatus] = useState<{
@@ -367,6 +395,11 @@ const MarkAttendance: React.FC = () => {
       setLoading(true);
       setError('');
       setSuccessMessage('');
+      if (isAttendanceClosed()) {
+  setError("Attendance is closed. You cannot mark attendance after 7:00 PM.");
+  setLoading(false);
+  return;
+}
 
       // Check if current session is frozen
       const currentSessionStatus = sessionStatus[session];
@@ -438,7 +471,7 @@ const MarkAttendance: React.FC = () => {
         <div className="flex space-x-3">
           <button
             onClick={markAllPresent}
-            disabled={sessionStatus[session].isFrozen}
+disabled={sessionStatus[session].isFrozen || isAttendanceClosed()}
             className={`bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center transition-colors ${sessionStatus[session].isFrozen ? 'opacity-50 cursor-not-allowed' : ''
               }`}
             title={sessionStatus[session].isFrozen ? 'Attendance is frozen and cannot be modified' : ''}
@@ -448,7 +481,7 @@ const MarkAttendance: React.FC = () => {
           </button>
           <button
             onClick={markAllAbsent}
-            disabled={sessionStatus[session].isFrozen}
+            disabled={sessionStatus[session].isFrozen || isAttendanceClosed()}
             className={`bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center transition-colors ${sessionStatus[session].isFrozen ? 'opacity-50 cursor-not-allowed' : ''
               }`}
             title={sessionStatus[session].isFrozen ? 'Attendance is frozen and cannot be modified' : ''}
@@ -458,8 +491,13 @@ const MarkAttendance: React.FC = () => {
           </button>
           <button
             onClick={handleSaveAttendance}
-            disabled={loading || !selectedClass || !selectedSection || sessionStatus[session].isFrozen}
-            className={`bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg flex items-center transition-colors ${sessionStatus[session].isFrozen ? 'opacity-50 cursor-not-allowed' : ''
+disabled={
+  loading ||
+  !selectedClass ||
+  !selectedSection ||
+  sessionStatus[session].isFrozen ||
+  isAttendanceClosed()
+}            className={`bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg flex items-center transition-colors ${sessionStatus[session].isFrozen ? 'opacity-50 cursor-not-allowed' : ''
               }`}
             title={sessionStatus[session].isFrozen ? 'Attendance is frozen and cannot be modified' : ''}
           >
@@ -482,6 +520,11 @@ const MarkAttendance: React.FC = () => {
           {error}
         </div>
       )}
+      {isAttendanceClosed() && (
+  <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+    Attendance is closed. Attendance can only be marked until 7:00 PM.
+  </div>
+)}
 
       {/* Academic Year Selector */}
       {isViewingHistoricalYear && (
@@ -498,10 +541,15 @@ const MarkAttendance: React.FC = () => {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Academic Year</label>
             <select
-              value={viewingAcademicYear}
-              onChange={(e) => setViewingYear(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
+  value={viewingAcademicYear}
+  onChange={(e) => setViewingYear(e.target.value)}
+  disabled={user?.role !== 'superadmin'}
+  className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+    user?.role !== 'superadmin'
+      ? 'bg-gray-100 cursor-not-allowed'
+      : ''
+  }`}
+>
               {availableYears.map((year) => (
                 <option key={year} value={year}>
                   {year} {year === currentAcademicYear && '(Current)'}
@@ -515,11 +563,13 @@ const MarkAttendance: React.FC = () => {
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="pl-10 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
+  type="date"
+  value={selectedDate}
+  min={new Date().toISOString().split('T')[0]}
+  max={new Date().toISOString().split('T')[0]}
+  onChange={(e) => setSelectedDate(e.target.value)}
+  className="pl-10 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+/>
             </div>
           </div>
 
@@ -560,12 +610,16 @@ const MarkAttendance: React.FC = () => {
             <label className="block text-sm font-medium text-gray-700 mb-2">Session</label>
             <div className="flex rounded-lg border border-gray-300">
               <button
-                type="button"
-                onClick={() => setSession('morning')}
-                className={`flex-1 py-2 px-3 text-sm font-medium rounded-l-lg flex items-center justify-center relative ${session === 'morning'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-50'
-                  } ${sessionStatus.morning.isFrozen ? 'opacity-75' : ''}`}
+    type="button"
+    disabled={session !== 'morning'}
+                className={`flex-1 py-2 px-3 text-sm font-medium rounded-r-lg flex items-center justify-center relative
+${
+  isAttendanceClosed()
+    ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+    : session === 'afternoon'
+    ? 'bg-blue-600 text-white'
+    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+}`}
               >
                 <Sun className="h-4 w-4 mr-1" />
                 Morning
@@ -576,12 +630,14 @@ const MarkAttendance: React.FC = () => {
                 )}
               </button>
               <button
-                type="button"
-                onClick={() => setSession('afternoon')}
-                className={`flex-1 py-2 px-3 text-sm font-medium rounded-r-lg flex items-center justify-center relative ${session === 'afternoon'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-50'
-                  } ${sessionStatus.afternoon.isFrozen ? 'opacity-75' : ''}`}
+    type="button"
+    disabled={session !== 'afternoon'}
+                className={`flex-1 py-2 px-3 text-sm font-medium rounded-r-lg flex items-center justify-center relative
+${
+  session === 'afternoon'
+    ? 'bg-blue-600 text-white'
+    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+}`}
               >
                 <Moon className="h-4 w-4 mr-1" />
                 Afternoon
@@ -612,8 +668,10 @@ const MarkAttendance: React.FC = () => {
                   <div className="flex items-center text-blue-600">
                     <AlertCircle className="h-4 w-4 mr-1" />
                     <span>
-                      {session.charAt(0).toUpperCase() + session.slice(1)} attendance can be marked
-                    </span>
+  {isAttendanceClosed()
+    ? "Attendance is closed for today."
+    : `${session.charAt(0).toUpperCase() + session.slice(1)} attendance can be marked`}
+</span>
                   </div>
                 )}
               </div>
@@ -621,9 +679,36 @@ const MarkAttendance: React.FC = () => {
           </div>
         </div>
       </div>
+<div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 text-sm flex flex-wrap items-center gap-4">
+  <span><strong> Morning:</strong> 8:00 AM–12:59 PM</span>
+
+  <span className={session === "morning" ? "text-green-600 font-medium" : "text-gray-500"}>
+    {session === "morning" ? "● Active" : "● Completed"}
+  </span>
+
+  <span>|</span>
+
+  <span><strong> Afternoon:</strong> 1:00 PM–7:00 PM</span>
+
+  <span
+  className={
+    isAttendanceClosed()
+      ? "text-red-600 font-medium"
+      : session === "afternoon"
+      ? "text-green-600 font-medium"
+      : "text-orange-600"
+  }
+>
+  {isAttendanceClosed()
+    ? "● Closed"
+    : session === "afternoon"
+    ? "● Active"
+    : "● Starts at 1:00 PM"}
+</span>
+</div>
 
       {/* Search */}
-      {selectedClass && selectedSection && (
+      {selectedClass && selectedSection && !isAttendanceClosed() && (
         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
           <div className="relative max-w-md">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -639,7 +724,7 @@ const MarkAttendance: React.FC = () => {
       )}
 
       {/* Summary Cards */}
-      {selectedClass && selectedSection && (
+      {selectedClass && selectedSection && !isAttendanceClosed() && (
         <div className="grid grid-cols-3 gap-4">
           <div className="bg-white p-4 rounded-lg shadow-sm border">
             <div className="flex items-center justify-between">
@@ -672,7 +757,8 @@ const MarkAttendance: React.FC = () => {
       )}
 
       {/* Students List */}
-      {selectedClass && selectedSection && (
+    
+{selectedClass && selectedSection && !isAttendanceClosed() && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200">
           <div className="p-6">
             <div className="flex items-center justify-between mb-4">
@@ -712,7 +798,7 @@ const MarkAttendance: React.FC = () => {
                     <div className="flex items-center space-x-2">
                       <button
                         onClick={() => updateStudentStatus(student._id, 'present')}
-                        disabled={sessionStatus[session].isFrozen}
+                      disabled={sessionStatus[session].isFrozen || isAttendanceClosed()}
                         className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors flex items-center space-x-1 ${getCurrentStatus(student) === 'present'
                           ? 'bg-green-100 text-green-800 border-green-200'
                           : 'bg-white text-gray-700 border-gray-300 hover:bg-green-50'
@@ -724,7 +810,7 @@ const MarkAttendance: React.FC = () => {
                       </button>
                       <button
                         onClick={() => updateStudentStatus(student._id, 'absent')}
-                        disabled={sessionStatus[session].isFrozen}
+                      disabled={sessionStatus[session].isFrozen || isAttendanceClosed()}
                         className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors flex items-center space-x-1 ${getCurrentStatus(student) === 'absent'
                           ? 'bg-red-100 text-red-800 border-red-200'
                           : 'bg-white text-gray-700 border-gray-300 hover:bg-red-50'

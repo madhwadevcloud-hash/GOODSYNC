@@ -14,8 +14,8 @@ const LeaveRequestManagement: React.FC<LeaveRequestManagementProps> = ({ onNavig
     <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
       {/* Header */}
       <div className="flex items-center space-x-2 sm:space-x-3">
-        <div className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 bg-blue-100 rounded-lg">
-          <FileText className="h-4 w-4 sm:h-6 sm:w-6 text-blue-600" />
+        <div className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 bg-violet-100 rounded-lg">
+          <FileText className="h-4 w-4 sm:h-6 sm:w-6 text-violet-600" />
         </div>
         <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">Leave Request Management</h1>
       </div>
@@ -28,7 +28,7 @@ const LeaveRequestManagement: React.FC<LeaveRequestManagementProps> = ({ onNavig
               onClick={() => setActiveTab('request')}
               className={`flex items-center justify-center sm:justify-start space-x-2 py-3 sm:py-4 border-b-2 transition-colors w-full sm:w-auto ${
                 activeTab === 'request'
-                  ? 'border-blue-600 text-blue-600'
+                  ? 'border-violet-600 text-violet-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
@@ -39,7 +39,7 @@ const LeaveRequestManagement: React.FC<LeaveRequestManagementProps> = ({ onNavig
               onClick={() => setActiveTab('view')}
               className={`flex items-center justify-center sm:justify-start space-x-2 py-3 sm:py-4 border-b-2 transition-colors w-full sm:w-auto ${
                 activeTab === 'view'
-                  ? 'border-blue-600 text-blue-600'
+                  ? 'border-violet-600 text-violet-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >

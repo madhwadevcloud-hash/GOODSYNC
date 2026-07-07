@@ -95,7 +95,7 @@ const SchoolSettings: React.FC = () => {
         
         <button
           onClick={handleSaveSettings}
-          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors mt-4 sm:mt-0"
+          className="flex items-center px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors mt-4 sm:mt-0"
         >
           <Save className="h-4 w-4 mr-2" />
           Save Settings
@@ -105,7 +105,7 @@ const SchoolSettings: React.FC = () => {
       {/* Notification Settings */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <div className="flex items-center mb-6">
-          <Bell className="h-5 w-5 text-blue-600 mr-2" />
+          <Bell className="h-5 w-5 text-violet-600 mr-2" />
           <h2 className="text-lg font-semibold text-gray-900">Notification Preferences</h2>
         </div>
 
@@ -131,7 +131,7 @@ const SchoolSettings: React.FC = () => {
                   onChange={(e) => handleNotificationChange(key, e.target.checked)}
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-violet-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-violet-600"></div>
               </label>
             </div>
           ))}
@@ -153,7 +153,7 @@ const SchoolSettings: React.FC = () => {
             <select
               value={settings.classPreferences.defaultAttendanceView}
               onChange={(e) => handleClassPreferenceChange('defaultAttendanceView', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent"
             >
               <option value="daily">Daily View</option>
               <option value="weekly">Weekly View</option>
@@ -183,7 +183,7 @@ const SchoolSettings: React.FC = () => {
                       onChange={(e) => handleClassPreferenceChange(key, e.target.checked)}
                       className="sr-only peer"
                     />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-violet-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-violet-600"></div>
                   </label>
                 </div>
             ))}
@@ -209,7 +209,7 @@ const SchoolSettings: React.FC = () => {
               max="100"
               value={settings.examSettings.defaultPassingGrade}
               onChange={(e) => handleExamSettingChange('defaultPassingGrade', parseInt(e.target.value))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent"
             />
           </div>
 
@@ -220,7 +220,7 @@ const SchoolSettings: React.FC = () => {
             <select
               value={settings.examSettings.gradeScale}
               onChange={(e) => handleExamSettingChange('gradeScale', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent"
             >
               <option value="percentage">Percentage</option>
               <option value="gpa">GPA (4.0 Scale)</option>
@@ -249,7 +249,7 @@ const SchoolSettings: React.FC = () => {
                       onChange={(e) => handleExamSettingChange(key, e.target.checked)}
                       className="sr-only peer"
                     />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-violet-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-violet-600"></div>
                   </label>
                 </div>
             ))}
@@ -280,7 +280,7 @@ const SchoolSettings: React.FC = () => {
                     max="100"
                     value={settings.subjectSettings[subject as keyof typeof settings.subjectSettings]?.theoryMarks || 80}
                     onChange={(e) => handleSubjectSettingChange(subject, 'theoryMarks', parseInt(e.target.value))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent"
                   />
                 </div>
 
@@ -294,7 +294,7 @@ const SchoolSettings: React.FC = () => {
                     max="100"
                     value={settings.subjectSettings[subject as keyof typeof settings.subjectSettings]?.practicalMarks || 20}
                     onChange={(e) => handleSubjectSettingChange(subject, 'practicalMarks', parseInt(e.target.value))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent"
                   />
                 </div>
 
@@ -304,7 +304,7 @@ const SchoolSettings: React.FC = () => {
                       type="checkbox"
                       checked={settings.subjectSettings[subject as keyof typeof settings.subjectSettings]?.enableLab || false}
                       onChange={(e) => handleSubjectSettingChange(subject, 'enableLab', e.target.checked)}
-                      className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      className="mr-2 h-4 w-4 text-violet-600 focus:ring-violet-500 border-gray-300 rounded"
                     />
                     <span className="text-sm font-medium text-gray-900">Enable Lab</span>
                   </label>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { motion } from 'framer-motion';
 import {
   Search, Plus, Edit, Trash2, Download, Upload, Filter, X,
   UserCheck, UserX, Eye, EyeOff, Lock, Unlock, Building, // Added Eye, EyeOff, X
@@ -430,14 +431,14 @@ const ManageUsers: React.FC = () => {
     return `${year}-${month}-${day}`;
   };
 
-  const { 
-    currentAcademicYear, 
-    viewingAcademicYear, 
-    isViewingHistoricalYear, 
-    setViewingYear, 
-    availableYears, 
+  const {
+    currentAcademicYear,
+    viewingAcademicYear,
+    isViewingHistoricalYear,
+    setViewingYear,
+    availableYears,
     loading: academicYearLoading,
-    ready: academicYearReady 
+    ready: academicYearReady
   } = useAcademicYear();
   // Use the school classes hook to get dynamic data
   const {
@@ -1347,28 +1348,10 @@ const ManageUsers: React.FC = () => {
 
   // --- ADD TOGGLE FUNCTION ---
   const togglePasswordVisibility = (userId: string, userName: string) => {
-    try {
-      console.log(`Toggling visibility for user: ${userId}, Current state: ${!!passwordVisibility[userId]}`);
-      const isCurrentlyVisible = passwordVisibility[userId];
-
-      if (isCurrentlyVisible) {
-        console.log(`Hiding password for ${userId}`);
-        setPasswordVisibility(prev => {
-          const newState = { ...prev, [userId]: false };
-          console.log("New visibility state (hiding):", newState);
-          return newState;
-        });
-      } else {
-        console.log(`Requesting admin password to show password for ${userId} (${userName})`);
-        setSelectedTeacherId(userId);
-        setSelectedTeacherName(userName);
-        setPasswordModalType('single');
-        setShowPasswordModal(true);
-      }
-    } catch (error) {
-      console.error('Error in togglePasswordVisibility:', error);
-      toast.error('Failed to toggle password visibility');
-    }
+    setPasswordVisibility(prev => ({
+      ...prev,
+      [userId]: !prev[userId]
+    }));
   };
 
   // Handle showing/hiding all teacher passwords
@@ -1412,7 +1395,7 @@ const ManageUsers: React.FC = () => {
         return;
       }
 
-      const schoolCode = user?.schoolCode || school?.code || 'SB';
+      const schoolCode = user?.schoolCode || localStorage.getItem('erp.schoolCode') || '';
       console.log('Verifying admin password with school code:', schoolCode);
       console.log('Token available:', !!token);
 
@@ -1435,6 +1418,13 @@ const ManageUsers: React.FC = () => {
           return;
         }
 
+        // Update the users list with the fetched password
+        setUsers(prevUsers => prevUsers.map(u =>
+          (u.userId === selectedTeacherId || u._id === selectedTeacherId)
+            ? { ...u, temporaryPassword: teacherData.temporaryPassword }
+            : u
+        ));
+
         // Show single password
         setPasswordVisibility(prev => ({
           ...prev,
@@ -1455,10 +1445,20 @@ const ManageUsers: React.FC = () => {
         }
 
         setAllTeacherPasswords(response.data || []);
+
+        // Update the users list with all fetched passwords
+        setUsers(prevUsers => prevUsers.map(u => {
+          const fetchedTeacher = teachersWithPasswords.find((t: any) => t.userId === u.userId || t._id === u._id);
+          if (fetchedTeacher) {
+            return { ...u, temporaryPassword: fetchedTeacher.temporaryPassword };
+          }
+          return u;
+        }));
+
         const visibilityState: Record<string, boolean> = {};
         (response.data || []).forEach((teacher: any) => {
           if (teacher.temporaryPassword) {
-            visibilityState[teacher.userId] = true;
+            visibilityState[teacher.userId || teacher._id] = true;
           }
         });
         setPasswordVisibility(visibilityState);
@@ -2042,7 +2042,7 @@ const ManageUsers: React.FC = () => {
       // Use the same token retrieval method as Dashboard
       const authData = localStorage.getItem('erp.auth');
       const token = authData ? JSON.parse(authData).token : null;
-      const schoolCode = user?.schoolCode || localStorage.getItem('erp.schoolCode') || 'R'; // Use context schoolCode, then storage, fallback to 'R'
+      const schoolCode = user?.schoolCode || localStorage.getItem('erp.schoolCode') || ''; // Use context schoolCode, then storage, fallback to 'R'
 
       if (!token) {
         console.error('❌ No token found!');
@@ -2090,8 +2090,8 @@ const ManageUsers: React.FC = () => {
             const processedUser: any = {
               _id: userData._id || userData.userId,
               userId: userData.userId,
-              name: userData.name?.displayName || 
-                userData.displayName || 
+              name: userData.name?.displayName ||
+                userData.displayName ||
                 (userData.name?.firstName ? `${userData.name.firstName} ${userData.name.lastName || ''}`.trim() : null) ||
                 (userData.firstName ? `${userData.firstName} ${userData.lastName || ''}`.trim() : null) ||
                 userData.studentNameEnglish?.displayName ||
@@ -2171,8 +2171,8 @@ const ManageUsers: React.FC = () => {
                 const processedUser: any = {
                   _id: userData._id || userData.userId,
                   userId: userData.userId, // Add the userId field
-                  name: userData.name?.displayName || 
-                    userData.displayName || 
+                  name: userData.name?.displayName ||
+                    userData.displayName ||
                     (userData.name?.firstName ? `${userData.name.firstName} ${userData.name.lastName || ''}`.trim() : null) ||
                     (userData.firstName ? `${userData.firstName} ${userData.lastName || ''}`.trim() : null) ||
                     userData.studentNameEnglish?.displayName ||
@@ -2344,7 +2344,7 @@ const ManageUsers: React.FC = () => {
       // This ensures we catch any users that might not be in the current filtered list
       const authData = localStorage.getItem('erp.auth');
       const token = authData ? JSON.parse(authData).token : null;
-      const schoolCode = user?.schoolCode || 'P';
+      const schoolCode = user?.schoolCode || localStorage.getItem('erp.schoolCode') || '';
 
       if (token) {
         try {
@@ -2360,13 +2360,13 @@ const ManageUsers: React.FC = () => {
               return {
                 exists: true,
                 role: emailConflict.role,
-                name: emailConflict.name?.displayName || 
-                       emailConflict.displayName ||
-                       (emailConflict.name?.firstName ? `${emailConflict.name.firstName} ${emailConflict.name.lastName || ''}`.trim() : null) ||
-                       (emailConflict.firstName ? `${emailConflict.firstName} ${emailConflict.lastName || ''}`.trim() : null) ||
-                       emailConflict.studentNameEnglish?.displayName ||
-                       (emailConflict.studentNameEnglish?.firstName ? `${emailConflict.studentNameEnglish.firstName} ${emailConflict.studentNameEnglish.lastName || ''}`.trim() : null) ||
-                       'Unknown'
+                name: emailConflict.name?.displayName ||
+                  emailConflict.displayName ||
+                  (emailConflict.name?.firstName ? `${emailConflict.name.firstName} ${emailConflict.name.lastName || ''}`.trim() : null) ||
+                  (emailConflict.firstName ? `${emailConflict.firstName} ${emailConflict.lastName || ''}`.trim() : null) ||
+                  emailConflict.studentNameEnglish?.displayName ||
+                  (emailConflict.studentNameEnglish?.firstName ? `${emailConflict.studentNameEnglish.firstName} ${emailConflict.studentNameEnglish.lastName || ''}`.trim() : null) ||
+                  'Unknown'
               };
             }
           }
@@ -2413,7 +2413,7 @@ const ManageUsers: React.FC = () => {
       // Use the same token retrieval method as Dashboard
       const authData = localStorage.getItem('erp.auth');
       const token = authData ? JSON.parse(authData).token : null;
-      const schoolCode = user?.schoolCode || localStorage.getItem('erp.schoolCode') || 'R';
+      const schoolCode = user?.schoolCode || localStorage.getItem('erp.schoolCode') || '';
 
       if (!token) {
         toast.error('Authentication required');
@@ -3661,7 +3661,7 @@ const ManageUsers: React.FC = () => {
       // Use the same token retrieval method as Dashboard
       const authData = localStorage.getItem('erp.auth');
       const token = authData ? JSON.parse(authData).token : null;
-      const schoolCode = user?.schoolCode || 'P';
+      const schoolCode = user?.schoolCode || localStorage.getItem('erp.schoolCode') || '';
 
       if (!token) {
         toast.error('Authentication required');
@@ -3952,7 +3952,7 @@ const ManageUsers: React.FC = () => {
     try {
       const authData = localStorage.getItem('erp.auth');
       const token = authData ? JSON.parse(authData).token : null;
-      const schoolCode = user?.schoolCode || 'P';
+      const schoolCode = user?.schoolCode || localStorage.getItem('erp.schoolCode') || '';
 
       if (!token) {
         toast.error('Authentication required');
@@ -3983,7 +3983,7 @@ const ManageUsers: React.FC = () => {
       console.log('Starting delete process...');
       const authData = localStorage.getItem('erp.auth');
       const token = authData ? JSON.parse(authData).token : null;
-      const schoolCode = user?.schoolCode || 'P';
+      const schoolCode = user?.schoolCode || localStorage.getItem('erp.schoolCode') || '';
 
       console.log('Delete request details:', { schoolCode, userId, hasToken: !!token });
 
@@ -4014,7 +4014,7 @@ const ManageUsers: React.FC = () => {
         return;
       }
 
-      const schoolCode = user?.schoolCode || school?.code || 'SB';
+      const schoolCode = user?.schoolCode || localStorage.getItem('erp.schoolCode') || '';
 
       const response = await schoolUserAPI.resetPassword(schoolCode, userId, token);
 
@@ -4079,7 +4079,7 @@ const ManageUsers: React.FC = () => {
         return;
       }
 
-      const schoolCode = user?.schoolCode || school?.code || 'SB';
+      const schoolCode = user?.schoolCode || localStorage.getItem('erp.schoolCode') || '';
 
       console.log('Calling changePassword API with:', { schoolCode, userId: selectedUserForPasswordChange.userId });
 
@@ -4114,9 +4114,9 @@ const ManageUsers: React.FC = () => {
     const getUserNameString = (nameObj: any) => {
       if (!nameObj) return '';
       if (typeof nameObj === 'string') return nameObj;
-      return nameObj.displayName || 
-             (nameObj.firstName ? `${nameObj.firstName} ${nameObj.lastName || ''}`.trim() : '') || 
-             '';
+      return nameObj.displayName ||
+        (nameObj.firstName ? `${nameObj.firstName} ${nameObj.lastName || ''}`.trim() : '') ||
+        '';
     };
     const userName = getUserNameString(user.name).toLowerCase();
     const userEmail = (user.email || '').toLowerCase();
@@ -4194,7 +4194,7 @@ const ManageUsers: React.FC = () => {
       // If classes are identical, sort alphabetically by section
       const sectionA = String(a.studentDetails?.currentSection || (a.studentDetails as any)?.section || (a as any).academicInfo?.section || '').trim().toUpperCase();
       const sectionB = String(b.studentDetails?.currentSection || (b.studentDetails as any)?.section || (b as any).academicInfo?.section || '').trim().toUpperCase();
-      
+
       const secComp = sectionA.localeCompare(sectionB);
       if (secComp !== 0) return secComp;
 
@@ -4424,7 +4424,7 @@ const ManageUsers: React.FC = () => {
 
   const exportUsers = async () => {
     try {
-      const schoolCode = user?.schoolCode || 'P';
+      const schoolCode = user?.schoolCode || localStorage.getItem('erp.schoolCode') || '';
       const response = await exportImportAPI.exportUsers(schoolCode, {
         role: activeTab,
         format: 'csv'
@@ -4453,7 +4453,7 @@ const ManageUsers: React.FC = () => {
   // CSV Template Generation Functions
   const generateTemplate = async (role: 'student' | 'teacher' | 'admin') => {
     try {
-      const schoolCode = user?.schoolCode || 'P';
+      const schoolCode = user?.schoolCode || localStorage.getItem('erp.schoolCode') || '';
       const response = await exportImportAPI.generateTemplate(schoolCode, role);
 
       // Create blob and download
@@ -5376,7 +5376,7 @@ const ManageUsers: React.FC = () => {
     }, 800);
 
     try {
-      const schoolCode = user?.schoolCode || 'SB';
+      const schoolCode = user?.schoolCode || localStorage.getItem('erp.schoolCode') || '';
       console.log('Starting import for school:', schoolCode);
 
       const response = await exportImportAPI.importUsers(schoolCode, importFile);
@@ -5485,7 +5485,7 @@ const ManageUsers: React.FC = () => {
 
         try {
           // Generate user ID and password
-          const schoolCode = user?.schoolCode || 'P';
+          const schoolCode = user?.schoolCode || localStorage.getItem('erp.schoolCode') || '';
           const userId = await generateUserId(activeTab, schoolCode);
 
           // Use DOB as password (format: DDMMYYYY)
@@ -5930,7 +5930,7 @@ const ManageUsers: React.FC = () => {
           // Create user via API
           const authData = localStorage.getItem('erp.auth');
           const token = authData ? JSON.parse(authData).token : '';
-          const userSchoolCode = user?.schoolCode || 'NPS';
+          const userSchoolCode = user?.schoolCode || localStorage.getItem('erp.schoolCode') || '';
           const response = await schoolUserAPI.addUser(userSchoolCode, userData, token);
 
           successResults.push({
@@ -6118,7 +6118,7 @@ const ManageUsers: React.FC = () => {
           {renderErrorDetails && (
             <div className="bg-gray-100 p-4 rounded text-left mb-4 overflow-auto max-h-40 text-xs text-red-800 font-mono">
               {renderErrorDetails.message}
-              <br/>
+              <br />
               {renderErrorDetails.stack?.split('\n').map((line, i) => <div key={i}>{line}</div>)}
             </div>
           )}
@@ -6138,8 +6138,17 @@ const ManageUsers: React.FC = () => {
   }
 
   try {
-    return (
-      <div className="space-y-6">
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1, transition: { staggerChildren: 0.1 } }
+  };
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
+  };
+
+  return (
+    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
         {/* Academic Year Warning */}
         {isViewingHistoricalYear && activeTab === 'student' && (
           <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-4">
@@ -6149,94 +6158,105 @@ const ManageUsers: React.FC = () => {
           </div>
         )}
 
-        {/* Header */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex justify-between items-center mb-4">
-            <div className="flex items-center space-x-3">
-              <Building className="h-8 w-8 text-blue-600" />
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Manage Users</h1>
-                <p className="text-gray-600">Add, edit, and manage system users</p>
-              </div>
-            </div>
-            {school && (
-              <div className="flex items-center space-x-3">
-                {school.logoUrl && (
-                  <img src={school.logoUrl} alt={school.name} className="h-12 w-12 rounded-lg object-cover" />
-                )}
-                <div className="text-right">
-                  <h3 className="font-semibold text-gray-900">{school.name}</h3>
-                  <p className="text-sm text-gray-500">School Code: {school.code}</p>
+        {/* Header & Tabs - Sticky */}
+        <div className="sticky top-[72px] z-20 flex flex-col gap-6 pt-4 pb-2 -mt-4 bg-[#f8fafc]">
+          <motion.div variants={itemVariants} className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sm:p-8 relative overflow-hidden mx-2 sm:mx-0">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50 rounded-full blur-3xl opacity-60 -mr-20 -mt-20 pointer-events-none"></div>
+            <div className="flex justify-between items-center relative z-10">
+              <div className="flex items-center space-x-4">
+                <div className="bg-indigo-600 p-3 rounded-xl flex items-center justify-center shadow-sm">
+                  <Users className="h-7 w-7 text-white" strokeWidth={2} />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Manage Users</h1>
+                  <p className="text-sm font-medium text-slate-500 mt-1">Add, edit, and manage system users seamlessly</p>
                 </div>
               </div>
-            )}
-          </div>
+              {school && (
+                <div className="flex items-center space-x-3">
+                  {school.logoUrl && (
+                    <img src={school.logoUrl} alt={school.name} className="h-12 w-12 rounded-lg object-cover" />
+                  )}
+                  <div className="text-right hidden sm:block">
+                    <h3 className="font-semibold text-gray-900">{school.name}</h3>
+                    <p className="text-sm text-gray-500">School Code: {school.code}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </motion.div>
 
           {/* Role Tabs */}
-          <div className="border-b border-gray-200 mb-6">
-            <nav className="-mb-px flex space-x-8">
+          <div className="bg-slate-100/80 p-1.5 rounded-2xl mx-2 sm:mx-0 overflow-x-auto custom-scrollbar border border-slate-200/60 inline-flex w-max max-w-full">
+            <nav className="flex space-x-1 min-w-max">
               <button
                 onClick={() => {
                   console.log('🔄 Switching to Student tab');
                   setActiveTab('student');
-                  // If modal is open, update the role immediately
-                  if (showAddModal) {
-                    handleRoleChange('student');
-                  }
+                  if (showAddModal) handleRoleChange('student');
                 }}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'student'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                className={`flex items-center justify-center space-x-2 py-2.5 px-6 rounded-xl font-semibold text-sm transition-all duration-300 whitespace-nowrap ${activeTab === 'student'
+                  ? 'bg-white text-indigo-600 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
                   }`}
               >
-                Students ({users.filter(u => u.role === 'student').length})
+                <GraduationCap className="h-4 w-4" strokeWidth={activeTab === 'student' ? 3 : 2} />
+                <span>Students</span>
+                <span className={`ml-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide transition-colors ${activeTab === 'student' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200 text-slate-500 group-hover:bg-slate-300'}`}>
+                  {users.filter(u => u.role === 'student').length}
+                </span>
               </button>
               <button
                 onClick={() => {
                   console.log('🔄 Switching to Teacher tab');
                   setActiveTab('teacher');
-                  // If modal is open, update the role immediately
-                  if (showAddModal) {
-                    handleRoleChange('teacher');
-                  }
+                  if (showAddModal) handleRoleChange('teacher');
                 }}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'teacher'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                className={`flex items-center justify-center space-x-2 py-2.5 px-6 rounded-xl font-semibold text-sm transition-all duration-300 whitespace-nowrap ${activeTab === 'teacher'
+                  ? 'bg-white text-indigo-600 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
                   }`}
               >
-                Teachers ({users.filter(u => u.role === 'teacher').length})
+                <UserCheck className="h-4 w-4" strokeWidth={activeTab === 'teacher' ? 3 : 2} />
+                <span>Teachers</span>
+                <span className={`ml-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide transition-colors ${activeTab === 'teacher' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200 text-slate-500 group-hover:bg-slate-300'}`}>
+                  {users.filter(u => u.role === 'teacher').length}
+                </span>
               </button>
               <button
                 onClick={() => {
                   console.log('🔄 Switching to Admin tab');
                   setActiveTab('admin');
-                  // If modal is open, update the role immediately
-                  if (showAddModal) {
-                    handleRoleChange('admin');
-                  }
+                  if (showAddModal) handleRoleChange('admin');
                 }}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'admin'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                className={`flex items-center justify-center space-x-2 py-2.5 px-6 rounded-xl font-semibold text-sm transition-all duration-300 whitespace-nowrap ${activeTab === 'admin'
+                  ? 'bg-white text-indigo-600 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
                   }`}
               >
-                Admins ({users.filter(u => u.role === 'admin').length})
+                <Shield className="h-4 w-4" strokeWidth={activeTab === 'admin' ? 3 : 2} />
+                <span>Admins</span>
+                <span className={`ml-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide transition-colors ${activeTab === 'admin' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200 text-slate-500 group-hover:bg-slate-300'}`}>
+                  {users.filter(u => u.role === 'admin').length}
+                </span>
               </button>
             </nav>
           </div>
+        </div>
 
           {/* Controls */}
           <div className="flex flex-col md:flex-row gap-4 items-center justify-between mb-4">
-            <div className="flex flex-col md:flex-row gap-4 flex-1">
-              <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+            <div className="flex flex-col md:flex-row gap-4 flex-1 w-full">
+              <div className="relative flex-1 max-w-md group">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Search className="h-5 w-5 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+                </div>
                 <input
                   type="text"
                   placeholder="Search by name, email, or ID..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="block w-full pl-11 pr-4 py-2.5 bg-slate-50 border-transparent rounded-xl text-sm transition-all outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 placeholder:text-slate-400 font-medium text-slate-900"
                 />
               </div>
               {activeTab === 'student' && (
@@ -6244,9 +6264,11 @@ const ManageUsers: React.FC = () => {
                   <div className="flex items-center space-x-2">
                     <Filter className="h-5 w-5 text-gray-400" />
                     <select
+                      disabled={true}
+                      title="only super admin have the access to use this"
                       value={viewingAcademicYear}
                       onChange={(e) => setViewingYear(e.target.value)}
-                      className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-100 cursor-not-allowed"
                     >
                       {availableYears.map((year) => (
                         <option key={year} value={year}>
@@ -6287,21 +6309,21 @@ const ManageUsers: React.FC = () => {
                   </div>
 
                   {/* View Mode Toggle */}
-                  <div className="flex items-center space-x-2 bg-gray-100 rounded-lg p-1">
+                  <div className="flex items-center space-x-1.5 bg-slate-100/80 rounded-xl p-1.5">
                     <button
                       onClick={() => setViewMode('table')}
-                      className={`px-3 py-1 rounded text-sm font-medium transition-colors ${viewMode === 'table'
-                        ? 'bg-white text-blue-600 shadow-sm'
-                        : 'text-gray-600 hover:text-gray-800'
+                      className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all duration-200 ${viewMode === 'table'
+                        ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/50'
+                        : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
                         }`}
                     >
                       Table View
                     </button>
                     <button
                       onClick={() => setViewMode('hierarchy')}
-                      className={`px-3 py-1 rounded text-sm font-medium transition-colors ${viewMode === 'hierarchy'
-                        ? 'bg-white text-blue-600 shadow-sm'
-                        : 'text-gray-600 hover:text-gray-800'
+                      className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all duration-200 ${viewMode === 'hierarchy'
+                        ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/50'
+                        : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
                         }`}
                     >
                       Class View
@@ -6318,10 +6340,10 @@ const ManageUsers: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <div className="flex space-x-2">
+              <div className="flex flex-wrap items-center gap-3">
                 <button
                   onClick={exportUsers}
-                  className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  className="flex items-center space-x-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 hover:text-indigo-600 hover:border-indigo-200 transition-all font-semibold text-sm shadow-sm"
                 >
                   <Upload className="h-4 w-4" />
                   <span>Export</span>
@@ -6336,14 +6358,14 @@ const ManageUsers: React.FC = () => {
                       toast.error('Failed to open import dialog');
                     }
                   }}
-                  className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  className="flex items-center space-x-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 hover:text-indigo-600 hover:border-indigo-200 transition-all font-semibold text-sm shadow-sm"
                 >
                   <Download className="h-4 w-4" />
                   <span>Import</span>
                 </button>
                 <button
                   onClick={() => generateTemplate(activeTab)}
-                  className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  className="flex items-center space-x-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 hover:text-indigo-600 hover:border-indigo-200 transition-all font-semibold text-sm shadow-sm"
                   title={`Download ${activeTab} import template`}
                 >
                   <FileText className="h-4 w-4" />
@@ -6352,20 +6374,20 @@ const ManageUsers: React.FC = () => {
                 {activeTab === 'teacher' && (
                   <button
                     onClick={handleShowAllPasswords}
-                    className={`flex items-center space-x-2 px-4 py-2 border rounded-lg ${allPasswordsVisible
-                      ? 'border-gray-300 bg-gray-50 text-gray-700 hover:bg-gray-100'
-                      : 'border-purple-300 bg-purple-50 text-purple-700 hover:bg-purple-100'
+                    className={`flex items-center space-x-2 px-4 py-2.5 border rounded-xl font-semibold text-sm transition-all shadow-sm ${allPasswordsVisible
+                      ? 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
+                      : 'border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 hover:border-violet-300'
                       }`}
                     title={allPasswordsVisible ? "Hide all teacher passwords" : "Show all teacher passwords (requires admin password)"}
                   >
                     {allPasswordsVisible ? (
                       <>
-                        <EyeOff className="h-4 w-4" />
+                        <EyeOff className="h-4 w-4 stroke-2" />
                         <span>Hide All Passwords</span>
                       </>
                     ) : (
                       <>
-                        <Eye className="h-4 w-4" />
+                        <Eye className="h-4 w-4 stroke-2" />
                         <span>Show All Passwords</span>
                       </>
                     )}
@@ -6380,7 +6402,7 @@ const ManageUsers: React.FC = () => {
                       role: activeTab
                     }));
                     // Generate credentials automatically
-                    const schoolCode = user?.schoolCode || 'P';
+                    const schoolCode = user?.schoolCode || localStorage.getItem('erp.schoolCode') || '';
                     const userId = await generateUserId(activeTab, schoolCode);
                     // For students, don't generate password until DOB is entered
                     const password = activeTab === 'student' ? '' : generatePassword();
@@ -6390,18 +6412,18 @@ const ManageUsers: React.FC = () => {
                       generatedPassword: password
                     }));
                   }}
-                  className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  className="flex items-center space-x-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all font-semibold text-sm shadow-md hover:shadow-lg hover:-translate-y-0.5"
                 >
-                  <Plus className="h-4 w-4" />
+                  <Plus className="h-4 w-4 stroke-[3]" />
                   <span>Add {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</span>
                 </button>
               </div>
             )}
           </div>
-        </div>
+
 
         {/* Users Display */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <motion.div variants={itemVariants} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
           {activeTab === 'student' && viewMode === 'hierarchy' ? (
             /* Hierarchical Student View */
             <div className="p-6">
@@ -6454,8 +6476,8 @@ const ManageUsers: React.FC = () => {
                                       <div className="flex-shrink-0">
                                         <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
                                           <span className="text-sm font-medium text-blue-600">
-                                            {(student.name as any)?.displayName?.charAt(0) || 
-                                              (student.name as any)?.firstName?.charAt(0) || 
+                                            {(student.name as any)?.displayName?.charAt(0) ||
+                                              (student.name as any)?.firstName?.charAt(0) ||
                                               (student as any).studentNameEnglish?.displayName?.charAt(0) ||
                                               (student as any).studentNameEnglish?.firstName?.charAt(0) || 'U'}
                                           </span>
@@ -6463,7 +6485,7 @@ const ManageUsers: React.FC = () => {
                                       </div>
                                       <div className="flex-1 min-w-0">
                                         <div className="text-sm font-medium text-gray-900 break-words">
-                                          {(student.name as any)?.displayName || 
+                                          {(student.name as any)?.displayName ||
                                             (student as any).displayName ||
                                             ((student.name as any)?.firstName ? `${(student.name as any).firstName} ${(student.name as any).lastName || ''}`.trim() : null) ||
                                             ((student as any).firstName ? `${(student as any).firstName} ${(student as any).lastName || ''}`.trim() : null) ||
@@ -6485,8 +6507,8 @@ const ManageUsers: React.FC = () => {
                                         ) : (
                                           <UserX className="h-4 w-4 text-red-500 mr-1" />
                                         )}
-                                        <span className={`text-sm ${student.isActive ? 'text-green-700' : 'text-red-700'}`}>
-                                          {student.isActive ? 'Active' : 'Inactive'}
+                                        <span className={`text-sm ${student.isActive ? `text-green-700` : `text-red-700`}`}>
+                                          {student.isActive ? `Active` : `Inactive`}
                                         </span>
                                       </div>
                                       <div className="flex space-x-1">
@@ -6521,40 +6543,40 @@ const ManageUsers: React.FC = () => {
             </div>
           ) : (
             /* Table View */
-            <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-320px)] border border-gray-200 shadow sm:rounded-lg" style={{ scrollBehavior: 'smooth' }}>
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50 sticky top-0 z-10 shadow-[0_1px_2px_rgba(0,0,0,0.1)]">
+            <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-320px)] border border-slate-100 shadow-sm sm:rounded-2xl custom-scrollbar" style={{ scrollBehavior: 'smooth' }}>
+              <table className="min-w-full divide-y divide-slate-100">
+                <thead className="bg-slate-50/80 backdrop-blur-md sticky top-0 z-10 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Photo</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                    <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">Photo</th>
+                    <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">User</th>
+                    <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">Contact</th>
                     {activeTab === 'student' && (
                       <>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Class</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Section</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student ID</th>
+                        <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">Class</th>
+                        <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">Section</th>
+                        <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">Student ID</th>
                       </>
                     )}
                     {activeTab === 'teacher' && (
                       <>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee ID</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Password</th>
-                        {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Experience</th> */}
+                        <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">Employee ID</th>
+                        <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">Password</th>
+                        {/* <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">Experience</th> */}
                       </>
                     )}
                     {activeTab === 'admin' && (
                       <>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee ID</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Access Level</th>
+                        <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">Employee ID</th>
+                        <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">Department</th>
+                        <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">Access Level</th>
                       </>
                     )}
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">Status</th>
+                    <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">Created</th>
+                    <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white divide-y divide-slate-50">
                   {loading ? (
                     <tr>
                       <td colSpan={activeTab === 'student' ? 8 : activeTab === 'teacher' ? 8 : 8} className="px-6 py-4 text-center text-gray-500">Loading users...</td>
@@ -6579,7 +6601,7 @@ const ManageUsers: React.FC = () => {
                       const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase() || 'U';
 
                       return (
-                        <tr key={user._id} className="hover:bg-gray-50">
+                        <tr key={user._id} className="hover:bg-slate-50/80 transition-colors">
                           {/* Photo Column */}
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex-shrink-0 h-10 w-10">
@@ -6588,20 +6610,20 @@ const ManageUsers: React.FC = () => {
                                   src={fullPhotoUrl}
                                   // alt={`${(user as any).name?.displayName || 'User'} photo`}
                                   alt={`${fullPhotoUrl}`}
-                                  className="h-10 w-10 rounded-full object-cover border border-gray-200"
+                                  className="h-10 w-10 rounded-full object-cover shadow-sm border border-slate-200/50"
                                   onError={(e) => {
                                     // Fallback to initials if image fails to load
                                     const target = e.target as HTMLImageElement;
                                     target.style.display = 'none';
                                     const parent = target.parentElement;
                                     if (parent) {
-                                      parent.innerHTML = `<div class="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center"><span class="text-sm font-medium text-blue-700">${initials}</span></div>`;
+                                      parent.innerHTML = `<div class="h-10 w-10 rounded-full bg-indigo-50 flex items-center justify-center shadow-inner border border-indigo-100/50"><span class="text-sm font-bold text-indigo-600">${initials}</span></div>`;
                                     }
                                   }}
                                 />
                               ) : (
-                                <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                                  <span className="text-sm font-medium text-blue-700">{initials}</span>
+                                <div className="h-10 w-10 rounded-full bg-indigo-50 flex items-center justify-center shadow-inner border border-indigo-100/50">
+                                  <span className="text-sm font-bold text-indigo-600">{initials}</span>
                                 </div>
                               )}
                             </div>
@@ -6653,7 +6675,7 @@ const ManageUsers: React.FC = () => {
                                     <>
                                       {/* Display Password with Show/Hide */}
                                       <span className="flex-grow font-mono text-xs text-gray-700">
-                                        {passwordVisibility[user.userId]
+                                        {passwordVisibility[user.userId || user._id]
                                           ? (user as any).temporaryPassword
                                           : '********'
                                         }
@@ -6662,13 +6684,13 @@ const ManageUsers: React.FC = () => {
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          togglePasswordVisibility(user.userId, (user as any).name?.displayName || 'this user');
+                                          togglePasswordVisibility(user.userId || user._id, (user as any).name?.displayName || 'this user');
                                         }}
                                         className="text-gray-400 hover:text-gray-600 p-0.5 rounded hover:bg-gray-100 flex-shrink-0"
-                                        title={passwordVisibility[user.userId] ? "Hide password" : "Show password (requires admin password)"}
+                                        title={passwordVisibility[user.userId || user._id] ? "Hide password" : "Show password (requires admin password)"}
                                         type="button"
                                       >
-                                        {passwordVisibility[user.userId] ? <EyeOff size={14} /> : <Eye size={14} />}
+                                        {passwordVisibility[user.userId || user._id] ? <EyeOff size={14} /> : <Eye size={14} />}
                                       </button>
                                     </>
                                   ) : (
@@ -6754,7 +6776,7 @@ const ManageUsers: React.FC = () => {
               </table>
             </div>
           )}
-        </div>
+        </motion.div>
 
         {/* Add User Modal */}
         {showAddModal && (
@@ -10144,9 +10166,9 @@ const ManageUsers: React.FC = () => {
                         return str;
                       };
                       const hasMismatch = importedYear && viewingAcademicYear && normalizeYearStr(importedYear) !== normalizeYearStr(viewingAcademicYear);
-                      
+
                       if (!hasMismatch && !importResults.skippedSummary?.alreadyExistsCount) return null;
-                      
+
                       return (
                         <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 animate-in fade-in slide-in-from-top-2 duration-500">
                           <div className="flex gap-3">
@@ -10158,7 +10180,7 @@ const ManageUsers: React.FC = () => {
                               <div className="mt-1 text-sm text-blue-800 space-y-2">
                                 {hasMismatch && (
                                   <p>
-                                    Students were imported for <strong>{importedYear}</strong>, but you are currently viewing <strong>{viewingAcademicYear}</strong>. 
+                                    Students were imported for <strong>{importedYear}</strong>, but you are currently viewing <strong>{viewingAcademicYear}</strong>.
                                     Switch the academic year filter in the dashboard to see them.
                                   </p>
                                 )}
@@ -10168,7 +10190,7 @@ const ManageUsers: React.FC = () => {
                                   </p>
                                 ) : null}
                               </div>
-                              <button 
+                              <button
                                 onClick={() => {
                                   if (importedYear) setViewingYear(importedYear);
                                   setSelectedGrade('all');
@@ -10205,7 +10227,7 @@ const ManageUsers: React.FC = () => {
                         {importResults.success.length > 0 && (importResults.skipped?.length > 0 || importResults.errors.length > 0) && ' · '}
                         {importResults.skipped?.length > 0 && (
                           <span className="text-amber-600 font-medium">
-                            {importResults.skipped.length} skipped 
+                            {importResults.skipped.length} skipped
                             {importResults.skippedSummary?.alreadyExistsCount ? ` (${importResults.skippedSummary.alreadyExistsCount} already existed)` : ''}
                           </span>
                         )}
@@ -10254,7 +10276,7 @@ const ManageUsers: React.FC = () => {
                         <h4 className="font-medium text-amber-900 mb-2">
                           ⚠️ Skipped Records ({importResults.skipped.length})
                         </h4>
-                        
+
                         {importResults.skippedSummary?.alreadyExistsCount ? (
                           <div className="mb-3 p-2 bg-white/50 rounded border border-amber-100 text-xs text-amber-800">
                             <strong>Note:</strong> {importResults.skippedSummary.alreadyExistsCount} students already existed in the system and were skipped to avoid duplicates.
@@ -10263,7 +10285,7 @@ const ManageUsers: React.FC = () => {
 
                         {(importResults.skipped.length > (importResults.skippedSummary?.alreadyExistsCount || 0)) && (
                           <p className="text-xs text-amber-700 mb-3">
-                            Some students were skipped because their class or section has not been created by the SuperAdmin. 
+                            Some students were skipped because their class or section has not been created by the SuperAdmin.
                             Create the missing classes/sections and re-import to include them.
                           </p>
                         )}
@@ -10608,7 +10630,7 @@ const ManageUsers: React.FC = () => {
             </div>
           </div>
         )}
-      </div>
+      </motion.div>
     );
   } catch (error) {
     console.error('Render error in ManageUsers:', error);

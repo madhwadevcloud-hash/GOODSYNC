@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { BookOpen, Users, FileText, Search, Calendar, Clock, MapPin, CreditCard, Download, ChevronDown, ChevronRight, Plus, Trash2, RectangleHorizontal, RectangleVertical } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useSchoolClasses } from '../../../hooks/useSchoolClasses';
@@ -57,6 +58,8 @@ interface Student {
   email?: string;
   admissionNumber?: string;
   academicYear?: string | number;
+  studentDetails?: any;
+  family?: any;
 }
 
 interface HallTicketData {
@@ -92,7 +95,8 @@ const AcademicDetails: React.FC = () => {
   } = useSchoolClasses(academicYearReady ? getAcademicYearToUse(viewingAcademicYear, currentAcademicYear) : undefined);
 
   // Tab management
-  const [activeTab, setActiveTab] = useState('subjects');
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState(location.state?.tab || 'subjects');
 
   // State management for Class Subjects
   const [classSubjects, setClassSubjects] = useState<ClassSubjects[]>([]);
@@ -144,8 +148,27 @@ const AcademicDetails: React.FC = () => {
     }
   ];
 
+  const idCardThemes: { id: 'modern' | 'classic' | 'minimalist', name: string, description: string }[] = [
+    {
+      id: 'modern',
+      name: 'Modern',
+      description: 'Solid school colors with sleek curves'
+    },
+    {
+      id: 'classic',
+      name: 'Classic',
+      description: 'Traditional solid header and structured grid'
+    },
+    {
+      id: 'minimalist',
+      name: 'Minimalist',
+      description: 'Clean whitespace with elegant typography'
+    }
+  ];
+
   // ID Card Generation State
   const [selectedOrientation, setSelectedOrientation] = useState('');
+  const [selectedTheme, setSelectedTheme] = useState<'modern' | 'classic' | 'minimalist'>('modern');
   const [idCardPreview, setIdCardPreview] = useState<any>(null);
   const [generatingCards, setGeneratingCards] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
@@ -445,8 +468,8 @@ const AcademicDetails: React.FC = () => {
     if (!hallTicketClass || !hallTicketSection) return;
 
     setLoadingSubjects(true);
-    setSubjectExams([]); 
-    
+    setSubjectExams([]);
+
     try {
       const schoolCode = (localStorage.getItem('erp.schoolCode') || user?.schoolCode || '').toUpperCase();
       const academicYearToUse = normalizeAcademicYear(viewingAcademicYear || currentAcademicYear || getDynamicFallbackYear());
@@ -459,7 +482,7 @@ const AcademicDetails: React.FC = () => {
           params: { academicYear: academicYearToUse },
           headers: { 'x-school-code': schoolCode }
         });
-        
+
         if (response.data?.success && response.data?.data?.classes) {
           const classData = response.data.data.classes.find((c: any) => {
             const matchClass = String(c.className).trim() === String(hallTicketClass).trim();
@@ -493,7 +516,7 @@ const AcademicDetails: React.FC = () => {
 
       // If we reach here, no subjects were found
       toast.error(`No subjects found for Class ${hallTicketClass} Section ${hallTicketSection} in ${academicYearToUse}. Please add subjects first.`);
-      
+
     } catch (error) {
       console.error('Error in fetchSubjects:', error);
       toast.error('Failed to fetch subjects');
@@ -505,7 +528,7 @@ const AcademicDetails: React.FC = () => {
   // Helper to process subjects list and fetch students
   const processSubjectsList = async (subjects: any[], source: string) => {
     const activeSubjects = subjects.filter((s: any) => s.isActive !== false);
-    
+
     if (activeSubjects.length === 0) {
       toast.error(`All subjects for this class are marked as inactive (${source}).`);
       return;
@@ -579,6 +602,36 @@ const AcademicDetails: React.FC = () => {
             return `${baseUrl}${rawImageUrl}`;
           }
           return rawImageUrl;
+        })(),
+        dateOfBirth: (() => {
+          const dob = student.studentDetails?.personal?.dateOfBirth;
+          if (dob) {
+            const date = new Date(dob);
+            return date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+          }
+          return undefined;
+        })(),
+        bloodGroup: student.studentDetails?.personal?.bloodGroup,
+        fatherName: student.studentDetails?.family?.father?.name,
+        motherName: student.studentDetails?.family?.mother?.name,
+        address: (() => {
+          let parts: string[] = [];
+          if (student.address?.permanent) {
+             const p = student.address.permanent;
+             parts = [p.street, p.area, p.city, p.state, p.pincode].filter(Boolean);
+          } else if (student.address?.current) {
+             const c = student.address.current;
+             parts = [c.street, c.area, c.city, c.state, c.pincode].filter(Boolean);
+          } else if (student.address && typeof student.address === 'object') {
+             parts = [student.address.street, student.address.area, student.address.city, student.address.state, student.address.pincode].filter(Boolean);
+          }
+          
+          if (parts.length > 0) return parts.join(', ');
+
+          if (typeof student.address === 'string' && student.address.trim() !== '') return student.address;
+          if (typeof student.personalDetails?.address === 'string') return student.personalDetails.address;
+          
+          return undefined;
         })()
       });
 
@@ -613,7 +666,7 @@ const AcademicDetails: React.FC = () => {
 
         const classMatch = String(studentClass).trim() === String(targetClass).trim();
         const sectionMatch = String(studentSection).trim().toUpperCase() === String(targetSection).trim().toUpperCase();
-        
+
         const normalizedStudentYear = normalizeAcademicYear(String(studentAcademicYear).trim());
         const normalizedTargetYear = normalizeAcademicYear(String(targetAcademicYear || academicYearToUse).trim());
         const academicYearMatch = normalizedStudentYear === normalizedTargetYear;
@@ -732,11 +785,35 @@ const AcademicDetails: React.FC = () => {
         className: idCardClass,
         section: idCardSection,
         profileImage: student.profileImage || student.profilePicture || null,
-        fatherName: student.parentDetails?.fatherName || student.fatherName || student.parent?.father?.name || 'Not Available',
-        motherName: student.parentDetails?.motherName || student.motherName || student.parent?.mother?.name || 'Not Available',
-        dateOfBirth: student.personalDetails?.dateOfBirth || student.dateOfBirth || student.dob || student.personal?.dateOfBirth || 'Not Available',
-        bloodGroup: student.personalDetails?.bloodGroup || student.bloodGroup || student.personal?.bloodGroup || student.medicalInfo?.bloodGroup || 'Not Available',
-        address: student.address?.permanent?.street || student.address?.street || student.personalDetails?.address || student.address || 'Not Available',
+        fatherName: student.studentDetails?.family?.father?.name || student.family?.father?.name || student.parentDetails?.fatherName || student.fatherName || student.parent?.father?.name || 'Not Available',
+        motherName: student.studentDetails?.family?.mother?.name || student.family?.mother?.name || student.parentDetails?.motherName || student.motherName || student.parent?.mother?.name || 'Not Available',
+        dateOfBirth: (() => {
+          const dob = student.studentDetails?.personal?.dateOfBirth || student.personalDetails?.dateOfBirth || student.dateOfBirth || student.dob || student.personal?.dateOfBirth;
+          if (dob) {
+            return new Date(dob).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+          }
+          return 'Not Available';
+        })(),
+        bloodGroup: student.studentDetails?.personal?.bloodGroup || student.personalDetails?.bloodGroup || student.bloodGroup || student.personal?.bloodGroup || student.medicalInfo?.bloodGroup || 'Not Available',
+        address: (() => {
+          let parts: string[] = [];
+          if (student.address?.permanent) {
+             const p = student.address.permanent;
+             parts = [p.street, p.area, p.city, p.state, p.pincode].filter(Boolean);
+          } else if (student.address?.current) {
+             const c = student.address.current;
+             parts = [c.street, c.area, c.city, c.state, c.pincode].filter(Boolean);
+          } else if (student.address && typeof student.address === 'object') {
+             parts = [student.address.street, student.address.area, student.address.city, student.address.state, student.address.pincode].filter(Boolean);
+          }
+          
+          if (parts.length > 0) return parts.join(', ');
+
+          if (typeof student.address === 'string' && student.address.trim() !== '') return student.address;
+          if (typeof student.personalDetails?.address === 'string') return student.personalDetails.address;
+          
+          return 'Not Available';
+        })(),
         phone: student.contact?.primaryPhone || student.contact?.phone || student.phone || student.personalDetails?.phone || 'Not Available'
       });
 
@@ -1460,7 +1537,8 @@ const AcademicDetails: React.FC = () => {
               student: student,
               templateId: selectedOrientation as 'landscape' | 'portrait',
               side: 'front',
-              mode: 'print'
+              mode: 'print',
+              theme: selectedTheme
             })
           );
 
@@ -1471,7 +1549,8 @@ const AcademicDetails: React.FC = () => {
               student: student,
               templateId: selectedOrientation as 'landscape' | 'portrait',
               side: 'back',
-              mode: 'print'
+              mode: 'print',
+              theme: selectedTheme
             })
           );
 
@@ -1555,8 +1634,8 @@ const AcademicDetails: React.FC = () => {
           profileImage: student.profileImage,
           dateOfBirth: student.dateOfBirth,
           bloodGroup: student.bloodGroup,
-          fatherName: student.fatherName,
-          motherName: student.motherName,
+          fatherName: student.studentDetails?.family?.father?.name || student.family?.father?.name || student.fatherName,
+          motherName: student.studentDetails?.family?.mother?.name || student.family?.mother?.name || student.motherName,
           address: student.address,
           phone: student.phone,
           email: student.email
@@ -1564,65 +1643,68 @@ const AcademicDetails: React.FC = () => {
         onClose={() => setShowPreview(false)}
         initialOrientation={selectedOrientation as 'landscape' | 'portrait'}
         lockOrientation={true}
+        theme={selectedTheme}
       />
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-5xl mx-auto">
+    <div className="space-y-6 relative">
+      <div className="sticky top-[72px] z-20 flex flex-col gap-6 pt-4 pb-2 -mt-4 bg-[#f8fafc]">
         {/* Header */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <div className="flex items-center gap-3 mb-4">
-            <BookOpen className="h-6 w-6 text-blue-600" />
-            <h1 className="text-2xl font-bold text-gray-800">Academic Management</h1>
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sm:p-8 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50 rounded-full blur-3xl opacity-60 -mr-20 -mt-20 pointer-events-none"></div>
+          <div className="flex items-center justify-between relative z-10">
+            <div className="flex items-center space-x-4">
+              <div className="bg-indigo-600 p-3 rounded-xl flex items-center justify-center shadow-sm">
+                <BookOpen className="h-7 w-7 text-white" strokeWidth={2} />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Academic Management</h1>
+                <p className="text-sm font-medium text-slate-500 mt-1">Manage subjects and generate hall tickets for your school</p>
+              </div>
+            </div>
           </div>
-          <p className="text-gray-600">Manage subjects and generate hall tickets for your school</p>
         </div>
 
         {/* Tab Navigation */}
-        <div className="bg-white rounded-lg shadow-md mb-6">
-          <div className="border-b border-gray-200">
-            <nav className="flex space-x-8 px-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="p-6">
+            <nav className="inline-flex bg-slate-100/80 p-1.5 rounded-2xl w-full sm:w-auto overflow-x-auto custom-scrollbar">
               <button
                 onClick={() => setActiveTab('subjects')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'subjects'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                className={`flex items-center justify-center space-x-2 py-2.5 px-6 rounded-xl font-semibold text-sm transition-all duration-200 whitespace-nowrap ${activeTab === 'subjects'
+                  ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/50'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
                   }`}
               >
-                <div className="flex items-center gap-2">
-                  <BookOpen className="h-4 w-4" />
-                  Class Subjects Management
-                </div>
+                <BookOpen className="h-4 w-4" />
+                <span>Class Subjects Management</span>
               </button>
               <button
                 onClick={() => setActiveTab('hallticket')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'hallticket'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                className={`flex items-center justify-center space-x-2 py-2.5 px-6 rounded-xl font-semibold text-sm transition-all duration-200 whitespace-nowrap ${activeTab === 'hallticket'
+                  ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/50'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
                   }`}
               >
-                <div className="flex items-center gap-2">
-                  <FileText className="h-4 w-4" />
-                  Hall Ticket Generation
-                </div>
+                <FileText className="h-4 w-4" />
+                <span>Hall Ticket Generation</span>
               </button>
               <button
                 onClick={() => setActiveTab('idcard')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'idcard'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                className={`flex items-center justify-center space-x-2 py-2.5 px-6 rounded-xl font-semibold text-sm transition-all duration-200 whitespace-nowrap ${activeTab === 'idcard'
+                  ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/50'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
                   }`}
               >
-                <div className="flex items-center gap-2">
-                  <CreditCard className="h-4 w-4" />
-                  School ID Card Generation
-                </div>
+                <CreditCard className="h-4 w-4" />
+                <span>School ID Card Generation</span>
               </button>
             </nav>
           </div>
         </div>
+      </div>
 
         {/* Show error if classes failed to load */}
         {classesError && (
@@ -1736,8 +1818,8 @@ const AcademicDetails: React.FC = () => {
                   <button
                     onClick={addSubject}
                     disabled={
-                      !newSubjectName.trim() || 
-                      (!applyToAllClasses && !selectedClass) || 
+                      !newSubjectName.trim() ||
+                      (!applyToAllClasses && !selectedClass) ||
                       (!applyToAllClasses && !applyToAllSections && !selectedSection) ||
                       loadingSubjects
                     }
@@ -1930,9 +2012,11 @@ const AcademicDetails: React.FC = () => {
                       Academic Year <span className="text-red-500">*</span>
                     </label>
                     <select
+                      disabled={true}
+                      title="only super admin have the access to use this"
                       value={viewingAcademicYear}
                       onChange={(e) => setViewingYear(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-100 cursor-not-allowed"
                     >
                       {availableYears.map((year) => (
                         <option key={year} value={year}>
@@ -2340,6 +2424,50 @@ const AcademicDetails: React.FC = () => {
                 </div>
               )}
 
+              {/* Theme Selection */}
+              {idCardStudents.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Choose Design Theme</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {idCardThemes.map((theme) => (
+                      <div
+                        key={theme.id}
+                        onClick={() => setSelectedTheme(theme.id)}
+                        className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${selectedTheme === theme.id
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                          }`}
+                      >
+                        <div className="flex justify-center mb-4 overflow-hidden">
+                          <div
+                            style={{
+                              transform: 'scale(0.5)',
+                              transformOrigin: 'top center',
+                              height: (selectedOrientation || 'landscape') === 'landscape' ? '100px' : '160px',
+                              display: 'flex',
+                              justifyContent: 'center'
+                            }}
+                          >
+                            <NewIDCardTemplate
+                              settings={templateSettings}
+                              student={idCardStudents[0]}
+                              templateId={(selectedOrientation as 'landscape' | 'portrait') || 'landscape'}
+                              side="front"
+                              mode="preview"
+                              theme={theme.id}
+                            />
+                          </div>
+                        </div>
+                        <div className="text-center">
+                          <h4 className="font-semibold text-gray-800 mb-1">{theme.name}</h4>
+                          <p className="text-sm text-gray-500">{theme.description}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Navigate to Preview Page */}
               {idCardStudents.length > 0 && selectedOrientation && (
                 <div className="text-center">
@@ -2387,7 +2515,6 @@ const AcademicDetails: React.FC = () => {
           </div>
         )}
       </div>
-    </div>
   );
 };
 

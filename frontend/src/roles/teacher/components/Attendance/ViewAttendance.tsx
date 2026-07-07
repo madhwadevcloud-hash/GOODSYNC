@@ -234,11 +234,12 @@ const ViewAttendance: React.FC = () => {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
             <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+  type="date"
+  value={selectedDate}
+  max={new Date().toISOString().split('T')[0]}
+  onChange={(e) => setSelectedDate(e.target.value)}
+  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+/>
           </div>
 
           <div>
@@ -257,7 +258,7 @@ const ViewAttendance: React.FC = () => {
             <select
               value={selectedClass}
               onChange={handleClassChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent"
               disabled={classesLoading || !hasClasses()}
             >
               <option value="">{classesLoading ? 'Loading...' : 'Select Class'}</option>
@@ -273,7 +274,7 @@ const ViewAttendance: React.FC = () => {
               value={selectedSection}
               onChange={handleSectionChange}
               disabled={!selectedClass || availableSections.length === 0}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent disabled:bg-gray-100"
             >
               <option value="">{!selectedClass ? 'Select Class First' : 'Select Section'}</option>
               {availableSections.map((section) => (
@@ -290,7 +291,7 @@ const ViewAttendance: React.FC = () => {
                 onClick={() => setSession('morning')}
                 className={`flex-1 py-2 px-3 text-sm font-medium rounded-l-lg flex items-center justify-center ${
                   session === 'morning'
-                    ? 'bg-blue-600 text-white'
+                    ? 'bg-violet-600 text-white'
                     : 'bg-white text-gray-700 hover:bg-gray-50'
                 }`}
               >
@@ -302,7 +303,7 @@ const ViewAttendance: React.FC = () => {
                 onClick={() => setSession('afternoon')}
                 className={`flex-1 py-2 px-3 text-sm font-medium rounded-r-lg flex items-center justify-center ${
                   session === 'afternoon'
-                    ? 'bg-blue-600 text-white'
+                    ? 'bg-violet-600 text-white'
                     : 'bg-white text-gray-700 hover:bg-gray-50'
                 }`}
               >
@@ -324,7 +325,7 @@ const ViewAttendance: React.FC = () => {
               placeholder="Search by name or user ID..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="pl-10 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent"
             />
           </div>
         </div>
@@ -393,8 +394,8 @@ const ViewAttendance: React.FC = () => {
                     <div key={student._id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg bg-gray-50">
                       <div className="flex items-center space-x-4">
                         <div className="flex-shrink-0">
-                          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                            <Users className="h-5 w-5 text-blue-600" />
+                          <div className="w-10 h-10 bg-violet-100 rounded-full flex items-center justify-center">
+                            <Users className="h-5 w-5 text-violet-600" />
                           </div>
                         </div>
                         <div>
@@ -434,14 +435,14 @@ const ViewAttendance: React.FC = () => {
 
       {/* Instructions */}
       {!selectedClass || !selectedSection ? (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+        <div className="bg-violet-50 border border-violet-200 rounded-lg p-6">
           <div className="flex items-start">
             <div className="flex-shrink-0">
-              <Users className="h-6 w-6 text-blue-600" />
+              <Users className="h-6 w-6 text-violet-600" />
             </div>
             <div className="ml-3">
-              <h3 className="text-sm font-medium text-blue-800">Get Started</h3>
-              <div className="mt-2 text-sm text-blue-700">
+              <h3 className="text-sm font-medium text-violet-800">Get Started</h3>
+              <div className="mt-2 text-sm text-violet-700">
                 <ol className="list-decimal list-inside space-y-1">
                   <li>Select a date to view attendance</li>
                   <li>Choose a class from the dropdown</li>

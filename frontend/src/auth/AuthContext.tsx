@@ -95,7 +95,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [persist]);
 
   const login = useCallback(async (payload: LoginPayload) => {
-    console.log('[AUTH] Login attempt:', payload.email);
+    console.log('[AUTH] Login attempt:',(payload as any).email || (payload as any).identifier,'Role:',payload.role);
     try {
       const { token, user } = await loginApi(payload);
       const normalized = normalizeState({ user, token, loading: false });

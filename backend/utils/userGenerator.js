@@ -812,7 +812,10 @@ class UserGenerator {
         if (isObjectId) orQueries.push({ _id: new ObjectId(raw) });
         if (raw) orQueries.push({ userId: raw });
         if (looksLikeEmail) orQueries.push({ email: emailRegex }); // case-insensitive exact match
-        const user = await collection.findOne(orQueries.length ? { $or: orQueries } : {});
+        const user = await collection.find(orQueries.length ? { $or: orQueries } : {})
+          .sort({ createdAt: -1 })
+          .limit(1)
+          .next();
 
         if (user) {
           // Determine role from collection name

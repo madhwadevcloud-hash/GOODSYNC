@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Save, Info, ShieldCheck } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { AccessMatrix, RolePermissions } from '../types';
 import { toast } from 'react-hot-toast';
@@ -45,7 +45,7 @@ export function ViewAccess() {
 
   if (!school || !accessMatrix) {
     return (
-      <div className="p-6">
+      <div className="p-6 animate-fadeIn">
         <p className="text-gray-600">School not found</p>
       </div>
     );
@@ -104,7 +104,7 @@ export function ViewAccess() {
     }
   };
 
-  const RolePermissionTable = ({ role }: { role: keyof AccessMatrix }) => {
+  const RolePermissionTable = ({ role, delay }: { role: keyof AccessMatrix; delay: number }) => {
     const permissions = role === 'teacher' ? teacherPermissions : adminPermissions;
 
     const activePermissions = permissions.filter(p =>
@@ -112,12 +112,20 @@ export function ViewAccess() {
     ).length;
 
     return (
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div
+        className="bg-white rounded-xl border border-gray-200 overflow-hidden opacity-0 animate-slideUp"
+        style={{ animationDelay: `${delay}ms` }}
+      >
         <div className="p-4 sm:p-6 border-b border-gray-200">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h2 className="text-base sm:text-lg font-semibold text-gray-900 capitalize">{role} Access Matrix</h2>
-              <p className="text-xs sm:text-sm text-gray-600 mt-1">Configure access permissions for {role} role</p>
+            <div className="flex items-center gap-3">
+              <div className="bg-indigo-50 p-2.5 rounded-xl">
+                <ShieldCheck className="h-5 w-5 text-indigo-600" />
+              </div>
+              <div>
+                <h2 className="text-base sm:text-lg font-semibold text-gray-900 capitalize">{role} Access Matrix</h2>
+                <p className="text-xs sm:text-sm text-gray-500 mt-0.5">Configure access permissions for {role} role</p>
+              </div>
             </div>
             <div className="flex items-center space-x-4">
               <div className="text-left sm:text-right">
@@ -126,7 +134,7 @@ export function ViewAccess() {
                 </p>
                 <div className="w-24 sm:w-32 bg-gray-200 rounded-full h-2 mt-1">
                   <div
-                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                    className="bg-indigo-600 h-2 rounded-full transition-all duration-500"
                     style={{ width: `${(activePermissions / permissions.length) * 100}%` }}
                   ></div>
                 </div>
@@ -149,7 +157,7 @@ export function ViewAccess() {
             </thead>
             <tbody className="divide-y divide-gray-200">
               {permissions.map((permission) => (
-                <tr key={permission.key} className="hover:bg-gray-50">
+                <tr key={permission.key} className="hover:bg-gray-50 transition-colors duration-150">
                   <td className="px-3 sm:px-6 py-3 sm:py-4">
                     <div className="flex flex-col">
                       <span className="text-xs sm:text-sm font-medium text-gray-900">
@@ -168,7 +176,7 @@ export function ViewAccess() {
                         type="checkbox"
                         checked={!!accessMatrix[role][permission.key as keyof RolePermissions]}
                         onChange={() => handlePermissionChange(role, permission.key as keyof RolePermissions)}
-                        className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                        className="h-4 w-4 sm:h-5 sm:w-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 focus:ring-2 cursor-pointer"
                       />
                     </label>
                   </td>
@@ -182,62 +190,72 @@ export function ViewAccess() {
   };
 
   return (
-    <div className="p-4 sm:p-6">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 sm:mb-6">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Access Control - {school.name}</h1>
+    <div className="p-4 sm:p-6 animate-fadeIn">
+      <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6">
+        <button
+          onClick={() => setCurrentView('dashboard')}
+          className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors duration-200 flex items-center gap-1"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Back
+        </button>
+
+        {/* Header banner */}
+        <div className="opacity-0 animate-slideUp bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl p-5 sm:p-8 relative overflow-hidden">
+          <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-white">Access Control</h1>
+              <p className="text-indigo-100 mt-1 text-sm sm:text-base">{school.name}</p>
+            </div>
+            <button
+              onClick={handleSave}
+              className="flex items-center justify-center space-x-2 bg-white text-indigo-700 px-4 py-2.5 rounded-xl hover:bg-indigo-50 transition-colors duration-200 w-full sm:w-auto font-semibold shadow-sm"
+            >
+              <Save className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span>Save Changes</span>
+            </button>
           </div>
-          <button
-            onClick={handleSave}
-            className="flex items-center justify-center space-x-2 bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 w-full sm:w-auto text-sm sm:text-base"
-          >
-            <Save className="h-4 w-4 sm:h-5 sm:w-5" />
-            <span>Save Changes</span>
-          </button>
+          <div className="absolute -right-10 -top-10 w-40 h-40 rounded-full bg-white/10" />
         </div>
 
         {/* Info Banner */}
-        <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start">
-          <div className="flex-shrink-0">
-            <svg className="h-5 w-5 text-blue-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-            </svg>
-          </div>
-          <div className="ml-3">
-            <p className="text-sm text-blue-800">
-              <strong className="font-semibold">Access Control:</strong> When you uncheck a permission, users of that role will see a popup notification when they try to access that feature. Changes take effect immediately for logged-in users.
-            </p>
-          </div>
+        <div
+          className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 flex items-start gap-3 opacity-0 animate-slideUp"
+          style={{ animationDelay: '100ms' }}
+        >
+          <Info className="h-5 w-5 text-indigo-600 mt-0.5 flex-shrink-0" />
+          <p className="text-sm text-indigo-900">
+            <strong className="font-semibold">Access Control:</strong> When you uncheck a permission, users of that role will see a popup notification when they try to access that feature. Changes take effect immediately for logged-in users.
+          </p>
         </div>
 
         {/* Admin Table - Shows all permissions */}
-        <div className="mb-6">
-          <RolePermissionTable role="admin" />
-        </div>
+        <RolePermissionTable role="admin" delay={150} />
 
         {/* Teacher Table - Shows only specific permissions */}
-        <div className="mb-6">
-          <RolePermissionTable role="teacher" />
-        </div>
+        <RolePermissionTable role="teacher" delay={200} />
 
         {/* Role Summary Cards */}
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-          {roles.map(role => {
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {roles.map((role, i) => {
             const permissions = role === 'teacher' ? teacherPermissions : adminPermissions;
             const activePermissions = permissions.filter(p =>
               !!accessMatrix[role][p.key as keyof RolePermissions]
             ).length;
 
             return (
-              <div key={role} className="bg-white rounded-lg border border-gray-200 p-4">
+              <div
+                key={role}
+                className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-all duration-200 opacity-0 animate-slideUp"
+                style={{ animationDelay: `${250 + i * 60}ms` }}
+              >
                 <h3 className="text-sm font-semibold text-gray-900 capitalize mb-2">{role} Role Summary</h3>
-                <p className="text-xs text-gray-600 mb-2">
+                <p className="text-xs text-gray-500 mb-2">
                   {activePermissions} of {permissions.length} permissions enabled
                 </p>
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <div
-                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                    className="bg-indigo-600 h-2 rounded-full transition-all duration-500"
                     style={{ width: `${(activePermissions / permissions.length) * 100}%` }}
                   ></div>
                 </div>

@@ -92,30 +92,30 @@ const ClassStudentsView: React.FC<ClassStudentsViewProps> = ({ className, sectio
         <div className="flex items-center gap-4">
           <button 
             onClick={onBack}
-            className="p-3 bg-white border border-gray-100 rounded-2xl text-gray-500 hover:text-blue-600 hover:border-blue-100 hover:shadow-lg transition-all active:scale-95"
+            className="p-3 bg-white border border-gray-100 rounded-2xl text-gray-500 hover:text-violet-600 hover:border-violet-100 hover:shadow-lg transition-all active:scale-95"
           >
             <ArrowLeft className="h-6 w-6" />
           </button>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-blue-600 uppercase tracking-wider">Class Directory</span>
+              <span className="text-xs font-semibold text-violet-600 uppercase tracking-wider">Class Directory</span>
               <span className="h-1 w-1 rounded-full bg-gray-300"></span>
               <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">AY {viewingAcademicYear}</span>
             </div>
             <h1 className="text-2xl font-semibold text-gray-900">
-              Class {className} - <span className="text-blue-600">{section.toUpperCase()}</span>
+              Class {className} - <span className="text-violet-600">{section.toUpperCase()}</span>
             </h1>
           </div>
         </div>
 
         <div className="relative group w-full md:w-80">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-violet-500 transition-colors" />
           <input
             type="text"
             placeholder="Search students..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none text-sm"
+            className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-xl shadow-sm focus:ring-2 focus:ring-violet-500/10 focus:border-violet-500 transition-all outline-none text-sm"
           />
         </div>
       </div>
@@ -158,10 +158,10 @@ const ClassStudentsView: React.FC<ClassStudentsViewProps> = ({ className, sectio
                 filteredStudents.map((student) => {
                   const studentName = getStudentName(student);
                   return (
-                    <tr key={student._id} className="hover:bg-blue-50/30 transition-colors group">
+                    <tr key={student._id} className="hover:bg-violet-50/30 transition-colors group">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-medium text-base shadow-sm">
+                          <div className="h-10 w-10 rounded-full bg-violet-600 flex items-center justify-center text-white font-medium text-base shadow-sm">
                             {studentName.charAt(0)}
                           </div>
                           <div>
@@ -204,7 +204,7 @@ const ClassStudentsView: React.FC<ClassStudentsViewProps> = ({ className, sectio
                       <td className="px-6 py-4 text-right">
                         <button 
                           onClick={() => setSelectedStudentId(student._id)}
-                          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium text-xs hover:bg-blue-700 transition-all"
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-violet-600 text-white rounded-lg font-medium text-xs hover:bg-violet-700 transition-all"
                         >
                           <Eye className="h-3.5 w-3.5" />
                           View Profile

@@ -92,6 +92,7 @@ const ReportsPage: React.FC = () => {
   const [expandedStudents, setExpandedStudents] = useState<Set<string>>(new Set());
   const [classTests, setClassTests] = useState<any[]>([]);
   const [classResults, setClassResults] = useState<any[]>([]);
+  const [classSubjectsMap, setClassSubjectsMap] = useState<Record<string, string[]>>({});
 
   // State for dues list
   const [duesList, setDuesList] = useState<StudentFeeRecord[]>([]);
@@ -560,9 +561,23 @@ const ReportsPage: React.FC = () => {
       const schoolCode = localStorage.getItem('erp.schoolCode') || user?.schoolCode || '';
       if (!schoolCode) return;
 
-      const testsResp = await api.get(`/admin/classes/${schoolCode}/tests`, {
-        params: { academicYear: viewingAcademicYear }
-      });
+      const [testsResp, resultsResp, subjectsResp] = await Promise.all([
+        api.get(`/admin/classes/${schoolCode}/tests`, {
+          params: { academicYear: viewingAcademicYear }
+        }),
+        api.get(`/results`, {
+          params: {
+            schoolCode,
+            class: className,
+            section,
+            academicYear: viewingAcademicYear
+          }
+        }),
+        api.get(`/class-subjects/class/${encodeURIComponent(className)}`, {
+          params: { academicYear: viewingAcademicYear, section }
+        })
+      ]);
+
       if (testsResp.data.success) {
         const testsForClass = (testsResp.data.data?.tests || []).filter(
           (t: any) => String(t.className) === String(className)
@@ -570,16 +585,17 @@ const ReportsPage: React.FC = () => {
         setClassTests(testsForClass);
       }
 
-      const resultsResp = await api.get(`/results`, {
-        params: {
-          schoolCode,
-          class: className,
-          section,
-          academicYear: viewingAcademicYear
-        }
-      });
       if (resultsResp.data.success) {
         setClassResults(resultsResp.data.data || resultsResp.data.results || []);
+      }
+
+      if (subjectsResp.data.success && subjectsResp.data.data) {
+        const activeList = subjectsResp.data.data.subjects?.filter((s: any) => s.isActive !== false) || [];
+        const activeSubjects = activeList.map((s: any) => s.name || s.subjectName).filter(Boolean);
+        setClassSubjectsMap(prev => ({
+          ...prev,
+          [`${className}-${section}`]: activeSubjects
+        }));
       }
     } catch (err) {
       console.error("Failed to load class tests or results:", err);
@@ -588,55 +604,91 @@ const ReportsPage: React.FC = () => {
 
   const cleanTestName = (name: string) => String(name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
-  const getTestMarksForStudent = useCallback((studentId: string, testType: string, dbId?: string) => {
-    const testResults = classResults.filter((r: any) => 
-      (
-        (r.userId && String(r.userId) === String(studentId)) ||
-        (r.studentId && String(r.studentId) === String(studentId)) ||
-        (dbId && r.userId && String(r.userId) === String(dbId)) ||
-        (dbId && r.studentId && String(r.studentId) === String(dbId))
-      ) && 
-      cleanTestName(r.testType) === cleanTestName(testType)
-    );
-
-    if (testResults.length === 0) return { obtained: null, max: null, percentage: 0 };
-
-    const hasAnyMarks = testResults.some(r => r.obtainedMarks !== null && r.obtainedMarks !== undefined);
-    if (!hasAnyMarks) return { obtained: null, max: null, percentage: 0 };
-
-    const obtained = testResults.reduce((sum, r) => sum + Number(r.obtainedMarks || 0), 0);
-    const max = testResults.reduce((sum, r) => sum + Number(r.maxMarks || r.totalMarks || 100), 0);
-    const percentage = max > 0 ? (obtained / max) * 100 : 0;
-
-    return { obtained, max, percentage };
-  }, [classResults]);
-
-  const calculateStudentFinalPercent = useCallback((studentId: string, studentAvgMarks: number, dbId?: string) => {
+  const getDetailedTestCalculations = useCallback((studentId: string, className: string, section: string, dbId?: string) => {
+    const expectedSubjects = classSubjectsMap[`${className}-${section}`] || [];
     const uniqueTestTypes = [...new Set(classTests.map(t => t.testName || t.displayName || t.name || t.testType).filter(Boolean))];
-    let totalWeightedPercent = 0;
-    let totalWeight = 0;
-    let hasAnyWeighted = false;
 
-    uniqueTestTypes.forEach(testType => {
-      const marks = getTestMarksForStudent(studentId, String(testType), dbId);
+    let overallComplete = true;
+    let finalWeightedPercent = 0;
+    let totalWeight = 0;
+
+    const testRows = uniqueTestTypes.map(testType => {
       const testConfig = classTests.find(t => 
         cleanTestName(t.testName || t.displayName || t.name || t.testType) === cleanTestName(testType)
       );
       const weightage = testConfig ? Number(testConfig.weightage || 0) : 0;
 
-      if (marks.max !== null) {
-        totalWeightedPercent += marks.percentage * (weightage / 100);
-        totalWeight += weightage;
-        hasAnyWeighted = true;
+      // Filter results for this student and test
+      const studentResults = classResults.filter((r: any) => 
+        (
+          (r.userId && String(r.userId) === String(studentId)) ||
+          (r.studentId && String(r.studentId) === String(studentId)) ||
+          (dbId && r.userId && String(r.userId) === String(dbId)) ||
+          (dbId && r.studentId && String(r.studentId) === String(dbId))
+        ) && 
+        cleanTestName(r.testType) === cleanTestName(testType)
+      );
+
+      // Verify that every expected subject has a result entry with obtainedMarks
+      let isTestComplete = expectedSubjects.length > 0;
+      let totalObtained = 0;
+      let totalMax = 0;
+      const subjectsBreakdown: string[] = [];
+
+      expectedSubjects.forEach(subjectName => {
+        const match = studentResults.find(r => r.subject === subjectName);
+        if (!match || match.obtainedMarks === null || match.obtainedMarks === undefined) {
+          isTestComplete = false;
+          subjectsBreakdown.push(`${subjectName}: Missing`);
+        } else {
+          totalObtained += Number(match.obtainedMarks);
+          totalMax += Number(match.maxMarks || match.totalMarks || testConfig?.maxMarks || 100);
+          subjectsBreakdown.push(`${subjectName}: ${match.obtainedMarks}/${match.maxMarks || match.totalMarks || testConfig?.maxMarks || 100}`);
+        }
+      });
+
+      if (expectedSubjects.length === 0) {
+        isTestComplete = false;
       }
+
+      let testPercentage = 0;
+      let weightedContribution = 0;
+
+      if (isTestComplete) {
+        testPercentage = totalMax > 0 ? (totalObtained / totalMax) * 100 : 0;
+        weightedContribution = testPercentage * (weightage / 100);
+        finalWeightedPercent += weightedContribution;
+        totalWeight += weightage;
+      } else {
+        overallComplete = false;
+      }
+
+      return {
+        testName: testType,
+        isComplete: isTestComplete,
+        subjectsBreakdown,
+        totalObtained,
+        totalMax,
+        testPercentage,
+        weightage,
+        weightedContribution
+      };
     });
 
-    if (hasAnyWeighted && totalWeight > 0) {
-      return `${totalWeightedPercent.toFixed(1)}%`;
-    }
+    return {
+      testRows,
+      overallComplete: overallComplete && totalWeight > 0,
+      finalWeightedPercent: overallComplete && totalWeight > 0 ? finalWeightedPercent : null
+    };
+  }, [classTests, classResults, classSubjectsMap]);
 
-    return studentAvgMarks > 0 ? `${Number(studentAvgMarks).toFixed(1)}%` : 'N/A';
-  }, [classTests, getTestMarksForStudent]);
+  const calculateStudentFinalPercent = useCallback((studentId: string, studentAvgMarks: number, className: string, section: string, dbId?: string) => {
+    const calcs = getDetailedTestCalculations(studentId, className, section, dbId);
+    if (!calcs.overallComplete || calcs.finalWeightedPercent === null) {
+      return 'Pending / Incomplete';
+    }
+    return `${calcs.finalWeightedPercent.toFixed(1)}%`;
+  }, [getDetailedTestCalculations]);
 
   // Toggle row expansion
   const toggleRowExpansion = useCallback((className: string, section: string) => {
@@ -760,85 +812,95 @@ const ReportsPage: React.FC = () => {
   }, [selectedClass, selectedSection, searchTerm, statusFilter, activeTab]);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <TrendingUp className="h-8 w-8 text-blue-600" />
-          <h1 className="text-3xl font-bold text-gray-900">School Reports</h1>
+    <div className="space-y-6 relative">
+      <div className="sticky top-[72px] z-20 flex flex-col gap-6 pt-4 pb-2 -mt-4 bg-[#f8fafc]">
+        {/* Header */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sm:p-8 relative overflow-hidden mx-2 sm:mx-0">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50 rounded-full blur-3xl opacity-60 -mr-20 -mt-20 pointer-events-none"></div>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between relative z-10 gap-4">
+            <div className="flex items-center space-x-4">
+              <div className="bg-indigo-600 p-3 rounded-xl flex items-center justify-center shadow-sm">
+                <TrendingUp className="h-7 w-7 text-white" strokeWidth={2} />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-slate-900 tracking-tight">School Reports</h1>
+                <p className="text-sm font-medium text-slate-500 mt-1">View insights and dues</p>
+              </div>
+            </div>
+            
+            {/* Actions */}
+            {activeTab === 'overview' && (
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleExportOverview}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-600 hover:shadow-md hover:shadow-emerald-200/50 hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50"
+                  disabled={classWiseCounts.length === 0}
+                >
+                  <Download className="h-4 w-4" strokeWidth={2.5} />
+                  Export CSV
+                </button>
+                <button
+                  onClick={fetchSchoolSummary}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 hover:shadow-md hover:shadow-indigo-200/50 hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50"
+                  disabled={summaryLoading}
+                >
+                  {summaryLoading ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Loading...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                      </svg>
+                      Refresh
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Alerts and Refresh Button */}
-      <div className="flex justify-between items-center mb-4">
+        {/* Alerts outside the header inner */}
         {error && (
-          <div className="flex-1 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg flex items-center">
+          <div className="flex-1 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl flex items-center mx-2 sm:mx-0">
             <AlertCircle className="h-5 w-5 mr-2" />
             {error}
           </div>
         )}
-        {activeTab === 'overview' && (
-          <div className="flex gap-2">
-            <button
-              onClick={handleExportOverview}
-              className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 flex items-center whitespace-nowrap"
-              disabled={classWiseCounts.length === 0}
-            >
-              <Download className="w-4 h-4 mr-2" />
-              Export CSV
-            </button>
-            <button
-              onClick={fetchSchoolSummary}
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center whitespace-nowrap"
-              disabled={summaryLoading}
-            >
-              {summaryLoading ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Loading...
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                  </svg>
-                  Refresh Stats
-                </>
-              )}
-            </button>
-          </div>
-        )}
-      </div>
 
-      {/* Tab Navigation */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8 px-6">
+        {/* Tab Navigation */}
+        <div className="bg-slate-100/80 p-1.5 rounded-2xl mx-2 sm:mx-0 overflow-x-auto custom-scrollbar border border-slate-200/60">
+          <nav className="flex space-x-1 min-w-max">
             <button
               onClick={() => setActiveTab('overview')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'overview'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              className={`flex items-center space-x-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 ${activeTab === 'overview'
+                ? 'bg-white text-indigo-600 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
                 }`}
             >
-              Overview
+              <span>Overview</span>
             </button>
             <button
               onClick={() => setActiveTab('dues')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'dues'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              className={`flex items-center space-x-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 ${activeTab === 'dues'
+                ? 'bg-white text-indigo-600 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
                 }`}
             >
-              Dues List
+              <span>Dues List</span>
             </button>
           </nav>
         </div>
+      </div>
 
-        <div className="p-6">
+      <div className="mx-2 sm:mx-0">
+        <div className="bg-transparent">
           {/* Academic Year Warning Banner */}
           {isViewingHistoricalYear && (
             <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-4 mb-6">
@@ -1065,10 +1127,10 @@ const ReportsPage: React.FC = () => {
                                                        <div className="text-xs text-gray-500 mt-1">Attendance: {student.avgAttendance > 0 ? `${student.avgAttendance.toFixed(1)}%` : 'N/A'}</div>
                                                      </div>
                                                      <div className="flex items-center space-x-4">
-                                                       <div className="text-right">
+                                                        <div className="text-right">
                                                           <span className="text-[10px] text-gray-400 block uppercase font-bold tracking-wider">Final Percent</span>
-                                                          <span className="text-sm font-extrabold text-blue-600">
-                                                            {calculateStudentFinalPercent(student.studentId, student.avgMarks, student.dbId)}
+                                                          <span className={`text-sm font-extrabold ${student.avgMarks === null ? 'text-red-500 font-semibold' : 'text-blue-600'}`}>
+                                                            {calculateStudentFinalPercent(student.studentId, student.avgMarks, classItem.className, section.name, student.dbId)}
                                                           </span>
                                                         </div>
                                                         {isStudentExpanded ? (
@@ -1080,47 +1142,75 @@ const ReportsPage: React.FC = () => {
                                                     </div>
 
                                                     {/* Student Collapsible Dropdown Content */}
-                                                    {isStudentExpanded && (
-                                                      <div className="p-4 bg-gray-50 border-t border-gray-150 overflow-x-auto">
-                                                        <table className="min-w-full divide-y divide-gray-200 text-sm">
-                                                          <thead>
-                                                            <tr>
-                                                              {uniqueTestTypes.map(testType => (
-                                                                <th key={String(testType)} className="px-4 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-100 border border-gray-200">
-                                                                  {String(testType)}
+                                                    {isStudentExpanded && (() => {
+                                                      const calcs = getDetailedTestCalculations(student.studentId, classItem.className, section.name, student.dbId);
+                                                      return (
+                                                        <div className="p-4 bg-gray-50 border-t border-gray-150 overflow-x-auto">
+                                                          <table className="min-w-full divide-y divide-gray-200 text-sm">
+                                                            <thead>
+                                                              <tr>
+                                                                <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-100 border border-gray-200">
+                                                                  Test Name
                                                                 </th>
-                                                              ))}
-                                                              <th className="px-4 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-100 border border-gray-200">
-                                                                Percent Column
-                                                              </th>
-                                                            </tr>
-                                                          </thead>
-                                                          <tbody>
-                                                            <tr>
-                                                              {uniqueTestTypes.map(testType => {
-                                                                const marks = getTestMarksForStudent(student.studentId, String(testType), student.dbId);
-                                                                return (
-                                                                  <td key={String(testType)} className="px-4 py-3 text-center border border-gray-200 font-medium text-gray-700 bg-white">
-                                                                    {marks.max !== null ? (
-                                                                      <div>
-                                                                        <div className="text-base font-bold text-gray-900">{marks.obtained}</div>
-                                                                        <div className="text-xs text-gray-400 border-t border-gray-100 pt-1 mt-1">out of {marks.max}</div>
-                                                                        <div className="text-[10px] text-blue-500 font-semibold mt-1">({marks.percentage.toFixed(1)}%)</div>
-                                                                      </div>
-                                                                    ) : (
-                                                                      <span className="text-gray-400 italic">No Marks</span>
-                                                                    )}
+                                                                <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-100 border border-gray-200">
+                                                                  Subjects Marks
+                                                                </th>
+                                                                <th className="px-4 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-100 border border-gray-200">
+                                                                  Total Obtained
+                                                                </th>
+                                                                <th className="px-4 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-100 border border-gray-200">
+                                                                  Max Marks
+                                                                </th>
+                                                                <th className="px-4 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-100 border border-gray-200">
+                                                                  Test Percentage
+                                                                </th>
+                                                                <th className="px-4 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-100 border border-gray-200">
+                                                                  Weightage (%)
+                                                                </th>
+                                                                <th className="px-4 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-100 border border-gray-200">
+                                                                  Weighted Contribution
+                                                                </th>
+                                                              </tr>
+                                                            </thead>
+                                                            <tbody className="divide-y divide-gray-150 bg-white">
+                                                              {calcs.testRows.map(row => (
+                                                                <tr key={row.testName}>
+                                                                  <td className="px-4 py-3 border border-gray-200 font-semibold text-gray-900 bg-white">
+                                                                    {row.testName}
                                                                   </td>
-                                                                );
-                                                              })}
-                                                              <td className="px-4 py-3 text-center border border-gray-200 font-bold text-blue-600 bg-white text-base">
-                                                                {calculateStudentFinalPercent(student.studentId, student.avgMarks, student.dbId)}
-                                                              </td>
-                                                            </tr>
-                                                          </tbody>
-                                                        </table>
-                                                      </div>
-                                                    )}
+                                                                  <td className="px-4 py-3 border border-gray-200 text-gray-600 bg-white text-xs whitespace-pre-line leading-relaxed">
+                                                                    {row.subjectsBreakdown.join(', ')}
+                                                                  </td>
+                                                                  <td className="px-4 py-3 text-center border border-gray-200 font-semibold text-gray-900 bg-white">
+                                                                    {row.isComplete ? row.totalObtained : <span className="text-red-500 font-medium">Incomplete</span>}
+                                                                  </td>
+                                                                  <td className="px-4 py-3 text-center border border-gray-200 text-gray-500 bg-white">
+                                                                    {row.isComplete ? row.totalMax : <span className="text-red-500 font-medium">Incomplete</span>}
+                                                                  </td>
+                                                                  <td className="px-4 py-3 text-center border border-gray-200 font-bold text-gray-800 bg-white">
+                                                                    {row.isComplete ? `${row.testPercentage.toFixed(1)}%` : <span className="text-red-500 font-medium">Incomplete</span>}
+                                                                  </td>
+                                                                  <td className="px-4 py-3 text-center border border-gray-200 font-medium text-gray-600 bg-white">
+                                                                    {row.weightage}%
+                                                                  </td>
+                                                                  <td className="px-4 py-3 text-center border border-gray-200 font-bold text-blue-600 bg-white">
+                                                                    {row.isComplete ? row.weightedContribution.toFixed(1) : <span className="text-gray-400 italic">Pending</span>}
+                                                                  </td>
+                                                                </tr>
+                                                              ))}
+                                                              <tr className="bg-blue-50/50 font-bold">
+                                                                <td colSpan={6} className="px-4 py-3 border border-gray-200 text-right text-gray-700">
+                                                                  Final Overall Weighted Percentage:
+                                                                </td>
+                                                                <td className="px-4 py-3 text-center border border-gray-200 text-blue-700 text-lg">
+                                                                  {calcs.overallComplete ? `${calcs.finalWeightedPercent?.toFixed(1)}%` : 'Pending / Incomplete'}
+                                                                </td>
+                                                              </tr>
+                                                            </tbody>
+                                                          </table>
+                                                        </div>
+                                                      );
+                                                    })()}
                                                  </div>
                                                );
                                              })}

@@ -83,6 +83,18 @@ const io = new Server(server, {
 io.on('connection', (socket) => {
   console.log('🔌 Client connected:', socket.id);
 
+  // Join user-specific room
+  socket.on('join-user', (userId) => {
+    socket.join(`user-${userId}`);
+    console.log(`👤 Socket ${socket.id} joined user room: user-${userId}`);
+  });
+
+  // Join superadmin global room
+  socket.on('join-superadmin', () => {
+    socket.join('superadmin');
+    console.log(`👑 Socket ${socket.id} joined superadmin room`);
+  });
+
   // Join school-specific room
   socket.on('join-school', (schoolCode) => {
     // Normalize to lowercase for consistent room names

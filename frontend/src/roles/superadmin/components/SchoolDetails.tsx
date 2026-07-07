@@ -6,9 +6,10 @@ import { schoolUserAPI } from '../../../api/schoolUsers';
 import AcademicTestConfiguration from './AcademicTestConfiguration';
 import { ImportUsersDialog } from './ImportUsersDialog'; // Import the dialog
 import { getDynamicFallbackYear, normalizeAcademicYear } from '../../../utils/academicYearUtils';
+import { SuperAdminPromotionTab } from './PromotionTab';
 
 // Define proper types for the component
-type TabType = 'overview' | 'users' | 'academics' | 'academic-year' | 'settings';
+type TabType = 'overview' | 'users' | 'academics' | 'academic-year' | 'promotion' | 'settings';
 type UserRole = 'admin' | 'teacher' | 'student' | 'parent';
 
 interface User {
@@ -746,7 +747,7 @@ function SchoolDetailsContent() {
           <h1 className="text-2xl font-bold text-gray-900">School Details - {school.name}</h1>
         </div>
         <div className="flex items-center space-x-3">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
           <p>Loading school details...</p>
         </div>
       </div>
@@ -766,7 +767,7 @@ function SchoolDetailsContent() {
         </div>
         <button
           onClick={() => setReloadKey(prev => prev + 1)} // Use reloadKey to retry
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
         >
           Retry
         </button>
@@ -775,38 +776,50 @@ function SchoolDetailsContent() {
   }
 
   // Case 5: Success - basic view
+  const academicYears = Array.from({ length: 12 }, (_, i) => {
+    const startYear = 2024 + i;
+    return `${startYear}-${String(startYear + 1).slice(-2)}`;
+  });
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 sm:p-6 lg:p-8 animate-fadeIn">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-6 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{school.name}</h1>
-          <p className="text-xs sm:text-sm text-gray-600 mt-1">School Code: {schoolCode || 'N/A'}</p>
-        </div>
+        <button
+        onClick={() => setCurrentView('dashboard')}
+        className="mb-4 px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors duration-200 flex items-center gap-1"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Back
+        </button>
 
-      {/* DEBUG Panel - visible to help diagnose issues */}
-      <div className="bg-blue-50 border border-blue-200 p-3 sm:p-4 rounded-lg mb-4 sm:mb-6">
-        <h2 className="font-bold text-blue-800 mb-2 text-sm sm:text-base">Debug Information</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm">
-          <div>
-            <p><span className="font-medium">School ID:</span> {selectedSchoolId}</p>
-            <p><span className="font-medium">School Name:</span> {school.name}</p>
-            <p><span className="font-medium">School Code:</span> {schoolCode || 'N/A'}</p>
+        {/* Header banner */}
+        <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-indigo-600 to-purple-600 rounded-2xl p-5 sm:p-8 mb-4 sm:mb-6 opacity-0 animate-slideUp">
+          <div className="relative z-10 flex items-center gap-4">
+            <div className="bg-white/15 p-3 sm:p-4 rounded-2xl flex-shrink-0">
+              <School className="h-7 w-7 sm:h-8 sm:w-8 text-white" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-3xl font-bold text-white truncate">{school.name}</h1>
+              <p className="text-indigo-100 mt-1 text-sm sm:text-base">
+                School Code: {schoolCode || 'N/A'}
+                {school.area ? ` · ${school.area}` : ''}
+                {school.district ? `, ${school.district}` : ''}
+              </p>
+            </div>
           </div>
-          <div>
-            <p><span className="font-medium">Data Loaded:</span> {schoolData ? '✅' : '❌'}</p>
-            <p><span className="font-medium">Loading State:</span> {loading ? 'Loading' : 'Complete'}</p>
-            <p><span className="font-medium">Users Count:</span> {schoolData?.users?.length || 0}</p>
-          </div>
+          <div className="absolute -right-10 -top-10 w-40 h-40 rounded-full bg-white/10" />
+          <div className="absolute right-16 bottom-[-3rem] w-28 h-28 rounded-full bg-white/10" />
         </div>
-      </div>
 
       {/* Tabs Navigation */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm mb-4 sm:mb-6 p-1 sm:p-2">
+      <div
+        className="bg-white rounded-xl border border-gray-200 shadow-sm mb-4 sm:mb-6 p-1 sm:p-2 opacity-0 animate-slideUp"
+        style={{ animationDelay: '100ms' }}
+      >
         <nav className="flex flex-col sm:flex-row space-y-1 sm:space-y-0 sm:space-x-2">
           <button
             className={`flex items-center justify-center space-x-2 px-3 sm:px-4 py-2 sm:py-3 rounded-lg font-medium text-xs sm:text-sm transition-all duration-200 ${
               activeTab === 'overview'
-                ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md'
+                ? 'bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-md'
                 : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
             }`}
             onClick={() => setActiveTab('overview')}
@@ -818,7 +831,7 @@ function SchoolDetailsContent() {
           <button
             className={`flex items-center justify-center space-x-2 px-3 sm:px-4 py-2 sm:py-3 rounded-lg font-medium text-xs sm:text-sm transition-all duration-200 ${
               activeTab === 'users'
-                ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-md'
+                ? 'bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-md'
                 : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
             }`}
             onClick={() => setActiveTab('users')}
@@ -830,7 +843,7 @@ function SchoolDetailsContent() {
           <button
             className={`flex items-center justify-center space-x-2 px-3 sm:px-4 py-2 sm:py-3 rounded-lg font-medium text-xs sm:text-sm transition-all duration-200 ${
               activeTab === 'academics'
-                ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-md'
+                ? 'bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-md'
                 : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
             }`}
             onClick={() => setActiveTab('academics')}
@@ -839,14 +852,24 @@ function SchoolDetailsContent() {
             <span>Academics</span>
           </button>
           <button
-            className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${activeTab === 'academic-year'
-                ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-md'
+            className={`flex items-center justify-center space-x-2 px-3 sm:px-4 py-2 sm:py-3 rounded-lg font-medium text-xs sm:text-sm transition-all duration-200 ${activeTab === 'academic-year'
+                ? 'bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-md'
                 : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
             }`}
             onClick={() => setActiveTab('academic-year')}
           >
             <Calendar className="h-4 w-4" />
             <span>Academic Year</span>
+          </button>
+          <button
+            className={`flex items-center justify-center space-x-2 px-3 sm:px-4 py-2 sm:py-3 rounded-lg font-medium text-xs sm:text-sm transition-all duration-200 ${activeTab === 'promotion'
+                ? 'bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-md'
+                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+            }`}
+            onClick={() => setActiveTab('promotion')}
+          >
+            <TrendingUp className="h-4 w-4" />
+            <span>Promotion</span>
           </button>
         </nav>
       </div>
@@ -857,7 +880,7 @@ function SchoolDetailsContent() {
           {/* School Info Card - Expanded */}
           <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-200 hover:shadow-xl transition-shadow duration-300">
             <div className="flex items-center space-x-3 mb-6">
-              <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-3 rounded-xl">
+              <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 p-3 rounded-xl">
                 <School className="h-6 w-6 text-white" />
               </div>
               <h2 className="text-2xl font-bold text-gray-900">School Information</h2>
@@ -893,7 +916,7 @@ function SchoolDetailsContent() {
             <div className="flex space-x-2">
               <button
                 onClick={() => setShowAddUserModal(true)}
-                className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                className="flex items-center space-x-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700"
               >
                 <Plus className="h-4 w-4" />
                 <span>Add User</span>
@@ -934,7 +957,7 @@ function SchoolDetailsContent() {
                     placeholder="Search by name or email..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full px-3 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   />
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -950,9 +973,9 @@ function SchoolDetailsContent() {
                   <div className="font-medium text-purple-800">Admins</div>
                   <div className="text-2xl font-bold text-purple-900">{schoolData.users.filter(u => u.role === 'admin').length}</div>
                 </div>
-                <div className="p-4 bg-blue-50 border border-blue-100 rounded-lg">
-                  <div className="font-medium text-blue-800">Teachers</div>
-                  <div className="text-2xl font-bold text-blue-900">{schoolData.users.filter(u => u.role === 'teacher').length}</div>
+                <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-lg">
+                  <div className="font-medium text-indigo-800">Teachers</div>
+                  <div className="text-2xl font-bold text-indigo-900">{schoolData.users.filter(u => u.role === 'teacher').length}</div>
                 </div>
                 <div className="p-4 bg-green-50 border border-green-100 rounded-lg">
                   <div className="font-medium text-green-800">Students</div>
@@ -1015,12 +1038,12 @@ function SchoolDetailsContent() {
                                       target.style.display = 'none';
                                       const parent = target.parentElement;
                                       if (parent) {
-                                        parent.innerHTML = `<div class="h-full w-full flex items-center justify-center bg-blue-100 text-blue-800 font-medium">${user.name?.firstName?.[0]?.toUpperCase() || user.name?.displayName?.[0]?.toUpperCase() || 'U'}${user.name?.lastName?.[0]?.toUpperCase() || user.name?.displayName?.[1]?.toUpperCase() || 'U'}</div>`;
+                                        parent.innerHTML = `<div class="h-full w-full flex items-center justify-center bg-indigo-100 text-indigo-800 font-medium">${user.name?.firstName?.[0]?.toUpperCase() || user.name?.displayName?.[0]?.toUpperCase() || 'U'}${user.name?.lastName?.[0]?.toUpperCase() || user.name?.displayName?.[1]?.toUpperCase() || 'U'}</div>`;
                                       }
                                     }}
                                   />
                                 ) : (
-                                  <div className="h-full w-full flex items-center justify-center bg-blue-100 text-blue-800 font-medium">
+                                  <div className="h-full w-full flex items-center justify-center bg-indigo-100 text-indigo-800 font-medium">
                                     {user.name?.firstName?.[0]?.toUpperCase() || user.name?.displayName?.[0]?.toUpperCase() || 'U'}
                                     {user.name?.lastName?.[0]?.toUpperCase() || user.name?.displayName?.[1]?.toUpperCase() || 'U'}
                                   </div>
@@ -1033,9 +1056,9 @@ function SchoolDetailsContent() {
                                 {/* *** THIS IS THE FIX for Problem 1 *** */}
                                 {user.role === 'student' && (
                                   <div className="text-sm text-gray-500">
-                                    Class: <strong>{user.studentDetails?.currentClass || 'N/A'}</strong>
-                                    {' - '}
-                                    <strong>{user.studentDetails?.currentSection || 'N/A'}</strong>
+                                    Class: {user.studentDetails?.academic?.currentClass || 'N/A'}
+                                    {'-'}
+                                    {user.studentDetails?.academic?.currentSection || 'N/A'}
                                   </div>
                                 )}
                                 {/* *** END OF FIX *** */}
@@ -1046,7 +1069,7 @@ function SchoolDetailsContent() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`px-2 py-1 inline-flex text-xs leading-5 font-medium rounded-full ${user.role === 'admin' ? 'bg-purple-100 text-purple-800' :
-                              user.role === 'teacher' ? 'bg-blue-100 text-blue-800' :
+                              user.role === 'teacher' ? 'bg-indigo-100 text-indigo-800' :
                                 user.role === 'student' ? 'bg-green-100 text-green-800' :
                                   'bg-gray-100 text-gray-800'
                               }`}>
@@ -1064,7 +1087,7 @@ function SchoolDetailsContent() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                             <button
-                              className="text-blue-600 hover:text-blue-900 inline-flex items-center gap-1"
+                              className="text-indigo-600 hover:text-indigo-900 inline-flex items-center gap-1"
                               onClick={() => handleEditUser(user)}
                               title="Edit User"
                             >
@@ -1110,7 +1133,7 @@ function SchoolDetailsContent() {
                               {searchQuery && (
                                 <button
                                   onClick={() => setSearchQuery('')}
-                                  className="mt-3 text-blue-600 hover:text-blue-800 text-sm font-medium"
+                                  className="mt-3 text-indigo-600 hover:text-indigo-800 text-sm font-medium"
                                 >
                                   Clear search
                                 </button>
@@ -1158,15 +1181,21 @@ function SchoolDetailsContent() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Current Academic Year
                 </label>
-                <input
-                  type="text"
+                <select
                   value={currentAcademicYear}
                   onChange={(e) => setCurrentAcademicYear(e.target.value)}
-                  placeholder="e.g., 2024-25 or 2024-2025"
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
-                />
-                <p className="mt-1 text-xs text-gray-500">This will be the default academic year for all new student registrations.</p>
-              </div>
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none bg-white"
+                >
+                  <option value="">Select Academic Year</option>
+
+                  {academicYears.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                ))}
+                </select>
+                </div>
+              
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1175,6 +1204,7 @@ function SchoolDetailsContent() {
                 <input
                   type="date"
                   value={academicYearStart}
+                  min={new Date().toISOString().split("T")[0]}
                   onChange={(e) => setAcademicYearStart(e.target.value)}
                   className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
                 />
@@ -1187,6 +1217,7 @@ function SchoolDetailsContent() {
                 <input
                   type="date"
                   value={academicYearEnd}
+                  min={academicYearStart || new Date().toISOString().split("T")[0]}
                   onChange={(e) => setAcademicYearEnd(e.target.value)}
                   className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
                 />
@@ -1213,12 +1244,12 @@ function SchoolDetailsContent() {
               </button>
             </div>
 
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6">
+            <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 mt-6">
               <div className="flex space-x-3">
-                <Settings className="h-5 w-5 text-blue-500 mt-0.5" />
+                <Settings className="h-5 w-5 text-indigo-500 mt-0.5" />
                 <div>
-                  <h4 className="text-sm font-bold text-blue-800">Note on Synchronization</h4>
-                  <p className="text-xs text-blue-700 mt-1">
+                  <h4 className="text-sm font-bold text-indigo-800">Note on Synchronization</h4>
+                  <p className="text-xs text-indigo-700 mt-1">
                     Updating the academic year here will automatically synchronize it with the Admin panel. 
                     All students will be mapped to this new academic year for reporting and attendance.
                   </p>
@@ -1226,6 +1257,21 @@ function SchoolDetailsContent() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {activeTab === 'promotion' && (
+        <div className="bg-white p-6 rounded-lg shadow-md w-full">
+          <div className="flex items-center space-x-3 mb-6">
+            <div className="bg-indigo-100 p-3 rounded-xl">
+              <TrendingUp className="h-6 w-6 text-indigo-600" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold font-semibold">School Student Promotion Requests</h2>
+              <p className="text-sm text-gray-500">Approve or reject student promotion requests for this school.</p>
+            </div>
+          </div>
+          <SuperAdminPromotionTab schoolCode={schoolCode || undefined} />
         </div>
       )}
 
@@ -1243,7 +1289,7 @@ function SchoolDetailsContent() {
                     accessMatrix: schoolData.accessMatrix || {}
                   });
                 }}
-                className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                className="flex items-center space-x-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700"
               >
                 <Edit className="h-4 w-4" />
                 <span>Edit Settings</span>
@@ -1276,7 +1322,7 @@ function SchoolDetailsContent() {
                   type="text"
                   value={settingsForm.schoolName || ''}
                   onChange={(e) => setSettingsForm({ ...settingsForm, schoolName: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 />
               ) : (
                 <p className="px-3 py-2 bg-gray-50 rounded-lg text-gray-900">
@@ -1292,7 +1338,7 @@ function SchoolDetailsContent() {
                   type="text"
                   value={settingsForm.academicYear || ''}
                   onChange={(e) => setSettingsForm({ ...settingsForm, academicYear: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 />
               ) : (
                 <p className="px-3 py-2 bg-gray-50 rounded-lg text-gray-900">
@@ -1310,7 +1356,7 @@ function SchoolDetailsContent() {
                   max="100"
                   value={settingsForm.attendanceThreshold || 0}
                   onChange={(e) => setSettingsForm({ ...settingsForm, attendanceThreshold: Number(e.target.value) })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 />
               ) : (
                 <p className="px-3 py-2 bg-gray-50 rounded-lg text-gray-900">
@@ -1333,7 +1379,7 @@ function SchoolDetailsContent() {
                         end: settingsForm.schoolHours?.end || '15:00'
                       }
                     })}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   />
                   <span className="flex items-center text-gray-500">to</span>
                   <input
@@ -1346,7 +1392,7 @@ function SchoolDetailsContent() {
                         end: e.target.value
                       }
                     })}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   />
                 </div>
               ) : (
@@ -1387,7 +1433,7 @@ function SchoolDetailsContent() {
                                   accessMatrix: newAccessMatrix
                                 });
                               }}
-                              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                             />
                             <span className="text-sm text-gray-700 capitalize">
                               {permission.replace(/([A-Z])/g, ' $1').trim()}
@@ -1450,7 +1496,7 @@ function SchoolDetailsContent() {
                       value={addUserForm.firstName}
                       onChange={(e) => setAddUserForm({ ...addUserForm, firstName: e.target.value })}
                       required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       placeholder="First Name"
                     />
                   </div>
@@ -1462,7 +1508,7 @@ function SchoolDetailsContent() {
                       value={addUserForm.lastName}
                       onChange={(e) => setAddUserForm({ ...addUserForm, lastName: e.target.value })}
                       required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       placeholder="Last Name"
                     />
                   </div>
@@ -1475,7 +1521,7 @@ function SchoolDetailsContent() {
                     value={addUserForm.email}
                     onChange={(e) => setAddUserForm({ ...addUserForm, email: e.target.value })}
                     required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     placeholder="Email Address"
                   />
                 </div>
@@ -1497,21 +1543,21 @@ function SchoolDetailsContent() {
                     type="tel"
                     value={addUserForm.phone}
                     onChange={(e) => setAddUserForm({ ...addUserForm, phone: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     placeholder="Phone Number"
                   />
                 </div>
 
                 <div>
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3">
                     <div className="flex items-center">
                       <div className="flex-shrink-0">
-                        <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                        <svg className="h-5 w-5 text-indigo-400" viewBox="0 0 20 20" fill="currentColor">
                           <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                         </svg>
                       </div>
                       <div className="ml-3">
-                        <p className="text-sm text-blue-700">
+                        <p className="text-sm text-indigo-700">
                           <strong>Password Auto-Generation:</strong> A secure password and user ID will be automatically generated for this user. You'll receive the credentials after user creation.
                         </p>
                       </div>
@@ -1533,7 +1579,7 @@ function SchoolDetailsContent() {
                   disabled={addingUser}
                   className={`flex-1 px-4 py-2 rounded-lg text-white transition-colors duration-200 ${addingUser
                     ? 'bg-gray-400 cursor-not-allowed'
-                    : 'bg-blue-600 hover:bg-blue-700'
+                    : 'bg-indigo-600 hover:bg-indigo-700'
                     }`}
                 >
                   {addingUser ? (
@@ -1623,7 +1669,7 @@ function SchoolDetailsContent() {
                         value={userEditForm.firstName || ''}
                         onChange={(e) => setUserEditForm({ ...userEditForm, firstName: e.target.value })}
                         required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       />
                     </div>
 
@@ -1634,7 +1680,7 @@ function SchoolDetailsContent() {
                         value={userEditForm.lastName || ''}
                         onChange={(e) => setUserEditForm({ ...userEditForm, lastName: e.target.value })}
                         required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       />
                     </div>
                   </div>
@@ -1646,7 +1692,7 @@ function SchoolDetailsContent() {
                       value={userEditForm.email || ''}
                       onChange={(e) => setUserEditForm({ ...userEditForm, email: e.target.value })}
                       required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     />
                   </div>
 
@@ -1656,7 +1702,7 @@ function SchoolDetailsContent() {
                       type="tel"
                       value={userEditForm.phone || ''}
                       onChange={(e) => setUserEditForm({ ...userEditForm, phone: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     />
                   </div>
                 </div>
@@ -1673,7 +1719,7 @@ function SchoolDetailsContent() {
                         value={userEditForm.password || ''}
                         onChange={(e) => setUserEditForm({ ...userEditForm, password: e.target.value })}
                         placeholder="Leave blank to keep current password"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       />
                       <p className="text-xs text-gray-500 mt-1">Leave blank to keep the current password</p>
                     </div>
@@ -1685,7 +1731,7 @@ function SchoolDetailsContent() {
                         value={userEditForm.confirmPassword || ''}
                         onChange={(e) => setUserEditForm({ ...userEditForm, confirmPassword: e.target.value })}
                         placeholder="Confirm new password"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       />
                     </div>
 
@@ -1754,7 +1800,7 @@ function SchoolDetailsContent() {
                       <select
                         value={userEditForm.role || ''}
                         onChange={(e) => setUserEditForm({ ...userEditForm, role: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       >
                         <option value="admin">Admin</option>
                         <option value="teacher">Teacher</option>
@@ -1767,7 +1813,7 @@ function SchoolDetailsContent() {
                       <select
                         value={userEditForm.isActive !== undefined ? userEditForm.isActive.toString() : ''}
                         onChange={(e) => setUserEditForm({ ...userEditForm, isActive: e.target.value === 'true' })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       >
                         <option value="true">Active</option>
                         <option value="false">Inactive</option>
@@ -1790,7 +1836,7 @@ function SchoolDetailsContent() {
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
                 >
                   Save Changes
                 </button>

@@ -99,7 +99,7 @@ const ViewLeaveRequests: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full"></div>
+        <div className="animate-spin h-8 w-8 border-4 border-violet-500 border-t-transparent rounded-full"></div>
       </div>
     );
   }
@@ -114,7 +114,7 @@ const ViewLeaveRequests: React.FC = () => {
               <p className="text-sm text-gray-600">Total Requests</p>
               <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
             </div>
-            <Calendar className="h-8 w-8 text-blue-600" />
+            <Calendar className="h-8 w-8 text-violet-600" />
           </div>
         </div>
         <div className="bg-white p-4 rounded-lg border border-gray-200">
@@ -153,7 +153,7 @@ const ViewLeaveRequests: React.FC = () => {
             onClick={() => setFilter('all')}
             className={`px-4 py-2 rounded-lg font-medium transition-colors ${
               filter === 'all'
-                ? 'bg-blue-600 text-white'
+                ? 'bg-violet-600 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >

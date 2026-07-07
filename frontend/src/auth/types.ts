@@ -10,6 +10,7 @@ export interface AuthUser {
   schoolCode?: string;
   schoolName?: string;
   lastLogin?: string;
+  academicYear?: string;
 }
 
 export interface AuthState {
@@ -21,8 +22,9 @@ export interface AuthState {
 export interface LoginPayload {
   email: string;
   password: string;
+  role: "superadmin" | "admin" | "teacher" | "student" | "parent";
   schoolCode?: string;
-  role?: string;
+  identifier?: string;
 }
 
 export interface AuthContextValue extends AuthState {

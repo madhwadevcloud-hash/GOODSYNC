@@ -91,6 +91,9 @@ router.get('/:id/info', authMiddleware.auth, setMainDbContext, schoolController.
 
 router.get('/:schoolId', setSchoolContext, validateSchoolAccess(['admin', 'superadmin']), schoolController.getSchoolById);
 
+// Get dashboard overview stats
+router.get('/:schoolId/dashboard-overview', authMiddleware.auth, setSchoolContext, validateSchoolAccess(['admin', 'superadmin']), schoolController.getDashboardOverview);
+
 // Get school info from school_info collection in school's database
 router.get('/database/school-info', authMiddleware.auth, schoolController.getSchoolInfoFromDatabase);
 router.put('/:schoolId', logoUpload.single('logo'), schoolController.updateSchool);

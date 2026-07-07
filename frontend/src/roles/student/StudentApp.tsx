@@ -21,7 +21,6 @@ export function StudentApp() {
         <Route path="fees" element={<Fees />} />
         <Route path="profile" element={<Profile />} />
         <Route path="messages" element={<Message />} />
-
         <Route path="*" element={<Navigate to="." replace />} />
       </Routes>
     </Layout>

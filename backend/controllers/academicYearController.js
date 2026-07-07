@@ -59,6 +59,13 @@ exports.getAcademicYear = async (req, res) => {
 // Update academic year settings
 exports.updateAcademicYear = async (req, res) => {
   try {
+    if (req.user?.role !== 'superadmin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only Super Admin is authorized to activate a new Academic Year.'
+      });
+    }
+
     const { schoolCode } = req.params;
     const { currentYear, startDate, endDate } = req.body;
 

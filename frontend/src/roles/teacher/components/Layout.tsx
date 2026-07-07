@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  LayoutDashboard,
   Calendar,
   Users,
   FileText,
@@ -10,13 +9,16 @@ import {
   Menu,
   X,
   LogOut,
-  School,
+  ShieldCheck,
   Home,
-  UserCheck
+  UserCheck,
+  Search,
+  Bell
 } from 'lucide-react';
 import { useAuth } from '../../../auth/AuthContext';
 import { usePermissions, PermissionKey } from '../../../hooks/usePermissions';
 import { PermissionDeniedModal } from '../../../components/PermissionDeniedModal';
+import api from '../../../services/api';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -25,33 +27,72 @@ interface LayoutProps {
   onLogout: () => void;
 }
 
+interface SchoolInfo {
+  name?: string;
+  code?: string;
+  logoUrl?: string;
+}
+
 const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLogout }) => {
   const { user } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [notificationCount, setNotificationCount] = useState(0);
+  const [schoolInfo, setSchoolInfo] = useState<SchoolInfo | null>(null);
   const { hasPermission, showPermissionDenied, setShowPermissionDenied, deniedPermissionName, checkAndNavigate } = usePermissions();
 
-  // Get initials from teacher name
-  const getInitials = () => {
-    if (!user?.name) return 'T';
-    const nameParts = user.name.split(' ');
-    if (nameParts.length >= 2) {
-      // First letter of first name + first letter of last name
-      return (nameParts[0].charAt(0) + nameParts[nameParts.length - 1].charAt(0)).toUpperCase();
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await api.get('/messages/teacher/messages?limit=10');
+        const messages = res.data?.messages || res.data?.data || [];
+        if (mounted) setNotificationCount(messages.length);
+      } catch (err) {
+        // Silently ignore - badge simply stays at 0
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await api.get('/schools/database/school-info');
+        const data = res.data?.data || res.data;
+        if (mounted && data) {
+          setSchoolInfo({ name: data.name, code: data.code, logoUrl: data.logoUrl });
+        }
+      } catch (err) {
+        if (mounted) setSchoolInfo({ code: user?.schoolCode, name: user?.schoolName });
+      }
+    })();
+    return () => { mounted = false; };
+  }, [user?.schoolCode]);
+
+  const getLogoUrl = (logoPath?: string): string => {
+    if (!logoPath) return '';
+    if (logoPath.startsWith('http')) return logoPath;
+    if (logoPath.startsWith('/uploads')) {
+      const envBase = (import.meta.env.VITE_API_BASE_URL as string) || '';
+      const baseUrl = envBase.replace(/\/api\/?$/, '');
+      return `${baseUrl}${logoPath}`;
     }
-    // If only one name, return first two letters
-    return user.name.substring(0, 2).toUpperCase();
+    return logoPath;
   };
 
   const menuItems = [
     { name: 'Dashboard', icon: Home, page: 'dashboard', permission: null },
+    { name: 'My Classes', icon: Users, page: 'student-details', permission: null },
     { name: 'Attendance', icon: UserCheck, page: 'attendance', permission: 'viewAttendance' as PermissionKey },
     { name: 'Assignments', icon: FileText, page: 'assignments', permission: 'viewAssignments' as PermissionKey },
     { name: 'Results', icon: BarChart3, page: 'view-results', permission: 'viewResults' as PermissionKey },
     { name: 'Messages', icon: MessageSquare, page: 'messages', permission: 'messageStudentsParents' as PermissionKey },
     { name: 'Leave Request', icon: Calendar, page: 'leave-request', permission: 'viewLeaves' as PermissionKey },
-    { name: 'Student Details', icon: Users, page: 'student-details', permission: null }
+    { name: 'Settings', icon: Settings, page: 'settings', permission: null }
   ];
-
 
   const handleMenuClick = (item: typeof menuItems[0]) => {
     if (item.permission && !hasPermission(item.permission)) {
@@ -65,9 +106,10 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
     }
   };
 
+  const schoolLogoUrl = getLogoUrl(schoolInfo?.logoUrl);
+
   return (
     <div className="flex h-screen bg-gray-50">
-      {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 z-20 bg-black bg-opacity-50 lg:hidden"
@@ -76,84 +118,195 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
       )}
 
       {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-30 w-64 bg-white shadow-lg transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        } transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0`}>
-        <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200">
-          <div className="flex items-center">
-            <div className="flex items-center justify-center w-8 h-8 bg-blue-600 rounded-lg mr-3">
-              <School className="h-5 w-5 text-white" />
+      <div className={`fixed inset-y-0 left-0 z-30 w-64 bg-white border-r border-gray-100 transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        } transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 flex flex-col`}>
+        <div className="flex items-center justify-between h-20 px-5 border-b border-gray-100 flex-shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            {schoolLogoUrl ? (
+              <img
+                src={schoolLogoUrl}
+                alt={schoolInfo?.name || 'School logo'}
+                className="w-12 h-12 rounded-lg object-cover mr-3 flex-shrink-0"
+              />
+            ) : (
+              <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-xl mr-2.5 shadow-sm shadow-violet-200 flex-shrink-0">
+                <ShieldCheck className="h-6 w-6 text-white" />
+              </div>
+            )}
+            <div className="min-w-0">
+              <p className="text-base font-semibold text-violet-600 leading-tight">
+                {schoolInfo?.code || user?.schoolCode || "—"}
+              </p>
+              <p className="text-[11px] font-medium text-gray-400 tracking-wide uppercase leading-tight">
+                Teacher Portal
+              </p>
             </div>
-            <h1 className="text-lg font-semibold text-gray-900">ERP Portal</h1>
           </div>
           <button
             onClick={() => setSidebarOpen(false)}
-            className="lg:hidden p-1 rounded-md hover:bg-gray-100"
+            className="lg:hidden p-1 rounded-md hover:bg-gray-100 flex-shrink-0"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="flex flex-col h-full">
-          <nav className="flex-1 px-4 py-6 space-y-2">
+        <div className="flex flex-col flex-1 overflow-y-auto">
+          <nav className="flex-1 px-4 py-6 space-y-1">
             {menuItems.map((item) => {
               const Icon = item.icon;
+              const isActive = currentPage === item.page;
               return (
                 <button
                   key={item.name}
                   onClick={() => handleMenuClick(item)}
-                  className={`w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors ${currentPage === item.page
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'text-gray-700 hover:bg-gray-100'
+                  className={`w-full flex items-center px-3 py-2.5 text-base font-medium rounded-xl transition-colors ${isActive
+                      ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-sm shadow-violet-200'
+                      : 'text-gray-600 hover:bg-violet-50 hover:text-violet-700'
                     }`}
                 >
-                  <Icon className="h-5 w-5 mr-3" />
+                  <Icon className={`h-5 w-5 mr-3 ${isActive ? 'text-white' : 'text-gray-400'}`} />
                   {item.name}
                 </button>
               );
             })}
           </nav>
 
-          <div className="px-4 py-6 border-t border-gray-200">
-            <div className="flex items-center">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mr-3">
-                <span className="text-white font-bold text-sm">
-                  {getInitials()}
-                </span>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-900">{user?.name || 'Teacher'}</p>
-                <p className="text-xs text-gray-500">{user?.userId || user?.email}</p>
+          <div className="px-4 py-3 text-center border-t border-gray-100">
+            <p className="text-[11px] text-gray-400 font-medium">Powered by <span className="text-violet-500 font-semibold">GoodSync ERP</span></p>
+          </div>
+
+          <div className="px-4 py-4 border-t border-gray-100">
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={onLogout}
+                title="Logout"
+                className="w-full flex items-center px-3 py-2.5 rounded-xl text-base font-medium text-red-500 bg-red-50/60 hover:bg-red-50 hover:text-red-600 transition-colors"
+              >
+                <LogOut className="h-5 w-5 mr-3" />
+                Logout
+              </button>
+              <div className="flex items-center min-w-0 rounded-xl bg-gray-50 px-2.5 py-2">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center mr-3 flex-shrink-0">
+                  <span className="text-white font-bold text-sm">
+                    {user?.name ? user.name.substring(0, 2).toUpperCase() : 'T'}
+                  </span>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">{user?.name || 'Teacher'}</p>
+                  <p className="text-xs text-gray-500 truncate">{user?.userId || user?.email}</p>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Permission Denied Modal */}
       <PermissionDeniedModal
         isOpen={showPermissionDenied}
         onClose={() => setShowPermissionDenied(false)}
         permissionName={deniedPermissionName}
       />
 
-      {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white shadow-sm border-b border-gray-200 lg:hidden">
-          <div className="flex items-center justify-between h-16 px-4">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="p-2 rounded-md text-gray-600 hover:bg-gray-100"
-            >
-              <Menu className="h-6 w-6" />
-            </button>
-            <h2 className="text-lg font-semibold text-gray-900 capitalize">
-              {currentPage.replace('-', ' ')}
-            </h2>
-            <div className="w-10" />
+        <header className="bg-white border-b border-gray-100 flex-shrink-0">
+          <div className="flex items-center justify-between h-16 px-4 lg:px-6 gap-4">
+            <div className="flex items-center gap-3 flex-shrink-0 min-w-0">
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="lg:hidden p-2 rounded-md text-gray-600 hover:bg-gray-100 flex-shrink-0"
+              >
+                <Menu className="h-5 w-5" />
+              </button>
+
+              <h2 className="text-base font-semibold text-gray-900 capitalize sm:hidden truncate">
+                {currentPage.replace(/-/g, ' ')}
+              </h2>
+
+              <div className="hidden sm:flex items-center gap-3 min-w-0">
+                {schoolLogoUrl ? (
+                  <img
+                    src={schoolLogoUrl}
+                    alt={schoolInfo?.name || 'School logo'}
+                    className="w-14 h-14 rounded-lg object-cover flex-shrink-0"
+                  />
+                ) : (
+                  <div className="flex items-center justify-center w-14 h-14 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-lg shadow-sm shadow-violet-200 flex-shrink-0">
+                    <ShieldCheck className="h-7 w-7 text-white" />
+                  </div>
+                )}
+
+                <span className="text-2xl sm:text-3xl font-bold text-gray-900 whitespace-nowrap truncate">
+                  {schoolInfo?.name || "School"}
+                </span>
+              </div>
+            </div>
+
+            {/* Search is pushed to the right, sitting close to the avatar (mirrors the admin portal reference) */}
+            <div className="flex-1 flex items-center justify-end min-w-0">
+              <div className="flex items-center w-full max-w-[260px]">
+                <button
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => setSearchOpen((o) => !o)}
+                  className="p-2.5 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors flex-shrink-0 sm:hidden"
+                  title="Search"
+                >
+                  {searchOpen ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
+                </button>
+
+                <div className="hidden sm:flex items-center w-full relative">
+                  <Search className="absolute left-3 h-4.5 w-4.5 text-gray-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search anything..."
+                    className="w-full pl-10 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 outline-none"
+                  />
+                </div>
+
+                <div
+                  className={`sm:hidden flex items-center overflow-hidden transition-all duration-300 ease-in-out ${
+                    searchOpen ? "w-full opacity-100 ml-2" : "w-0 opacity-0"
+                  }`}
+                >
+                  <input
+                    type="text"
+                    autoFocus={searchOpen}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onBlur={() => setSearchOpen(false)}
+                    placeholder="Search..."
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                onClick={() => handleMenuClick(menuItems.find(m => m.page === 'messages')!)}
+                className="relative p-2.5 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors"
+                title="Messages"
+              >
+                <Bell className="h-5 w-5" />
+                {notificationCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 h-4 min-w-[16px] px-1 flex items-center justify-center rounded-full bg-violet-600 text-white text-[10px] font-bold">
+                    {notificationCount > 9 ? '9+' : notificationCount}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => handleMenuClick(menuItems.find(m => m.page === 'leave-request')!)}
+                className="p-2.5 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors hidden sm:block"
+                title="Leave Request"
+              >
+                <Calendar className="h-5 w-5" />
+              </button>
+            </div>
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto p-4 lg:p-6">
+        <main className="flex-1 overflow-auto p-4 lg:p-6 bg-gray-50">
           {children}
         </main>
       </div>

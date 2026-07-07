@@ -357,6 +357,55 @@ exports.getStudentResultHistory = async (req, res) => {
       isActive: true
     };
 
+    const isStudentOrParent = req.user && ['student', 'parent'].includes(req.user.role);
+    if (isStudentOrParent) {
+      const DatabaseManager = require('../utils/databaseManager');
+      const schoolConn = await DatabaseManager.getSchoolConnection(schoolCode);
+      const studentsCollection = schoolConn.collection('students');
+      const mongoose = require('mongoose');
+      const student = await studentsCollection.findOne({
+        $or: [
+          { userId: studentId },
+          { _id: studentId },
+          studentId.toString().match(/^[0-9a-fA-F]{24}$/) ? { _id: new mongoose.Types.ObjectId(studentId.toString()) } : null
+        ].filter(Boolean)
+      });
+
+      if (!student) {
+        return res.status(404).json({
+          success: false,
+          message: 'Student not found in school database'
+        });
+      }
+
+      // Perform authorization check
+      if (req.user.role === 'student') {
+        const selfUserId = req.user.userId || req.user._id?.toString();
+        if (student.userId !== selfUserId && student._id.toString() !== req.user._id?.toString()) {
+          return res.status(403).json({
+            success: false,
+            message: 'Access denied. You can only view your own results.'
+          });
+        }
+      } else if (req.user.role === 'parent') {
+        const children = req.user.parentDetails?.children || [];
+        const isParentOfChild = children.some(c => 
+          c.studentId?.toString() === student._id.toString() ||
+          c.studentName === student.name?.displayName ||
+          (student.name && c.studentName === `${student.name.firstName} ${student.name.lastName}`.trim())
+        );
+        if (!isParentOfChild) {
+          return res.status(403).json({
+            success: false,
+            message: "Access denied. You can only view your own children's results."
+          });
+        }
+      }
+
+      // Restrict to published results
+      query.status = 'published';
+    }
+
     if (academicYear) query['classDetails.academicYear'] = academicYear;
     if (examType) query['examDetails.examType'] = examType;
 
@@ -374,6 +423,13 @@ exports.getStudentResultHistory = async (req, res) => {
         'overallResult.rank': 1,
         'overallResult.totalStudents': 1
       });
+
+    if (isStudentOrParent && results.length === 0) {
+      return res.status(403).json({
+        success: false,
+        message: 'Results have not yet been published.'
+      });
+    }
 
     // Calculate progress trend
     const progressTrend = calculateProgressTrend(results);
@@ -556,18 +612,16 @@ exports.saveResults = async (req, res) => {
       class: className,
       section,
       testType,
-      subject,
-      maxMarks,
       academicYear,
       results
     } = req.body;
 
-    console.log('💾 Saving results:', { schoolCode, className, section, testType, subject, maxMarks, academicYear, resultsCount: results?.length });
+    console.log('💾 Saving results:', { schoolCode, className, section, testType, academicYear, resultsCount: results?.length });
 
-    if (!schoolCode || !className || !section || !testType || !subject || !results || !Array.isArray(results)) {
+    if (!schoolCode || !className || !section || !testType || !results || !Array.isArray(results)) {
       return res.status(400).json({
         success: false,
-        message: 'Missing required fields: schoolCode, class, section, testType, subject, and results array'
+        message: 'Missing required fields: schoolCode, class, section, testType, and results array'
       });
     }
 
@@ -581,6 +635,18 @@ exports.saveResults = async (req, res) => {
     const DatabaseManager = require('../utils/databaseManager');
     const schoolConn = await DatabaseManager.getSchoolConnection(schoolCode);
     const resultsCollection = schoolConn.collection('results');
+    const testsCollection = schoolConn.collection('testdetails');
+
+    // Fetch the test details to retrieve configured maxMarks
+    const testDetail = await testsCollection.findOne({
+      className,
+      isActive: true,
+      $or: [
+        { name: testType },
+        { testName: testType }
+      ]
+    });
+    const configuredMaxMarks = testDetail ? Number(testDetail.maxMarks || 100) : 100;
 
     // Fetch grading scale for active academic year
     const gradingScalesCollection = schoolConn.collection('gradingscales');
@@ -606,9 +672,7 @@ exports.saveResults = async (req, res) => {
     for (const result of results) {
       try {
         const studentId = result.studentId;
-        const obtainedMarks = result.obtainedMarks !== null && result.obtainedMarks !== undefined
-          ? parseInt(result.obtainedMarks)
-          : null;
+        const subjectMarks = result.subjectMarks || {};
 
         const existingResult = await resultsCollection.findOne({
           schoolCode: schoolCode.toUpperCase(),
@@ -621,61 +685,67 @@ exports.saveResults = async (req, res) => {
         const now = new Date();
 
         if (existingResult) {
-          // Update existing document - add or update the subject entry
-          const subjectIndex = existingResult.subjects?.findIndex(
-            s => s.subjectName === subject && s.testType === testType
-          );
-
-          if (subjectIndex >= 0 && existingResult.subjects[subjectIndex].frozen) {
-            errors.push({
-              studentId: result.studentId,
-              studentName: result.studentName,
-              error: 'Results are frozen and cannot be modified'
-            });
-            continue; // Skip this student
-          }
-
           let updatedSubjects = existingResult.subjects || [];
 
-          const totalMarksValue = parseInt(result.totalMarks || maxMarks);
-          const calculatedGrade = calculateSimpleGrade(obtainedMarks, totalMarksValue, gradingSystemRules);
-          const calculatedPercentage = obtainedMarks !== null && totalMarksValue > 0
-            ? Math.round((obtainedMarks / totalMarksValue) * 100 * 100) / 100
-            : null;
+          for (const [subjectName, obtainedMarksVal] of Object.entries(subjectMarks)) {
+            const obtainedMarks = obtainedMarksVal !== null && obtainedMarksVal !== undefined && obtainedMarksVal !== ''
+              ? parseInt(obtainedMarksVal)
+              : null;
 
-          if (subjectIndex >= 0) {
-            updatedSubjects[subjectIndex] = {
-              subjectName: subject,
-              testType,
-              maxMarks: parseInt(maxMarks),
-              obtainedMarks,
-              totalMarks: totalMarksValue,
-              grade: calculatedGrade,
-              percentage: calculatedPercentage,
-              updatedAt: now,
-              frozen: existingResult.subjects[subjectIndex].frozen || false,
-              frozenAt: existingResult.subjects[subjectIndex].frozenAt || null,
-              frozenBy: existingResult.subjects[subjectIndex].frozenBy || null
-            };
-          } else {
-            updatedSubjects.push({
-              subjectName: subject,
-              testType,
-              maxMarks: parseInt(maxMarks),
-              obtainedMarks,
-              totalMarks: totalMarksValue,
-              grade: calculatedGrade,
-              percentage: calculatedPercentage,
-              createdAt: now,
-              updatedAt: now
-            });
+            const subjectIndex = updatedSubjects.findIndex(
+              s => s.subjectName === subjectName && s.testType === testType
+            );
+
+            if (subjectIndex >= 0 && updatedSubjects[subjectIndex].frozen) {
+              continue;
+            }
+
+            const calculatedGrade = calculateSimpleGrade(obtainedMarks, configuredMaxMarks, gradingSystemRules);
+            const calculatedPercentage = obtainedMarks !== null && configuredMaxMarks > 0
+              ? Math.round((obtainedMarks / configuredMaxMarks) * 100 * 100) / 100
+              : null;
+
+            if (subjectIndex >= 0) {
+              updatedSubjects[subjectIndex] = {
+                ...updatedSubjects[subjectIndex],
+                maxMarks: configuredMaxMarks,
+                obtainedMarks,
+                totalMarks: configuredMaxMarks,
+                grade: calculatedGrade,
+                percentage: calculatedPercentage,
+                updatedAt: now
+              };
+            } else {
+              updatedSubjects.push({
+                subjectName,
+                testType,
+                maxMarks: configuredMaxMarks,
+                obtainedMarks,
+                totalMarks: configuredMaxMarks,
+                grade: calculatedGrade,
+                percentage: calculatedPercentage,
+                createdAt: now,
+                updatedAt: now
+              });
+            }
           }
+
+          // Compute overall doc totals
+          const validSubjects = updatedSubjects.filter(s => typeof s.obtainedMarks === 'number');
+          const overallObtained = validSubjects.reduce((sum, s) => sum + s.obtainedMarks, 0);
+          const overallMax = validSubjects.reduce((sum, s) => sum + s.maxMarks, 0);
+          const overallPercentage = overallMax > 0 ? (overallObtained / overallMax) * 100 : 0;
+          const overallGrade = calculateSimpleGrade(overallObtained, overallMax, gradingSystemRules);
 
           await resultsCollection.updateOne(
             { _id: existingResult._id },
             {
               $set: {
                 subjects: updatedSubjects,
+                totalMarks: overallObtained,
+                maxMarks: overallMax,
+                percentage: overallPercentage,
+                grade: overallGrade,
                 updatedAt: now,
                 updatedBy: req.user?._id || null
               }
@@ -690,16 +760,34 @@ exports.saveResults = async (req, res) => {
           });
         } else {
           // Create new result document
-          const totalMarksValue = parseInt(result.totalMarks || maxMarks);
-          const calculatedGrade = calculateSimpleGrade(obtainedMarks, totalMarksValue, gradingSystemRules);
-          const calculatedPercentage = obtainedMarks !== null && totalMarksValue > 0
-            ? Math.round((obtainedMarks / totalMarksValue) * 100 * 100) / 100
-            : null;
+          const subjectsArray = [];
+          for (const [subjectName, obtainedMarksVal] of Object.entries(subjectMarks)) {
+            const obtainedMarks = obtainedMarksVal !== null && obtainedMarksVal !== undefined && obtainedMarksVal !== ''
+              ? parseInt(obtainedMarksVal)
+              : null;
 
-          // Ensure academic year is provided
-          if (!academicYear) {
-            throw new Error('Academic year is required but not provided');
+            const calculatedGrade = calculateSimpleGrade(obtainedMarks, configuredMaxMarks, gradingSystemRules);
+            const calculatedPercentage = obtainedMarks !== null && configuredMaxMarks > 0
+              ? Math.round((obtainedMarks / configuredMaxMarks) * 100 * 100) / 100
+              : null;
+
+            subjectsArray.push({
+              subjectName,
+              testType,
+              maxMarks: configuredMaxMarks,
+              obtainedMarks,
+              totalMarks: configuredMaxMarks,
+              grade: calculatedGrade,
+              percentage: calculatedPercentage,
+              createdAt: now,
+              updatedAt: now
+            });
           }
+
+          const overallObtained = subjectsArray.filter(s => typeof s.obtainedMarks === 'number').reduce((sum, s) => sum + s.obtainedMarks, 0);
+          const overallMax = subjectsArray.filter(s => typeof s.obtainedMarks === 'number').reduce((sum, s) => sum + s.maxMarks, 0);
+          const overallPercentage = overallMax > 0 ? (overallObtained / overallMax) * 100 : 0;
+          const overallGrade = calculateSimpleGrade(overallObtained, overallMax, gradingSystemRules);
 
           const newResult = {
             schoolCode: schoolCode.toUpperCase(),
@@ -709,17 +797,11 @@ exports.saveResults = async (req, res) => {
             studentId,
             studentName: result.studentName,
             userId: result.userId,
-            subjects: [{
-              subjectName: subject,
-              testType,
-              maxMarks: parseInt(maxMarks),
-              obtainedMarks,
-              totalMarks: totalMarksValue,
-              grade: calculatedGrade,
-              percentage: calculatedPercentage,
-              createdAt: now,
-              updatedAt: now
-            }],
+            subjects: subjectsArray,
+            totalMarks: overallObtained,
+            maxMarks: overallMax,
+            percentage: overallPercentage,
+            grade: overallGrade,
             createdAt: now,
             updatedAt: now,
             createdBy: req.user?._id || null
@@ -738,7 +820,6 @@ exports.saveResults = async (req, res) => {
         console.error(`Error saving result for student ${result.studentId}:`, err);
         errors.push({
           studentId: result.studentId,
-          studentName: result.studentName,
           error: err.message
         });
       }
@@ -757,7 +838,6 @@ exports.saveResults = async (req, res) => {
         className,
         section,
         testType,
-        subject,
         savedCount: savedResults.length,
         results: savedResults,
         errors: errors.length > 0 ? errors : undefined
@@ -789,11 +869,78 @@ exports.getResults = async (req, res) => {
     let studentSection = section;
     let studentObjectId = null; // Store the student's ObjectId for results query
 
-    // Establish school database connection once
-    const schoolConn = await DatabaseManager.getSchoolConnection(schoolCode);
+    const reqSchoolCode = schoolCode || req.user?.schoolCode;
+    if (!reqSchoolCode) {
+      return res.status(400).json({
+        success: false,
+        message: 'schoolCode is required'
+      });
+    }
 
-    // If studentId is provided (student fetching their own results), get their class/section
-    if (studentId && !className) {
+    // Establish school database connection once
+    const schoolConn = await DatabaseManager.getSchoolConnection(reqSchoolCode);
+
+    // Secure Result Publication & Student/Parent Authorization Enforcer
+    const isStudentOrParent = req.user && ['student', 'parent'].includes(req.user.role);
+    if (isStudentOrParent) {
+      const studentIdToSearch = req.user.role === 'student' 
+        ? (req.user.userId || req.user._id?.toString()) 
+        : studentId;
+
+      if (!studentIdToSearch) {
+        return res.status(400).json({
+          success: false,
+          message: 'studentId is required.'
+        });
+      }
+
+      const studentsCollection = schoolConn.collection('students');
+      const mongoose = require('mongoose');
+      const student = await studentsCollection.findOne({
+        $or: [
+          { userId: studentIdToSearch },
+          { _id: studentIdToSearch },
+          studentIdToSearch.toString().match(/^[0-9a-fA-F]{24}$/) ? { _id: new mongoose.Types.ObjectId(studentIdToSearch.toString()) } : null
+        ].filter(Boolean)
+      });
+
+      if (!student) {
+        return res.status(404).json({
+          success: false,
+          message: 'Student not found in school database'
+        });
+      }
+
+      // Perform authorization check
+      if (req.user.role === 'student') {
+        const selfUserId = req.user.userId || req.user._id?.toString();
+        if (student.userId !== selfUserId && student._id.toString() !== req.user._id?.toString()) {
+          return res.status(403).json({
+            success: false,
+            message: 'Access denied. You can only view your own results.'
+          });
+        }
+      } else if (req.user.role === 'parent') {
+        const children = req.user.parentDetails?.children || [];
+        const isParentOfChild = children.some(c => 
+          c.studentId?.toString() === student._id.toString() ||
+          c.studentName === student.name?.displayName ||
+          (student.name && c.studentName === `${student.name.firstName} ${student.name.lastName}`.trim())
+        );
+        if (!isParentOfChild) {
+          return res.status(403).json({
+            success: false,
+            message: "Access denied. You can only view your own children's results."
+          });
+        }
+      }
+
+      // Force-override class/section/studentId/studentObjectId to ensure security
+      studentClass = student.academicInfo?.class || student.studentDetails?.academic?.currentClass || student.studentDetails?.currentClass || student.class;
+      studentSection = student.academicInfo?.section || student.studentDetails?.academic?.currentSection || student.studentDetails?.currentSection || student.section;
+      studentObjectId = student._id;
+      // We skip the subsequent query-based fetching of student since we already have it!
+    } else if (studentId && !className) {
       console.log('🔍 [RESULTS] Student query detected, fetching student info for:', studentId);
       
       try {
@@ -1045,6 +1192,9 @@ exports.getResults = async (req, res) => {
         }
 
         for (const subj of matchingSubjects) {
+          if (isStudentOrParent && subj.frozen !== true) {
+            continue;
+          }
           filteredResults.push({
             _id: doc._id,
             schoolCode: doc.schoolCode,
@@ -1075,6 +1225,9 @@ exports.getResults = async (req, res) => {
         const matchesTestType = !testType || doc.testType === testType;
 
         if (matchesSubject && matchesTestType) {
+          if (isStudentOrParent && doc.frozen !== true) {
+            continue;
+          }
           filteredResults.push({
             _id: doc._id,
             schoolCode: doc.schoolCode,
@@ -1099,6 +1252,13 @@ exports.getResults = async (req, res) => {
           });
         }
       }
+    }
+
+    if (isStudentOrParent && filteredResults.length === 0) {
+      return res.status(403).json({
+        success: false,
+        message: 'Results have not yet been published.'
+      });
     }
 
     console.log(`✅ Found ${filteredResults.length} subject-specific results for ${className}-${section}${subject ? ` (${subject})` : ''}${testType ? ` (${testType})` : ''}`);
@@ -1449,9 +1609,7 @@ exports.updateResult = async (req, res) => {
   }
 };
 
-// ---------------------------------------------------------
-// Freeze results for a class/section/subject/testType
-// ---------------------------------------------------------
+
 exports.freezeResults = async (req, res) => {
   try {
     const {
@@ -1465,10 +1623,10 @@ exports.freezeResults = async (req, res) => {
 
     console.log('🔒 Freezing results:', { schoolCode, className, section, subject, testType, academicYear });
 
-    if (!schoolCode || !className || !section || !subject || !testType) {
+    if (!schoolCode || !className || !section || !testType) {
       return res.status(400).json({
         success: false,
-        message: 'Missing required fields: schoolCode, class, section, subject, and testType'
+        message: 'Missing required fields: schoolCode, class, section, and testType'
       });
     }
 
@@ -1485,29 +1643,74 @@ exports.freezeResults = async (req, res) => {
 
     const now = new Date();
 
+    const filter = {
+      schoolCode: schoolCode.toUpperCase(),
+      className,
+      section,
+      academicYear: academicYear,
+      'subjects.testType': testType
+    };
+    if (subject) {
+      filter['subjects.subjectName'] = subject;
+    }
+
+    const updateQuery = {
+      $set: {
+        'subjects.$[elem].frozen': true,
+        'subjects.$[elem].frozenAt': now,
+        'subjects.$[elem].frozenBy': req.user?._id || null,
+        updatedAt: now
+      }
+    };
+
+    const arrayFilters = [{ 'elem.testType': testType }];
+    if (subject) {
+      arrayFilters[0]['elem.subjectName'] = subject;
+    }
+
     const updateResult = await resultsCollection.updateMany(
+      filter,
+      updateQuery,
       {
-        schoolCode: schoolCode.toUpperCase(),
-        className,
-        section,
-        academicYear: academicYear,
-        'subjects.subjectName': subject,
-        'subjects.testType': testType
-      },
-      {
-        $set: {
-          'subjects.$[elem].frozen': true,
-          'subjects.$[elem].frozenAt': now,
-          'subjects.$[elem].frozenBy': req.user?._id || null,
-          updatedAt: now
-        }
-      },
-      {
-        arrayFilters: [{ 'elem.subjectName': subject, 'elem.testType': testType }]
+        arrayFilters
       }
     );
 
-    console.log(`✅ Frozen ${updateResult.modifiedCount} results for ${className}-${section}, ${subject} (${testType})`);
+    console.log(`✅ Frozen ${updateResult.modifiedCount} results for ${className}-${section} (${testType})`);
+
+    // Sync publication status to the main database Result collection
+    try {
+      const Result = require('../models/Result');
+      const mainDbFilter = {
+        schoolCode: schoolCode.toUpperCase(),
+        'classDetails.grade': className,
+        'classDetails.section': section,
+        $or: [
+          { 'classDetails.academicYear': academicYear },
+          { academicYear: academicYear }
+        ]
+      };
+      if (testType) {
+        mainDbFilter['examDetails.examType'] = testType;
+      }
+      if (subject) {
+        mainDbFilter['subjects.subjectName'] = subject;
+      }
+
+      const mainDbUpdate = await Result.updateMany(
+        mainDbFilter,
+        {
+          $set: {
+            status: 'published',
+            publishedAt: now,
+            publishedBy: req.user?._id || null
+          }
+        }
+      );
+      console.log(`✅ Main DB: Published ${mainDbUpdate.modifiedCount} matching results`);
+    } catch (mainDbErr) {
+      console.error('⚠️ Failed to update main DB results status:', mainDbErr.message);
+    }
 
     res.json({
       success: true,

@@ -38,7 +38,7 @@ const StudentProfileModal: React.FC<StudentProfileModalProps> = ({ studentId, on
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
         <div className="bg-white rounded-[40px] w-full max-w-4xl h-[80vh] flex items-center justify-center">
           <div className="flex flex-col items-center gap-4">
-            <div className="h-10 w-10 rounded-full border-2 border-blue-600 border-t-transparent animate-spin"></div>
+            <div className="h-10 w-10 rounded-full border-2 border-violet-600 border-t-transparent animate-spin"></div>
             <p className="text-sm font-medium text-gray-500">Loading Student Profile...</p>
           </div>
         </div>
@@ -124,17 +124,17 @@ const StudentProfileModal: React.FC<StudentProfileModalProps> = ({ studentId, on
         {/* Header - Simple */}
         <div className="px-8 py-6 border-b border-gray-100 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="h-16 w-16 rounded-xl bg-blue-50 flex items-center justify-center border border-blue-100 overflow-hidden">
+            <div className="h-16 w-16 rounded-xl bg-violet-50 flex items-center justify-center border border-violet-100 overflow-hidden">
               {student?.profileImage ? (
                 <img src={student.profileImage} alt={getStudentName(student)} className="h-full w-full object-cover" />
               ) : (
-                <User className="h-8 w-8 text-blue-600" />
+                <User className="h-8 w-8 text-violet-600" />
               )}
             </div>
             <div>
               <h1 className="text-xl font-semibold text-gray-900">{getStudentName(student)}</h1>
               <div className="flex items-center gap-2 mt-1">
-                <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-[10px] font-medium rounded-full border border-blue-100">
+                <span className="px-2 py-0.5 bg-violet-50 text-violet-700 text-[10px] font-medium rounded-full border border-violet-100">
                   ID: {student?.userId}
                 </span>
                 <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[10px] font-medium rounded-full border border-emerald-100">

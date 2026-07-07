@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Calendar, GraduationCap, Clock, Users, Award, BookOpen, ChevronDown, ChevronRight, FileText, CheckCircle, X } from 'lucide-react';
+import { Save, Calendar, GraduationCap, Clock, Users, Award, BookOpen, ChevronDown, ChevronRight, FileText, CheckCircle, X, Settings } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import api from '../../../services/api';
 import { useAuth } from '../../../auth/AuthContext';
@@ -7,6 +7,27 @@ import { useAcademicYear } from '../../../contexts/AcademicYearContext';
 import { normalizeAcademicYear, getDynamicFallbackYear } from '../../../utils/academicYearUtils';
 import PromotionTab from '../components/PromotionTab';
 import UniversalTemplate from '../components/UniversalTemplate';
+
+const getPreviousAcademicYear = (currentYear: string): string => {
+  if (!currentYear) return '';
+  const match = currentYear.match(/^(\d{4})-(\d{2})$/);
+  if (match) {
+    const start = parseInt(match[1]);
+    const end = parseInt(match[2]);
+    return `${start - 1}-${(end - 1).toString().padStart(2, '0')}`;
+  }
+  const matchLong = currentYear.match(/^(\d{4})-(\d{4})$/);
+  if (matchLong) {
+    const start = parseInt(matchLong[1]);
+    const end = parseInt(matchLong[2]);
+    return `${start - 1}-${end - 1}`;
+  }
+  const start = parseInt(currentYear);
+  if (!isNaN(start)) {
+    return `${start - 1}`;
+  }
+  return currentYear;
+};
 
 interface TestData {
   _id: string;
@@ -32,13 +53,13 @@ interface ClassData {
 
 const SchoolSettings: React.FC = () => {
   const { user } = useAuth();
-  const { 
-    currentAcademicYear: academicYearFromContext, 
-    viewingAcademicYear, 
+  const {
+    currentAcademicYear: academicYearFromContext,
+    viewingAcademicYear,
     academicYearStart: startFromContext,
     academicYearEnd: endFromContext,
     ready: academicYearReady,
-    refreshAcademicYear 
+    refreshAcademicYear
   } = useAcademicYear();
 
   // Local state for form inputs
@@ -86,7 +107,7 @@ const SchoolSettings: React.FC = () => {
       setFromYear(year);
       setSavedAcademicYear(year);
       setIsAcademicYearSaved(!!academicYearFromContext);
-      
+
       // Use dates from context, otherwise fallback to dynamic
       const startYearNum = parseInt(year.split('-')[0]);
       setAcademicYearStart(startFromContext || `${startYearNum}-04-01`);
@@ -184,12 +205,29 @@ const SchoolSettings: React.FC = () => {
       console.log('📡 Fetching classes from endpoint:', endpoint);
       console.log('📡 Using school code:', schoolCode, 'year:', yearToFetch);
 
-      const response = await api.get(endpoint);
+      let response = await api.get(endpoint);
 
       console.log('📥 Classes API Response:', response.data);
 
       if (response.data.success) {
-        const classes = response.data.data?.classes || response.data.classes || [];
+        let classes = response.data.data?.classes || response.data.classes || [];
+
+        // Fallback: if no classes are returned for the new year, fetch for the previous academic year
+        if (classes.length === 0) {
+          const prevYear = getPreviousAcademicYear(yearToFetch);
+          if (prevYear) {
+            const fallbackEndpoint = `/admin/classes/${schoolCode}/classes-sections?academicYear=${prevYear}`;
+            console.log('📡 Classes empty for current year, fetching from fallback year:', prevYear);
+            const fallbackResponse = await api.get(fallbackEndpoint);
+            if (fallbackResponse.data.success) {
+              const fallbackClasses = fallbackResponse.data.data?.classes || fallbackResponse.data.classes || [];
+              if (fallbackClasses.length > 0) {
+                classes = fallbackClasses;
+                response = fallbackResponse;
+              }
+            }
+          }
+        }
 
         // Fetch all students once (more efficient than per-class)
         let allStudents: any[] = [];
@@ -230,10 +268,10 @@ const SchoolSettings: React.FC = () => {
               s.studentDetails?.academic?.academicYear ||
               s.academicYear ||
               s.academicInfo?.academicYear;
-            
+
             const normalizedStudentYear = normalizeAcademicYear(String(studentYear || '').trim());
             const normalizedTargetYear = normalizeAcademicYear(String(targetYear || '').trim());
-            
+
             const classMatch = String(studentClass || '').trim() === String(cls.className).trim();
             const yearMatch =
               !normalizedTargetYear ||
@@ -242,7 +280,7 @@ const SchoolSettings: React.FC = () => {
 
             // Extra debug for Class 1 students
             if (cls.className === "1" && classMatch && yearMatch) {
-                // console.log(`Matched student for Class 1: ${s.userId || s._id} - Section: ${studentSection}`);
+              // console.log(`Matched student for Class 1: ${s.userId || s._id} - Section: ${studentSection}`);
             }
 
             return classMatch && yearMatch; // Removed !!studentSection to be more inclusive
@@ -345,6 +383,33 @@ const SchoolSettings: React.FC = () => {
     });
   };
 
+  const isWeightageInvalid = React.useMemo(() => {
+    if (tests.length === 0) return false;
+    const testsByClass: Record<string, TestData[]> = {};
+    tests.forEach(test => {
+      if (!testsByClass[test.className]) {
+        testsByClass[test.className] = [];
+      }
+      testsByClass[test.className].push(test);
+    });
+
+    for (const className in testsByClass) {
+      const classTests = testsByClass[className];
+      let totalWeight = 0;
+      for (const test of classTests) {
+        const currentScoring = testScoring[test._id];
+        const testWeight = currentScoring && currentScoring.weightage !== undefined
+          ? currentScoring.weightage
+          : (test.weightage || 0);
+        totalWeight += Number(testWeight);
+      }
+      if (classTests.length > 0 && totalWeight !== 100) {
+        return true;
+      }
+    }
+    return false;
+  }, [tests, testScoring]);
+
   // Handle test scoring changes
   const handleScoringChange = (testId: string, field: 'maxMarks' | 'weightage', value: number) => {
     setTestScoring(prev => ({
@@ -378,7 +443,7 @@ const SchoolSettings: React.FC = () => {
 
     for (const className in testsByClass) {
       const classTests = testsByClass[className];
-      
+
       let totalWeight = 0;
       for (const test of classTests) {
         const currentScoring = testScoring[test._id];
@@ -396,7 +461,7 @@ const SchoolSettings: React.FC = () => {
     }
 
     // Get tests scoring data only for configured classes (where total weight is exactly 100%)
-    const configuredTests = tests.filter(test => 
+    const configuredTests = tests.filter(test =>
       configuredClasses.includes(test.className)
     );
 
@@ -446,7 +511,7 @@ const SchoolSettings: React.FC = () => {
       });
 
       const endpoint = `/admin/classes/${schoolCode}/test-scoring`;
-      const response = await api.post(endpoint, { 
+      const response = await api.post(endpoint, {
         scoring: scoringData,
         gradingSystem: gradingSystem,
         academicYear: viewingAcademicYear || currentAcademicYear
@@ -598,45 +663,64 @@ const SchoolSettings: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900">School Settings</h1>
-        {activeTab === 'scoring' && (
-          <button
-            onClick={handleSaveScoring}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center transition-colors"
-          >
-            <Save className="h-4 w-4 mr-2" />
-            Save Scoring
-          </button>
-        )}
-      </div>
+    <div className="space-y-6 relative">
+      <div className="sticky top-[72px] z-20 flex flex-col gap-6 pt-4 pb-2 -mt-4 bg-[#f8fafc]">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sm:p-8 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50 rounded-full blur-3xl opacity-60 -mr-20 -mt-20 pointer-events-none"></div>
+          <div className="flex items-center justify-between relative z-10">
+            <div className="flex items-center space-x-4">
+              <div className="bg-indigo-600 p-3 rounded-xl flex items-center justify-center shadow-sm">
+                <Settings className="h-7 w-7 text-white" strokeWidth={2} />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-slate-900 tracking-tight">School Settings</h1>
+                <p className="text-sm font-medium text-slate-500 mt-1">Configure academic years, promotion rules, and templates</p>
+              </div>
+            </div>
+            {activeTab === 'scoring' && (
+              <button
+                onClick={handleSaveScoring}
+                disabled={isWeightageInvalid}
+                className={`px-5 py-2.5 rounded-xl flex items-center font-semibold text-sm transition-all ${isWeightageInvalid
+                  ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                  : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-md hover:shadow-lg hover:-translate-y-0.5'
+                  }`}
+              >
+                <Save className="h-4 w-4 mr-2" />
+                Save Scoring
+              </button>
+            )}
+          </div>
+        </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        {/* Tabs */}
-        <div className="border-b border-gray-200">
-          <nav className="flex space-x-8 px-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          {/* Tabs */}
+          <div className="p-6">
+          <nav className="inline-flex bg-slate-100/80 p-1.5 rounded-2xl w-full sm:w-auto overflow-x-auto custom-scrollbar">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => !tab.disabled && setActiveTab(tab.id)}
                 disabled={tab.disabled}
-                className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center transition-colors ${activeTab === tab.id
-                    ? 'border-blue-500 text-blue-600'
-                    : tab.disabled
-                      ? 'border-transparent text-gray-400 cursor-not-allowed'
-                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                className={`flex items-center justify-center space-x-2 py-2.5 px-6 rounded-xl font-semibold text-sm transition-all duration-200 whitespace-nowrap ${activeTab === tab.id
+                  ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/50'
+                  : tab.disabled
+                    ? 'text-slate-400 cursor-not-allowed opacity-60'
+                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
                   }`}
                 title={tab.disabled ? 'Please save Academic Year first' : ''}
               >
-                <tab.icon className="h-4 w-4 mr-2" />
-                {tab.name}
+                <tab.icon className="h-4 w-4" />
+                <span>{tab.name}</span>
                 {tab.disabled && <span className="ml-1 text-xs">🔒</span>}
               </button>
             ))}
           </nav>
         </div>
+      </div>
+      </div>
 
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
         {/* Tab Content */}
         <div className="p-6">
           {activeTab === 'academic' && (
@@ -657,7 +741,10 @@ const SchoolSettings: React.FC = () => {
                   </p>
                 </div>
               )}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div
+                className="grid grid-cols-1 md:grid-cols-2 gap-6"
+                title={user?.role !== 'superadmin' ? "Only super admins have the access to use this" : ""}
+              >
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Current Academic Year</label>
                   <input
@@ -665,7 +752,8 @@ const SchoolSettings: React.FC = () => {
                     value={currentAcademicYear}
                     onChange={(e) => setCurrentAcademicYear(e.target.value)}
                     placeholder="2024-2025"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                    disabled={user?.role !== 'superadmin'}
                   />
                 </div>
                 <div>
@@ -674,7 +762,8 @@ const SchoolSettings: React.FC = () => {
                     type="date"
                     value={academicYearStart}
                     onChange={(e) => setAcademicYearStart(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                    disabled={user?.role !== 'superadmin'}
                   />
                 </div>
                 <div>
@@ -683,16 +772,22 @@ const SchoolSettings: React.FC = () => {
                     type="date"
                     value={academicYearEnd}
                     onChange={(e) => setAcademicYearEnd(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                    disabled={user?.role !== 'superadmin'}
                   />
                 </div>
               </div>
-              <button
-                onClick={handleSaveAcademicYear}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
-              >
-                Save Academic Year
-              </button>
+              <div className="mt-6">
+                <span title={user?.role !== 'superadmin' ? "Only super admins have the access to use this" : ""}>
+                  <button
+                    onClick={handleSaveAcademicYear}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors disabled:bg-blue-400 disabled:cursor-not-allowed"
+                    disabled={user?.role !== 'superadmin'}
+                  >
+                    Save Academic Year
+                  </button>
+                </span>
+              </div>
             </div>
           )}
 
@@ -712,11 +807,12 @@ const SchoolSettings: React.FC = () => {
                 </div>
               ) : (
                 <PromotionTab
-                  fromYear={fromYear}
+                  fromYear={getPreviousAcademicYear(currentAcademicYear)}
                   setFromYear={setFromYear}
-                  toYear={toYear}
+                  toYear={currentAcademicYear}
                   classes={classes}
                   loading={loading}
+                  currentAcademicYear={currentAcademicYear}
                 />
               )}
             </>
@@ -768,13 +864,13 @@ const SchoolSettings: React.FC = () => {
                           if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
                           if (aIndex !== -1) return -1;
                           if (bIndex !== -1) return 1;
-          return a.localeCompare(b);
+                          return a.localeCompare(b);
                         });
 
                         return sortedClasses.map((className) => {
                           const classTests = groupedTests[className];
                           const isExpanded = expandedClasses.has(className);
-                          
+
                           // Calculate total weightage configured for this class so far
                           const totalClassWeight = classTests.reduce((sum, test) => {
                             const currentScoring = testScoring[test._id];
@@ -783,7 +879,7 @@ const SchoolSettings: React.FC = () => {
                               : (test.weightage || 0);
                             return sum + weight;
                           }, 0);
-                          
+
                           // Check if all tests for this class are configured
                           const allConfigured = classTests.every(test => {
                             const currentScoring = testScoring[test._id];
@@ -793,7 +889,7 @@ const SchoolSettings: React.FC = () => {
                           return (
                             <div key={className} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow transition-shadow mb-4">
                               {/* Class Card Header / Dropdown Toggle */}
-                              <div 
+                              <div
                                 onClick={() => toggleClassExpansion(className)}
                                 className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors bg-gray-50/50"
                               >
@@ -808,13 +904,17 @@ const SchoolSettings: React.FC = () => {
                                     <p className="text-xs text-gray-500 mt-0.5">
                                       {classTests.length} SuperAdmin-configured test{classTests.length > 1 ? 's' : ''} • Total weight: {totalClassWeight}%
                                     </p>
+                                    {totalClassWeight !== 100 && (
+                                      <p className="text-xs text-red-600 font-bold mt-1">
+                                        Invalid percentage. Set the total percentage to exactly 100% only.
+                                      </p>
+                                    )}
                                   </div>
                                 </div>
-                                <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
-                                  totalClassWeight === 100
-                                    ? 'bg-green-100 text-green-800'
-                                    : 'bg-yellow-100 text-yellow-800'
-                                }`}>
+                                <span className={`px-3 py-1 text-xs font-semibold rounded-full ${totalClassWeight === 100
+                                  ? 'bg-green-100 text-green-800'
+                                  : 'bg-yellow-100 text-yellow-800'
+                                  }`}>
                                   {totalClassWeight === 100 ? 'Configured (100%)' : 'Needs Configuration'}
                                 </span>
                               </div>
@@ -872,7 +972,6 @@ const SchoolSettings: React.FC = () => {
                     </p>
                   </div>
                 </div>
-
                 {/* Right column: Grading System (takes 1 col) */}
                 <div className="space-y-4 bg-gray-50 p-6 rounded-xl border border-gray-200 h-fit">
                   <div className="flex items-center justify-between border-b border-gray-200 pb-3 mb-2">
@@ -915,15 +1014,14 @@ const SchoolSettings: React.FC = () => {
                           />
                         </div>
                         <div className="flex-1">
-                          <label className="block text-[10px] font-bold text-gray-400 uppercase text-center">Min (%)</label>
+                          <label className="block text-[10px] font-bold text-gray-400 uppercase text-center">Min</label>
                           <input
                             type="number"
                             min="0"
-                            max="100"
                             value={scale.minPercentage}
                             onChange={(e) => {
                               const updated = [...gradingSystem];
-                              updated[index].minPercentage = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
+                              updated[index].minPercentage = Math.max(0, parseFloat(e.target.value) || 0);
                               setGradingSystem(updated);
                             }}
                             className="w-full text-sm text-center border border-gray-300 rounded px-1.5 py-1 focus:ring-1 focus:ring-blue-500"
@@ -931,15 +1029,14 @@ const SchoolSettings: React.FC = () => {
                         </div>
                         <div className="text-gray-400 text-sm font-medium pt-3">-</div>
                         <div className="flex-1">
-                          <label className="block text-[10px] font-bold text-gray-400 uppercase text-center">Max (%)</label>
+                          <label className="block text-[10px] font-bold text-gray-400 uppercase text-center">Max</label>
                           <input
                             type="number"
                             min="0"
-                            max="100"
                             value={scale.maxPercentage}
                             onChange={(e) => {
                               const updated = [...gradingSystem];
-                              updated[index].maxPercentage = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
+                              updated[index].maxPercentage = Math.max(0, parseFloat(e.target.value) || 0);
                               setGradingSystem(updated);
                             }}
                             className="w-full text-sm text-center border border-gray-300 rounded px-1.5 py-1 focus:ring-1 focus:ring-blue-500"

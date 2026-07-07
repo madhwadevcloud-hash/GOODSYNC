@@ -1009,10 +1009,10 @@ exports.verifyAdminAndGetPasswords = async (req, res) => {
     // Get the admin user from request (set by auth middleware)
     const adminUser = req.user;
 
-    if (!adminUser || adminUser.role !== 'admin') {
+    if (!adminUser || !['admin', 'superadmin'].includes(adminUser.role)) {
       return res.status(403).json({
         success: false,
-        message: 'Only admins can view teacher passwords'
+        message: 'Only admins or superadmins can view teacher passwords'
       });
     }
 
