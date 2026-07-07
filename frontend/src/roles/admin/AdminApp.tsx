@@ -26,8 +26,6 @@ import Assignments from './pages/Assignments'
 
 import Results from './pages/Results'
 
-import TestComponent from './pages/TestComponent'
-
 import AcademicResultsEntry from './pages/AcademicResultsEntry'
 
 import MessagesPage from './pages/MessagesPage'
@@ -37,6 +35,8 @@ import FeesPage from './pages/FeesPage'
 import ReportsPage from './pages/ReportsPage'
 
 import LeaveManagement from './pages/LeaveManagement'
+
+import TeacherAssignments from './pages/TeacherAssignments'
 
 import ErrorBoundary from '../../components/ErrorBoundary'
 
@@ -137,6 +137,7 @@ export function AdminApp() {
             </PermissionGuard>
 
           } />
+          {/* Results Entry */}
           <Route path="results/entry" element={
             <PermissionGuard permission="viewResults" permissionName="Results Entry">
               <ErrorBoundary>
@@ -144,6 +145,13 @@ export function AdminApp() {
               </ErrorBoundary>
             </PermissionGuard>
 
+          } />
+
+          {/* Teacher Subject Assignments */}
+          <Route path="teacher-assignments" element={
+            <PermissionGuard permission="viewResults" permissionName="Teacher Assignments">
+              <TeacherAssignments />
+            </PermissionGuard>
           } />
 
           {/* Messages - Requires messageStudentsParents permission */}

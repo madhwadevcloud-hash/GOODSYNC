@@ -261,6 +261,38 @@ export const resultsAPI = {
   getResultsStats: (params) => api.get('/results/stats', { params }),
 };
 
+// Teacher Subject Assignment API
+export const teacherAssignmentAPI = {
+  // Get all assignments (admin view with filters)
+  getAssignments: (params) => api.get('/teacher-assignments', { params }),
+
+  // Get assignments for a specific class-section
+  getClassSectionAssignments: (className, section, params) =>
+    api.get(`/teacher-assignments/class/${encodeURIComponent(className)}/${encodeURIComponent(section)}`, { params }),
+
+  // Get a teacher's assignments
+  getTeacherAssignments: (teacherId, params) =>
+    api.get(`/teacher-assignments/teacher/${encodeURIComponent(teacherId)}`, { params }),
+
+  // Get current teacher's own assignments
+  getMyAssignments: (params) => api.get('/teacher-assignments/my-assignments', { params }),
+
+  // Create a single assignment (admin only)
+  createAssignment: (data) => api.post('/teacher-assignments', data),
+
+  // Bulk assign teachers to subjects (admin only)
+  bulkAssign: (data) => api.post('/teacher-assignments/bulk', data),
+
+  // Update (reassign) an assignment (admin only)
+  updateAssignment: (id, data) => api.put(`/teacher-assignments/${id}`, data),
+
+  // Delete (deactivate) an assignment (admin only)
+  deleteAssignment: (id, data) => api.delete(`/teacher-assignments/${id}`, { data }),
+
+  // Copy assignments from one academic year to another (admin only)
+  copyAssignments: (data) => api.post('/teacher-assignments/copy-year', data),
+};
+
 // Class Management API
 export const classAPI = {
   // Get all classes for a school

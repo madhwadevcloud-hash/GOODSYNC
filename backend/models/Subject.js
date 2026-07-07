@@ -497,6 +497,104 @@ subjectSchema.methods.getClassesByTeacher = function(teacherId) {
   return assignment ? assignment.assignedClasses : [];
 };
 
+// Post-find hooks to dynamically attach teacherAssignments from the centralized TeacherSubjectAssignment table
+const dynamicallyAttachAssignments = async (docs) => {
+  if (!docs || docs.length === 0) return;
+
+  try {
+    const docList = Array.isArray(docs) ? docs : [docs];
+    if (docList.length === 0) return;
+
+    const db = docList[0].db;
+    const schoolCode = docList[0].schoolCode;
+    const academicYear = docList[0].academicYear;
+
+    if (!schoolCode || !academicYear) return;
+
+    // Load TeacherSubjectAssignment and User models dynamically from the connection
+    const TeacherSubjectAssignment = db.model('TeacherSubjectAssignment', require('./TeacherSubjectAssignment').schema);
+    const User = db.model('User', require('./User').schema);
+
+    const subjectNames = docList.map(d => d.subjectName);
+
+    // Fetch active assignments for these subjects
+    const assignments = await TeacherSubjectAssignment.find({
+      schoolCode: schoolCode.toUpperCase(),
+      academicYear,
+      subjectName: { $in: subjectNames },
+      status: 'active'
+    }).lean();
+
+    if (assignments.length === 0) {
+      docList.forEach(doc => {
+        doc.teacherAssignments = [];
+      });
+      return;
+    }
+
+    // Fetch teachers details to populate teacherId
+    const teacherIds = [...new Set(assignments.map(a => a.teacherId))];
+    const teachers = await User.find({
+      schoolCode,
+      $or: [
+        { userId: { $in: teacherIds } },
+        { _id: { $in: teacherIds.filter(id => mongoose.Types.ObjectId.isValid(id)) } }
+      ]
+    }).select('name email teacherDetails.employeeId role userId').lean();
+
+    docList.forEach(doc => {
+      const subAssignments = assignments.filter(a => a.subjectName === doc.subjectName);
+      
+      doc.teacherAssignments = subAssignments.map(a => {
+        const teacherObj = teachers.find(t => t.userId === a.teacherId || t._id.toString() === a.teacherId.toString());
+        
+        // Construct the populated teacher object
+        const populatedTeacher = teacherObj ? {
+          _id: teacherObj._id,
+          id: teacherObj._id,
+          name: teacherObj.name,
+          email: teacherObj.email,
+          teacherDetails: teacherObj.teacherDetails,
+          role: teacherObj.role,
+          userId: teacherObj.userId,
+          toString: function() { return this._id.toString(); }
+        } : a.teacherId;
+
+        return {
+          teacherId: populatedTeacher,
+          teacherName: a.teacherName,
+          employeeId: a.teacherEmployeeId || '',
+          assignedGrades: [a.className],
+          assignedClasses: [{
+            className: `${a.className}-${a.section}`,
+            grade: a.className,
+            section: a.section,
+            periodsPerWeek: 4
+          }],
+          role: 'primary_teacher',
+          isPrimaryTeacher: true,
+          assignmentHistory: {
+            isActive: true,
+            assignedDate: a.createdAt
+          }
+        };
+      });
+    });
+  } catch (error) {
+    console.error('❌ Error in dynamicallyAttachAssignments hook:', error);
+  }
+};
+
+subjectSchema.post('find', async function(docs) {
+  await dynamicallyAttachAssignments(docs);
+});
+
+subjectSchema.post('findOne', async function(doc) {
+  if (doc) {
+    await dynamicallyAttachAssignments(doc);
+  }
+});
+
 // Static Methods
 subjectSchema.statics.createSubjectForGrades = async function(subjectData) {
   // Validate grades
@@ -536,63 +634,102 @@ subjectSchema.statics.createSubjectForGrades = async function(subjectData) {
   return newSubject.save();
 };
 
-subjectSchema.statics.getSubjectsByTeacher = function(schoolCode, teacherId, academicYear) {
-  return this.find({
+subjectSchema.statics.getSubjectsByTeacher = async function(schoolCode, teacherId, academicYear) {
+  const TeacherSubjectAssignment = this.db.model('TeacherSubjectAssignment', require('./TeacherSubjectAssignment').schema);
+  
+  // Find active assignments for the teacher
+  const assignments = await TeacherSubjectAssignment.find({
+    teacherId,
+    academicYear,
+    status: 'active'
+  }).lean();
+
+  if (assignments.length === 0) {
+    return [];
+  }
+
+  const subjectNames = [...new Set(assignments.map(a => a.subjectName))];
+
+  // Find the subjects
+  const subjects = await this.find({
     schoolCode,
     academicYear,
-    'teacherAssignments.teacherId': teacherId,
-    'teacherAssignments.assignmentHistory.isActive': true,
+    subjectName: { $in: subjectNames },
     isActive: true
-  }).populate('teacherAssignments.assignedClasses.classId');
+  });
+
+  return subjects;
 };
 
-subjectSchema.statics.getSubjectsByGrade = function(schoolCode, grade, academicYear) {
-  return this.find({
+subjectSchema.statics.getSubjectsByGrade = async function(schoolCode, grade, academicYear) {
+  // Find subjects for the grade
+  const subjects = await this.find({
     schoolCode,
     academicYear,
     'applicableGrades.grade': grade,
     isActive: true
-  }).populate('teacherAssignments.teacherId', 'name email');
+  });
+
+  return subjects;
 };
 
 subjectSchema.statics.getTeacherWorkloadSummary = async function(schoolCode, academicYear) {
-  return this.aggregate([
-    {
-      $match: {
-        schoolCode,
-        academicYear,
-        isActive: true
-      }
-    },
-    {
-      $unwind: '$teacherAssignments'
-    },
-    {
-      $match: {
-        'teacherAssignments.assignmentHistory.isActive': true
-      }
-    },
-    {
-      $group: {
-        _id: '$teacherAssignments.teacherId',
-        teacherName: { $first: '$teacherAssignments.teacherName' },
-        employeeId: { $first: '$teacherAssignments.employeeId' },
-        totalSubjects: { $sum: 1 },
-        totalPeriods: { $sum: '$teacherAssignments.totalPeriodsPerWeek' },
-        subjects: { 
-          $push: {
-            subjectName: '$subjectName',
-            subjectCode: '$subjectCode',
-            periods: '$teacherAssignments.totalPeriodsPerWeek',
-            classes: '$teacherAssignments.assignedClasses'
-          }
-        }
-      }
-    },
-    {
-      $sort: { totalPeriods: -1 }
+  const TeacherSubjectAssignment = this.db.model('TeacherSubjectAssignment', require('./TeacherSubjectAssignment').schema);
+  
+  // Find all active assignments for the school and year
+  const assignments = await TeacherSubjectAssignment.find({
+    schoolCode: schoolCode.toUpperCase(),
+    academicYear,
+    status: 'active'
+  }).lean();
+
+  // Group by teacherId
+  const teacherGroups = {};
+  assignments.forEach(a => {
+    const tid = a.teacherId;
+    if (!teacherGroups[tid]) {
+      teacherGroups[tid] = {
+        _id: tid,
+        teacherName: a.teacherName,
+        employeeId: a.teacherEmployeeId || '',
+        totalSubjects: 0,
+        totalPeriods: 0,
+        subjectsMap: {}
+      };
     }
-  ]);
+    
+    const tGroup = teacherGroups[tid];
+    const subKey = a.subjectName;
+    
+    if (!tGroup.subjectsMap[subKey]) {
+      tGroup.subjectsMap[subKey] = {
+        subjectName: a.subjectName,
+        subjectCode: a.subjectName.replace(/\s+/g, '').toUpperCase().substring(0, 5),
+        periods: 0,
+        classes: []
+      };
+      tGroup.totalSubjects++;
+    }
+    
+    tGroup.subjectsMap[subKey].periods += 4; // default periods per week
+    tGroup.totalPeriods += 4;
+    tGroup.subjectsMap[subKey].classes.push({
+      className: `${a.className}-${a.section}`,
+      grade: a.className,
+      section: a.section,
+      periodsPerWeek: 4
+    });
+  });
+
+  // Convert map to array
+  return Object.values(teacherGroups).map(tGroup => {
+    const subjectsList = Object.values(tGroup.subjectsMap);
+    delete tGroup.subjectsMap;
+    return {
+      ...tGroup,
+      subjects: subjectsList
+    };
+  }).sort((a, b) => b.totalPeriods - a.totalPeriods);
 };
 
 module.exports = mongoose.model('Subject', subjectSchema);
