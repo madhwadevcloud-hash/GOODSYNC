@@ -1972,7 +1972,19 @@ exports.getResultsForTeacher = async (req, res) => {
           subject,
           testType,
           academicYear: academicYear || getDynamicAcademicYear()
-        }
+        },
+        // Teacher assignment metadata for frontend editable/read-only indicators
+        teacherAssignment: req.teacherAssignments ? {
+          assignedSubjects: req.teacherAssignments
+            .filter(a => a.className === className && a.section === (section || '').toUpperCase())
+            .map(a => a.subjectName),
+          isEditable: req.teacherAssignments.some(
+            a => a.className === className && 
+                 a.section === (section || '').toUpperCase() && 
+                 a.subjectName === subject
+          ),
+          allAssignments: req.teacherAssignments
+        } : null
       }
     });
 

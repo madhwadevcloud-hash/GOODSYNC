@@ -416,7 +416,6 @@ const studentPortalRoutes = require('./routes/studentPortal');
 const teacherAssignmentRoutes = require('./routes/teacherAssignments');
 const calendarEventsRoutes = require('./routes/calendarEvents');
 
-
 // Route imports - some routes need upload middleware
 const schoolRoutes = require('./routes/schools');
 const schoolUserRoutes = require('./routes/schoolUsers')(upload);

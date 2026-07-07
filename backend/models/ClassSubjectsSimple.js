@@ -74,16 +74,6 @@ const classSubjectsSchema = new mongoose.Schema({
     addedDate: {
       type: Date,
       default: Date.now
-    },
-    teacherId: {
-      type: String,
-      default: null
-      // Optional: Can assign teacher later
-    },
-    teacherName: {
-      type: String,
-      default: null
-      // Optional: Can assign teacher later
     }
   }],
   

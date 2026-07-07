@@ -101,8 +101,18 @@ class ModelFactory {
       Result: await this.getResultModel(schoolCode),
       Timetable: await this.getTimetableModel(schoolCode),
       Admission: await this.getAdmissionModel(schoolCode),
-      Message: await this.getMessageModel(schoolCode)
+      Message: await this.getMessageModel(schoolCode),
+      TeacherSubjectAssignment: await this.getTeacherSubjectAssignmentModel(schoolCode)
     };
+  }
+
+  /**
+   * Get TeacherSubjectAssignment model for a specific school
+   */
+  static async getTeacherSubjectAssignmentModel(schoolCode) {
+    const connection = await DatabaseManager.getSchoolConnection(schoolCode);
+    const schema = require('../models/TeacherSubjectAssignment').schema;
+    return connection.model('TeacherSubjectAssignment', schema);
   }
   
   /**

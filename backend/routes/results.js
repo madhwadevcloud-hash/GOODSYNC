@@ -3,6 +3,7 @@ const router = express.Router();
 const authMiddleware = require('../middleware/auth');
 const resultController = require('../controllers/resultController');
 const checkPermission = require('../middleware/permissionCheck');
+const { enforceSubjectAuthorization, attachTeacherAssignments } = require('../middleware/subjectAuthorization');
 
 // Apply authentication to all routes
 router.use(authMiddleware.auth);
@@ -15,9 +16,11 @@ router.post('/create',
 );
 
 // Save results (simple endpoint for Results page) - requires viewResults permission
+// For teachers: enforceSubjectAuthorization filters out subjects they're not assigned to
 router.post('/save',
   authMiddleware.authorize(['admin', 'teacher']),
   checkPermission('viewResults'),
+  enforceSubjectAuthorization({ mode: 'filter' }),
   resultController.saveResults
 );
 
@@ -41,9 +44,11 @@ router.get('/',
 );
 
 // Update a single student result - requires viewResults permission
+// For teachers: enforceSubjectAuthorization validates subject ownership
 router.put('/:resultId',
   authMiddleware.authorize(['admin', 'teacher']),
   checkPermission('viewResults'),
+  enforceSubjectAuthorization({ mode: 'strict' }),
   resultController.updateResult
 );
 
@@ -75,8 +80,10 @@ router.get('/class/:grade/:section/report',
 );
 
 // Teacher-specific endpoint to view results
+// Attaches teacher assignment info for frontend editable/read-only indicators
 router.get('/teacher/view',
   authMiddleware.auth,
+  attachTeacherAssignments,
   resultController.getResultsForTeacher
 );
 

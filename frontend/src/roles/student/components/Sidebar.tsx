@@ -13,9 +13,8 @@ import {
   GraduationCap,
   X,
 } from "lucide-react";
-
-import api from "../../../services/api";
 import { useAuth } from "../../../auth/AuthContext";
+import api from "../../../services/api";
 
 interface StudentProfile {
   grade?: string;
@@ -94,7 +93,6 @@ export default function Sidebar({ isOpen, onClose }: Props) {
       //-----------------------------
       // Unread Messages
       //-----------------------------
-
       const messages =
         messageRes.data?.data ||
         messageRes.data ||
@@ -113,9 +111,9 @@ export default function Sidebar({ isOpen, onClose }: Props) {
     }
   };
 
-  const handleLogout = () => {
-    logout();
-    navigate("/login");
+  const handleLogout = async () => {
+    await logout();
+    navigate("/login", { replace: true });
   };
 
   return (
@@ -141,7 +139,6 @@ export default function Sidebar({ isOpen, onClose }: Props) {
               <div className="w-11 h-11 rounded-xl bg-blue-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm shadow-blue-200">
                 <GraduationCap size={22} />
               </div>
-
               <h2 className="text-lg font-bold text-gray-900 tracking-tight truncate">
                 Student Portal
               </h2>
@@ -237,9 +234,7 @@ export default function Sidebar({ isOpen, onClose }: Props) {
               </p>
 
             </div>
-
           </div>
-
         </div>
       </aside>
     </>

@@ -12,7 +12,6 @@ import ViewResults from './components/Results/ViewResults';
 import Messages from './components/Messages/Messages';
 import LeaveRequestManagement from './components/LeaveRequest/LeaveRequestManagement';
 import StudentDetails from './components/StudentDetails/StudentDetails';
-import SchoolSettings from './components/Settings/SchoolSettings';
 import { PermissionProvider } from '../../hooks/usePermissions';
 import { PermissionGuard } from '../../components/PermissionGuard';
 import { AcademicYearProvider } from '../../contexts/AcademicYearContext';
@@ -60,8 +59,7 @@ function App() {
         );
       case 'student-details':
         return <StudentDetails />;
-      case 'settings':
-        return <SchoolSettings />;
+      
       default:
         return <Dashboard onNavigate={handleNavigate} />;
     }

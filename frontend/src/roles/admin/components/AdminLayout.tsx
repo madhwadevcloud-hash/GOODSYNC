@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Menu,
@@ -10,32 +10,68 @@ import {
   UserCheck,
   BookOpen,
   BarChart3,
-  User,
   GraduationCap,
   MessageSquare,
   CreditCard,
   LogOut,
   Search,
-  Bell,
-  HelpCircle,
   ChevronDown,
   MapPin,
   Phone,
   Mail,
   Building,
-  FileText
+  FileText,
+  CalendarDays,
+  CalendarClock,
+  ShieldCheck,
+  Bell
 } from 'lucide-react';
 import { useAuth } from '../../../auth/AuthContext';
 import { usePermissions, PermissionKey } from '../../../hooks/usePermissions';
 import { PermissionDeniedModal } from '../../../components/PermissionDeniedModal';
+import api from '../../../services/api';
 
 const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+
   const { user, logout } = useAuth();
   const { hasPermission, showPermissionDenied, setShowPermissionDenied, deniedPermissionName, checkAndNavigate } = usePermissions();
+  const [schoolDetails, setSchoolDetails] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchSchool = async () => {
+      try {
+        const response = await api.get('/schools/database/school-info');
+        setSchoolDetails(response.data?.data || response.data);
+      } catch (err) {
+        console.error('Failed to fetch school info for header', err);
+      }
+    };
+    if (user?.schoolCode || user?.schoolId) {
+      fetchSchool();
+    }
+  }, [user?.schoolCode, user?.schoolId]);
+
+  const getLogoUrl = (logoPath: string | undefined): string => {
+    if (!logoPath) return '';
+    if (logoPath.startsWith('http')) return logoPath;
+    if (logoPath.startsWith('/uploads')) {
+      const envBase = (import.meta.env.VITE_API_BASE_URL as string);
+      const baseUrl = envBase.replace(/\/api\/?$/, '');
+      return `${baseUrl}${logoPath}`;
+    }
+    return logoPath;
+  };
+
+  const handleLogout = async () => {
+    if (logout) {
+      await logout();
+    }
+    navigate('/login', { replace: true });
+  };
 
   // Define navigation with permission requirements
   const navigation = [
@@ -46,18 +82,13 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     { name: 'Attendance', href: '/admin/attendance', icon: UserCheck },
     { name: 'Assignments', href: '/admin/assignments', icon: BookOpen },
     { name: 'Results', href: '/admin/results', icon: BarChart3 },
-    { name: 'Leave Management', href: '/admin/leave-management', icon: Calendar },
+    { name: 'Teacher Assignments', href: '/admin/teacher-assignments', icon: UserCheck },
+    { name: 'Academic Calendar', href: '/admin/calendar', icon: CalendarDays },
+    { name: 'Leave Management', href: '/admin/leave-management', icon: CalendarClock },
     { name: 'Messages', href: '/admin/messages', icon: MessageSquare },
     { name: 'Fees', href: '/admin/fees/structure', icon: CreditCard },
     { name: 'Reports', href: '/admin/reports', icon: FileText },
   ];
-
-  const handleNavClick = (e: React.MouseEvent, href: string, permission: PermissionKey | null, name: string) => {
-    if (permission && !hasPermission(permission)) {
-      e.preventDefault();
-      checkAndNavigate(permission, name, () => navigate(href));
-    }
-  };
 
   const isActive = (href: string) => location.pathname === href || location.pathname.startsWith(href + '/');
 
@@ -65,18 +96,13 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     <div className="flex min-h-screen bg-slate-50">
       {/* Sidebar */}
       <div className="w-[280px] bg-white border-r border-slate-200 hidden lg:flex flex-col justify-between h-screen sticky top-0 overflow-hidden text-slate-700">
-        <div className="flex flex-col h-full overflow-y-auto overflow-x-hidden custom-scrollbar">
+        <div className="flex flex-col h-full overflow-y-auto overflow-x-hidden no-scrollbar">
           <div className="py-5 px-5 flex flex-col justify-center border-b border-slate-100 shrink-0 bg-gradient-to-b from-indigo-50/30 to-white relative overflow-hidden">
             <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-100 rounded-full blur-3xl opacity-50 -mr-10 -mt-10 pointer-events-none"></div>
-            <div className="flex items-center gap-3 relative z-10">
-              <div className="bg-white p-2 rounded-xl flex items-center justify-center shadow-sm border border-slate-200/60 shrink-0 text-indigo-600">
-                <Building className="h-6 w-6" strokeWidth={2} />
-              </div>
-              <div className="flex flex-col overflow-hidden justify-center">
-                <h1 className="text-[18px] font-black bg-clip-text text-transparent bg-gradient-to-r from-indigo-700 to-violet-600 tracking-tight leading-none truncate pb-0.5" title={user?.schoolName || 'Vidyaniketan High School'}>
-                  {user?.schoolName || 'Vidyaniketan High School'}
-                </h1>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-0.5">Admin Portal</span>
+            <div className="flex items-center justify-center gap-3 relative z-10 w-full">
+              <div className="flex items-center justify-center gap-2">
+                <ShieldCheck className="h-6 w-6 text-indigo-600 mb-0.5" strokeWidth={2.5} />
+                <h2 className="text-lg font-bold text-gray-900 tracking-tight">Admin Portal</h2>
               </div>
             </div>
           </div>
@@ -98,20 +124,34 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               );
             })}
           </nav>
+        </div>
 
-          <div className="p-4 mt-auto shrink-0 border-t border-slate-100 mb-2 space-y-2">
-            <button
-              onClick={logout}
-              className="flex items-center w-full px-4 py-3 text-[15px] font-semibold text-slate-600 rounded-xl hover:bg-slate-50 hover:text-red-600 transition-colors group"
-            >
-              <LogOut className="mr-4 h-[22px] w-[22px] text-slate-500 group-hover:text-red-500 transition-colors" strokeWidth={2} />
-              Logout
-            </button>
-            <div className="px-2 pt-2 flex items-center gap-3">
-              <div className="bg-indigo-600 p-1.5 rounded-lg flex items-center justify-center shadow-sm shrink-0">
-                <img src="/logo.png" alt="Logo" className="h-6 w-6 object-contain" />
+        <div className="shrink-0 bg-white border-t border-slate-100 z-10">
+          <div className="px-4 py-3 text-center border-b border-gray-100">
+            <p className="text-[11px] text-gray-400 font-medium">Powered by <span className="text-violet-500 font-semibold">GoodSync ERP</span></p>
+          </div>
+
+          <div className="px-4 py-4 border-t border-gray-100 shrink-0">
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={handleLogout}
+                title="Logout"
+                className="w-full flex items-center px-3 py-2.5 rounded-xl text-base font-medium text-red-500 bg-red-50/60 hover:bg-red-50 hover:text-red-600 transition-colors"
+              >
+                <LogOut className="h-5 w-5 mr-3" />
+                Logout
+              </button>
+              <div className="flex items-center min-w-0 rounded-xl bg-gray-50 px-2.5 py-2 border border-slate-100/50">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center mr-3 flex-shrink-0">
+                  <span className="text-white font-bold text-sm">
+                    {user?.name ? user.name.substring(0, 2).toUpperCase() : 'AD'}
+                  </span>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">{user?.name || 'Admin'}</p>
+                  <p className="text-xs text-gray-500 truncate">{user?.userId || user?.email || 'Admin Portal'}</p>
+                </div>
               </div>
-              <h1 className="text-[14px] font-bold text-slate-900 tracking-tight leading-tight">GOODSYNK ERP</h1>
             </div>
           </div>
         </div>
@@ -125,18 +165,11 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         className={`fixed inset-y-0 left-0 z-50 w-[280px] bg-white shadow-2xl transform transition-transform duration-300 ease-in-out lg:hidden flex flex-col justify-between h-full ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
       >
-        <div className="flex flex-col h-full overflow-y-auto overflow-x-hidden">
+        <div className="flex flex-col h-full overflow-y-auto overflow-x-hidden no-scrollbar">
           <div className="py-4 px-5 flex items-center justify-between border-b border-slate-100 shrink-0 bg-gradient-to-b from-indigo-50/30 to-white">
-            <div className="flex items-center gap-3">
-              <div className="bg-white p-2 rounded-xl flex items-center justify-center shadow-sm border border-slate-200/60 shrink-0 text-indigo-600">
-                <Building className="h-5 w-5" strokeWidth={2} />
-              </div>
-              <div className="flex flex-col overflow-hidden max-w-[150px] justify-center">
-                <h1 className="text-[16px] font-black bg-clip-text text-transparent bg-gradient-to-r from-indigo-700 to-violet-600 tracking-tight leading-none truncate pb-0.5">
-                  {user?.schoolName || 'Vidyaniketan'}
-                </h1>
-                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-0.5">Admin Portal</span>
-              </div>
+            <div className="flex items-center gap-2.5">
+              <ShieldCheck className="h-5 w-5 text-indigo-600" strokeWidth={2.5} />
+              <h2 className="text-lg font-bold text-gray-900 tracking-tight mt-0.5">Admin Portal</h2>
             </div>
             <button
               onClick={() => setSidebarOpen(false)}
@@ -164,20 +197,34 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               );
             })}
           </nav>
+        </div>
 
-          <div className="p-4 mt-auto shrink-0 border-t border-slate-100 mb-2 space-y-2">
-            <button
-              onClick={logout}
-              className="flex items-center w-full px-4 py-3 text-[15px] font-semibold text-slate-600 rounded-xl hover:bg-slate-50 hover:text-red-600 transition-colors group"
-            >
-              <LogOut className="mr-4 h-[22px] w-[22px] text-slate-500 group-hover:text-red-500 transition-colors" strokeWidth={2} />
-              Logout
-            </button>
-            <div className="px-2 pt-2 flex items-center gap-3">
-              <div className="bg-indigo-600 p-1.5 rounded-lg flex items-center justify-center shadow-sm shrink-0">
-                <img src="/logo.png" alt="Logo" className="h-6 w-6 object-contain" />
+        <div className="shrink-0 bg-white border-t border-slate-100 z-10">
+          <div className="px-4 py-3 text-center border-b border-gray-100">
+            <p className="text-[11px] text-gray-400 font-medium">Powered by <span className="text-violet-500 font-semibold">GoodSync ERP</span></p>
+          </div>
+
+          <div className="px-4 py-4 border-t border-gray-100 shrink-0">
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={handleLogout}
+                title="Logout"
+                className="w-full flex items-center px-3 py-2.5 rounded-xl text-base font-medium text-red-500 bg-red-50/60 hover:bg-red-50 hover:text-red-600 transition-colors"
+              >
+                <LogOut className="h-5 w-5 mr-3" />
+                Logout
+              </button>
+              <div className="flex items-center min-w-0 rounded-xl bg-gray-50 px-2.5 py-2 border border-slate-100/50">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center mr-3 flex-shrink-0">
+                  <span className="text-white font-bold text-sm">
+                    {user?.name ? user.name.substring(0, 2).toUpperCase() : 'AD'}
+                  </span>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">{user?.name || 'Admin'}</p>
+                  <p className="text-xs text-gray-500 truncate">{user?.userId || user?.email || 'Admin Portal'}</p>
+                </div>
               </div>
-              <h1 className="text-[14px] font-bold text-slate-900 tracking-tight leading-tight">GOODSYNK ERP</h1>
             </div>
           </div>
         </div>
@@ -203,25 +250,35 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             </button>
 
             <div className="flex-1 flex items-center justify-between overflow-hidden">
-
               {/* Left: School Details */}
               <div className={`flex items-center gap-3 group cursor-pointer rounded-xl hover:bg-slate-50/80 transition-all duration-500 ease-in-out overflow-hidden ${isSearchFocused ? 'max-w-0 opacity-0 invisible -translate-x-8 p-0 m-0' : 'max-w-2xl opacity-100 visible translate-x-0 p-1.5 -ml-1.5'}`}>
-                <div className="h-10 w-10 bg-gradient-to-br from-indigo-50 to-indigo-100/50 border border-indigo-100/80 rounded-xl hidden sm:flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:-rotate-3 group-hover:shadow-md group-hover:border-indigo-200 transition-all duration-300 ease-out">
-                  <Building className="h-5 w-5 text-indigo-600 group-hover:text-indigo-700 transition-colors duration-300" />
+                <div className="h-10 w-10 bg-white border border-indigo-100/80 rounded-xl hidden sm:flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:-rotate-3 group-hover:shadow-md group-hover:border-indigo-200 transition-all duration-300 ease-out overflow-hidden">
+                  {schoolDetails?.logoUrl ? (
+                    <img 
+                      src={getLogoUrl(schoolDetails.logoUrl)} 
+                      alt="School Logo" 
+                      className="w-full h-full object-contain" 
+                    />
+                  ) : (
+                    <Building className="h-5 w-5 text-indigo-600 group-hover:text-indigo-700 transition-colors duration-300" />
+                  )}
                 </div>
                 <div className="flex flex-col justify-center min-w-0 shrink-0">
                   <h2 className="text-[15px] font-bold text-slate-800 leading-tight truncate group-hover:text-indigo-700 transition-colors duration-300 whitespace-nowrap">
                     {user?.schoolName || 'Vidyaniketan High School'}
                   </h2>
                   <div className="flex items-center text-[11px] font-medium text-slate-500 gap-3 mt-0.5 truncate hidden md:flex whitespace-nowrap">
-                    <span className="flex items-center gap-1 hover:text-indigo-600 transition-colors cursor-default">
-                      <MapPin className="h-3 w-3" /> 123 Education Lane, City
+                    <span 
+                      className="flex items-center gap-1 hover:text-indigo-600 transition-colors cursor-default"
+                      title={schoolDetails?.address?.fullAddress || [schoolDetails?.address?.street, schoolDetails?.address?.area, schoolDetails?.address?.city].filter(Boolean).join(', ')}
+                    >
+                      <MapPin className="h-3 w-3" /> {schoolDetails?.address?.fullAddress || [schoolDetails?.address?.street, schoolDetails?.address?.area, schoolDetails?.address?.city].filter(Boolean).join(', ') || '123 Education Lane, City'}
                     </span>
                     <span className="flex items-center gap-1 hidden lg:flex hover:text-indigo-600 transition-colors cursor-default">
-                      <Phone className="h-3 w-3" /> +91 98765 43210
+                      <Phone className="h-3 w-3" /> {schoolDetails?.contact?.phone || schoolDetails?.mobile || '+91 98765 43210'}
                     </span>
                     <span className="flex items-center gap-1 hidden xl:flex hover:text-indigo-600 transition-colors cursor-default">
-                      <Mail className="h-3 w-3" /> contact@school.edu
+                      <Mail className="h-3 w-3" /> {schoolDetails?.contact?.email || 'contact@school.edu'}
                     </span>
                   </div>
                 </div>
@@ -246,22 +303,16 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
                 <div className="h-8 w-px bg-slate-200 hidden md:block mx-1"></div>
 
-
-
-                <div className="flex items-center space-x-3 cursor-pointer p-1.5 sm:p-2 -mr-2 rounded-xl transition-all duration-300 hover:bg-slate-50 group/profile">
-                  <div className="h-9 w-9 bg-gradient-to-tr from-indigo-600 to-indigo-500 rounded-full flex items-center justify-center shadow-sm text-white font-bold text-[15px] transform group-hover/profile:scale-105 group-hover/profile:shadow-md group-hover/profile:ring-2 group-hover/profile:ring-indigo-100 group-hover/profile:ring-offset-1 transition-all duration-300 ease-out">
-                    {user?.name?.[0]?.toUpperCase() || 'A'}
-                  </div>
-                  <div className="hidden sm:flex flex-col items-start">
-                    <span className="text-[13px] font-bold text-slate-700 leading-tight group-hover/profile:text-indigo-700 transition-colors">
-                      {user?.name || 'Admin User'}
-                    </span>
-                    <span className="text-[11px] font-medium text-slate-500 leading-tight capitalize">
-                      {user?.role || 'Administrator'}
-                    </span>
-                  </div>
-                  <ChevronDown className="h-4 w-4 text-slate-400 hidden sm:block ml-1 group-hover/profile:translate-y-0.5 group-hover/profile:text-indigo-500 transition-all duration-300" />
+                <div className="flex items-center gap-1 sm:gap-2 mx-1">
+                  <Link to="/admin/calendar" className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all duration-300 relative group/icon" title="Calendar">
+                    <Calendar className="h-[22px] w-[22px] group-hover/icon:scale-110 transition-transform" />
+                  </Link>
+                  <Link to="/admin/messages" className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all duration-300 relative group/icon" title="Messages">
+                    <Bell className="h-[22px] w-[22px] group-hover/icon:scale-110 transition-transform" />
+                    <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white"></span>
+                  </Link>
                 </div>
+
               </div>
             </div>
           </div>
