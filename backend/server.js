@@ -414,6 +414,7 @@ const leaveRoutes = require('./routes/leaveRoutes');
 const chalanRoutes = require('./routes/chalanRoutes');
 const studentPortalRoutes = require('./routes/studentPortal');
 const teacherAssignmentRoutes = require('./routes/teacherAssignments');
+const calendarEventsRoutes = require('./routes/calendarEvents');
 
 // Route imports - some routes need upload middleware
 const schoolRoutes = require('./routes/schools');
@@ -467,6 +468,7 @@ app.use('/api/id-card-templates', idCardTemplateRoutes);
 app.use('/api/chalans', chalanRoutes);
 app.use('/api/permissions', permissionsRoutes);
 app.use('/api/teacher-assignments', teacherAssignmentRoutes);
+app.use('/api/calendar-events', calendarEventsRoutes);
 
 
 // --- Define Export/Import Routes Directly ---

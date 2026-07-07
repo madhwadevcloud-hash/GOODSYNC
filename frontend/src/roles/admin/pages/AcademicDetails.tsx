@@ -1650,9 +1650,9 @@ const AcademicDetails: React.FC = () => {
 
   return (
     <div className="space-y-6 relative">
-      <div className="sticky top-[72px] z-20 flex flex-col gap-6 pt-4 pb-2 -mt-4 bg-[#f8fafc]">
-        {/* Header */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sm:p-8 relative overflow-hidden">
+      {/* Header */}
+      <div className="flex flex-col gap-6 pt-4 pb-2 -mt-4 bg-[#f8fafc]">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sm:p-8 relative overflow-hidden mx-2 sm:mx-0">
           <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50 rounded-full blur-3xl opacity-60 -mr-20 -mt-20 pointer-events-none"></div>
           <div className="flex items-center justify-between relative z-10">
             <div className="flex items-center space-x-4">
@@ -1666,9 +1666,11 @@ const AcademicDetails: React.FC = () => {
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Tab Navigation */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+      {/* Tab Navigation */}
+      <div className="sticky top-[72px] z-[40] pt-2 pb-2 -mt-2 bg-[#f8fafc]">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mx-2 sm:mx-0">
           <div className="p-6">
             <nav className="inline-flex bg-slate-100/80 p-1.5 rounded-2xl w-full sm:w-auto overflow-x-auto custom-scrollbar">
               <button

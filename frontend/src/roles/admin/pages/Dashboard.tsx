@@ -1050,7 +1050,7 @@ const Dashboard: React.FC = () => {
                 <h3 className="text-base font-semibold text-slate-800">Recent Activities</h3>
                 <a href="#" className="text-xs font-semibold text-indigo-600 hover:text-indigo-800">View All</a>
               </div>
-              <div className="space-y-4 max-h-[180px] overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
+              <div className="space-y-4 max-h-[180px] overflow-y-auto pr-1 no-scrollbar">
                 {(dashboardOverview?.recentActivities || []).length > 0 ? (
                   dashboardOverview.recentActivities.map((activity: any, i: number) => {
                     const icons: any = { UserPlus, CheckCircle2, BookOpen, FileText, Megaphone };
@@ -1081,9 +1081,9 @@ const Dashboard: React.FC = () => {
                   <option>All Grades</option>
                 </select>
               </div>
-              <div className="flex-1 flex items-center justify-center relative mt-4">
-                <div className="w-full flex">
-                  <div className="w-1/2 h-[160px] relative">
+              <div className="flex-1 flex flex-col justify-center relative mt-4 min-h-[160px]">
+                <div className="w-full flex flex-col sm:flex-row lg:flex-col xl:flex-row items-center sm:items-stretch lg:items-center xl:items-stretch gap-4 sm:gap-0 lg:gap-4 xl:gap-0">
+                  <div className="w-full sm:w-1/2 lg:w-full xl:w-1/2 h-[160px] relative shrink-0">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
@@ -1110,22 +1110,23 @@ const Dashboard: React.FC = () => {
                       <span className="text-xs text-slate-500">Total</span>
                     </div>
                   </div>
-                  <div className="w-1/2 flex flex-col gap-2 pl-4 max-h-[160px] overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
+                  <div className="w-full sm:w-1/2 lg:w-full xl:w-1/2 flex flex-col gap-2 sm:pl-4 lg:pl-0 xl:pl-4 max-h-[160px] lg:max-h-none xl:max-h-[160px] overflow-y-auto pr-1 no-scrollbar justify-center">
                     {(dashboardOverview?.studentsByGrade || []).map((grade: any, i: number) => {
                       const colors = ['bg-purple-500', 'bg-amber-500', 'bg-emerald-500', 'bg-blue-500', 'bg-fuchsia-500'];
                       const pct = dashboardOverview?.totalStudents ? ((grade.value / dashboardOverview.totalStudents) * 100).toFixed(1) + '%' : '0%';
                       return (
-                      <div key={grade.name} className="flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-2">
-                          <span className={`w-2 h-2 rounded-full ${colors[i % colors.length]}`}></span>
-                          <span className="text-slate-600">{grade.name}</span>
+                        <div key={grade.name} className="flex items-center justify-between text-xs py-0.5">
+                          <div className="flex items-center gap-2 flex-1 min-w-0 pr-2">
+                            <span className={`w-2 h-2 rounded-full shrink-0 ${colors[i % colors.length]}`}></span>
+                            <span className="text-slate-600 font-medium truncate" title={grade.name}>{grade.name}</span>
+                          </div>
+                          <div className="flex gap-2 sm:gap-3 items-center shrink-0">
+                            <span className="font-bold text-slate-800 w-6 text-right">{grade.value}</span>
+                            <span className="text-slate-400 font-medium w-8 text-right">{pct}</span>
+                          </div>
                         </div>
-                        <div className="flex gap-4">
-                          <span className="font-semibold text-slate-800">{grade.value}</span>
-                          <span className="text-slate-400 w-8 text-right">{pct}</span>
-                        </div>
-                      </div>
-                    )})}
+                      )
+                    })}
                   </div>
                 </div>
               </div>
