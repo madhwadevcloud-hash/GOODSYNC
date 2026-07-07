@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Calendar,
+  CalendarDays,
   Users,
   FileText,
   BarChart3,
@@ -146,6 +147,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
     { name: 'Assignments', icon: FileText, page: 'assignments', permission: 'viewAssignments' as PermissionKey },
     { name: 'Results', icon: BarChart3, page: 'view-results', permission: 'viewResults' as PermissionKey },
     { name: 'Messages', icon: MessageSquare, page: 'messages', permission: 'messageStudentsParents' as PermissionKey },
+    { name: 'Calendar', icon: CalendarDays, page: 'calendar', permission: null },
     { name: 'Leave Request', icon: Calendar, page: 'leave-request', permission: 'viewLeaves' as PermissionKey },
   ];
 
@@ -176,12 +178,12 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
       {/* Sidebar */}
       <div className={`fixed inset-y-0 left-0 z-30 w-64 bg-white border-r border-gray-100 transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         } transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 flex flex-col`}>
-        <div className="flex items-center justify-between h-20 px-5 border-b border-gray-100 flex-shrink-0">
-          <div className="flex items-center min-w-0">
-            <p className="text-lg font-bold text-violet-600 tracking-wide uppercase leading-tight">
-              Teacher Portal
-            </p>
-          </div>
+        <div className="flex items-center justify-between h-20 px-5 border-b border-gray-100 flex-shrink-0 bg-gradient-to-b from-violet-50/30 to-white relative overflow-hidden">
+  <div className="absolute top-0 right-0 w-24 h-24 bg-violet-100 rounded-full blur-3xl opacity-50 -mr-10 -mt-10 pointer-events-none"></div>
+  <div className="flex items-center gap-2 min-w-0 relative z-10">
+    <UserCheck className="h-6 w-6 text-violet-600 mb-0.5 shrink-0" strokeWidth={2.5} />
+    <h2 className="text-lg font-bold text-gray-900 tracking-tight">Teacher Portal</h2>
+  </div>
           <button
             onClick={() => setSidebarOpen(false)}
             className="lg:hidden p-1 rounded-md hover:bg-gray-100 flex-shrink-0"

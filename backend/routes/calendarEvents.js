@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { auth } = require('../middleware/auth');
 const {
   getEvents,
   createEvent,
@@ -8,7 +9,10 @@ const {
   importHolidays
 } = require('../controllers/calendarEventController');
 
-// All routes require authentication in this app, usually handled by server.js mounting
+// All calendar routes require an authenticated user so that req.user
+// (id/role) is available to the controller for ownership checks.
+router.use(auth);
+
 router.route('/import-holidays')
   .post(importHolidays);
 
