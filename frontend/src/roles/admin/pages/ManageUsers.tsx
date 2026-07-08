@@ -6158,8 +6158,8 @@ const ManageUsers: React.FC = () => {
           </div>
         )}
 
-        {/* Header & Tabs - Sticky */}
-        <div className="sticky top-[72px] z-20 flex flex-col gap-6 pt-4 pb-2 -mt-4 bg-[#f8fafc]">
+        {/* Header & Tabs */}
+        <div className="flex flex-col gap-6 pt-4 pb-2 -mt-4 bg-[#f8fafc]">
           <motion.div variants={itemVariants} className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sm:p-8 relative overflow-hidden mx-2 sm:mx-0">
             <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50 rounded-full blur-3xl opacity-60 -mr-20 -mt-20 pointer-events-none"></div>
             <div className="flex justify-between items-center relative z-10">
@@ -6245,7 +6245,7 @@ const ManageUsers: React.FC = () => {
         </div>
 
           {/* Controls */}
-          <div className="flex flex-col md:flex-row gap-4 items-center justify-between mb-4">
+          <div className="flex flex-col md:flex-row gap-4 items-center justify-between sticky top-[72px] z-[40] pt-4 pb-4 -mt-4 mb-0 bg-slate-50 border-b border-slate-200/50 shadow-[0_10px_15px_-3px_rgba(248,250,252,1),0_4px_6px_-2px_rgba(0,0,0,0.05)]">
             <div className="flex flex-col md:flex-row gap-4 flex-1 w-full">
               <div className="relative flex-1 max-w-md group">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -6423,7 +6423,7 @@ const ManageUsers: React.FC = () => {
 
 
         {/* Users Display */}
-        <motion.div variants={itemVariants} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        <motion.div variants={itemVariants} className="bg-white rounded-2xl shadow-sm border border-slate-100">
           {activeTab === 'student' && viewMode === 'hierarchy' ? (
             /* Hierarchical Student View */
             <div className="p-6">
@@ -6543,9 +6543,9 @@ const ManageUsers: React.FC = () => {
             </div>
           ) : (
             /* Table View */
-            <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-320px)] border border-slate-100 shadow-sm sm:rounded-2xl custom-scrollbar" style={{ scrollBehavior: 'smooth' }}>
+            <div className="overflow-x-auto lg:overflow-visible border border-slate-100 shadow-sm sm:rounded-2xl no-scrollbar" style={{ scrollBehavior: 'smooth' }}>
               <table className="min-w-full divide-y divide-slate-100">
-                <thead className="bg-slate-50/80 backdrop-blur-md sticky top-0 z-10 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+                <thead className="bg-slate-50 sticky top-0 lg:top-[144px] z-20 shadow-sm border-b border-slate-200">
                   <tr>
                     <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">Photo</th>
                     <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">User</th>
@@ -6622,8 +6622,8 @@ const ManageUsers: React.FC = () => {
                                   }}
                                 />
                               ) : (
-                                <div className="h-10 w-10 rounded-full bg-indigo-50 flex items-center justify-center shadow-inner border border-indigo-100/50">
-                                  <span className="text-sm font-bold text-indigo-600">{initials}</span>
+                                <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-indigo-100 to-purple-50 flex items-center justify-center shadow-sm border border-indigo-200/50">
+                                  <span className="text-sm font-bold text-indigo-700">{initials}</span>
                                 </div>
                               )}
                             </div>
@@ -6717,25 +6717,23 @@ const ManageUsers: React.FC = () => {
                             </>
                           )}
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold shadow-sm ${user.isActive ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60' : 'bg-rose-50 text-rose-700 border border-rose-200/60'}`}>
                               {user.isActive ? (
-                                <UserCheck className="h-4 w-4 text-green-500 mr-1" />
+                                <UserCheck className="h-3.5 w-3.5" />
                               ) : (
-                                <UserX className="h-4 w-4 text-red-500 mr-1" />
+                                <UserX className="h-3.5 w-3.5" />
                               )}
-                              <span className={`text-sm ${user.isActive ? 'text-green-700' : 'text-red-700'}`}>
-                                {user.isActive ? 'Active' : 'Inactive'}
-                              </span>
-                            </div>
+                              {user.isActive ? 'Active' : 'Inactive'}
+                            </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {new Date(user.createdAt).toLocaleDateString()}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <div className="flex space-x-2">
+                            <div className="flex items-center space-x-2">
                               <button
                                 onClick={() => handleEditClick(user)}
-                                className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
+                                className="text-slate-400 hover:text-indigo-600 p-1.5 rounded-lg hover:bg-indigo-50 transition-colors shadow-sm border border-transparent hover:border-indigo-100"
                                 title="Edit User"
                               >
                                 <Edit className="h-4 w-4" />
@@ -6744,14 +6742,13 @@ const ManageUsers: React.FC = () => {
                               {activeTab === 'teacher' && (
                                 <button
                                   onClick={() => {
-                                    console.log('Change password clicked for:', user.userId, user.email);
                                     handleOpenChangePassword(
                                       user.userId || user._id,
                                       (user as any).name?.displayName || (user as any).name || 'User',
                                       user.email
                                     );
                                   }}
-                                  className="text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-50"
+                                  className="text-slate-400 hover:text-emerald-600 p-1.5 rounded-lg hover:bg-emerald-50 transition-colors shadow-sm border border-transparent hover:border-emerald-100"
                                   title="Change Password (Set New Password)"
                                 >
                                   <KeyRound className="h-4 w-4" />
@@ -6760,7 +6757,7 @@ const ManageUsers: React.FC = () => {
                               {/* Delete button - prevent self-deletion */}
                               <button
                                 onClick={() => handleDeleteUser(user._id, (user.name as any)?.displayName || (user.name as any)?.firstName || `User ${user._id}`)}
-                                className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition-colors shadow-sm border border-transparent hover:border-rose-100 disabled:opacity-50 disabled:cursor-not-allowed"
                                 title="Delete User"
                                 disabled={false} // Temporarily allow all deletions for testing
                               >

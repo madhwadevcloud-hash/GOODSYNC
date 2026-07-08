@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
   Calendar,
+  CalendarDays,
   Users,
   FileText,
   BarChart3,
   MessageSquare,
-  Settings,
   Menu,
   X,
   LogOut,
@@ -13,7 +13,10 @@ import {
   Home,
   UserCheck,
   Search,
-  Bell
+  Bell,
+  MapPin,
+  Phone,
+  Mail
 } from 'lucide-react';
 import { useAuth } from '../../../auth/AuthContext';
 import { usePermissions, PermissionKey } from '../../../hooks/usePermissions';
@@ -27,17 +30,62 @@ interface LayoutProps {
   onLogout: () => void;
 }
 
+interface SchoolAddress {
+  street?: string;
+  area?: string;
+  city?: string;
+  district?: string;
+  taluka?: string;
+  state?: string;
+  stateId?: string;
+  districtId?: string;
+  talukaId?: string;
+  country?: string;
+  zipCode?: string;
+  pinCode?: string;
+  phone?: string;
+  email?: string;
+}
+
 interface SchoolInfo {
   name?: string;
   code?: string;
   logoUrl?: string;
+  address?: SchoolAddress | string;
+  phone?: string;
+  email?: string;
 }
+
+const formatAddress = (address?: SchoolAddress | string): string => {
+  if (!address) return '';
+  if (typeof address === 'string') return address;
+  // Keep it short: just street, area, and city (skip district/state/zip)
+  const parts = [address.street, address.area, address.city].filter(Boolean);
+  return parts.join(', ');
+};
+
+// The backend response shape isn't always consistent — phone/email sometimes
+// arrive at the top level, sometimes nested under `address`, and sometimes
+// under a different key name entirely. Check the common variants so the
+// header doesn't silently drop them.
+const pickPhone = (data: any): string | undefined =>
+  data?.phone ||
+  data?.contact?.phone ||
+  data?.contactNumber ||
+  data?.mobile ||
+  data?.address?.phone;
+
+const pickEmail = (data: any): string | undefined =>
+  data?.email ||
+  data?.contact?.email ||
+  data?.contactEmail ||
+  data?.address?.email;
 
 const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLogout }) => {
   const { user } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
   const [schoolInfo, setSchoolInfo] = useState<SchoolInfo | null>(null);
   const { hasPermission, showPermissionDenied, setShowPermissionDenied, deniedPermissionName, checkAndNavigate } = usePermissions();
@@ -63,7 +111,16 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
         const res = await api.get('/schools/database/school-info');
         const data = res.data?.data || res.data;
         if (mounted && data) {
-          setSchoolInfo({ name: data.name, code: data.code, logoUrl: data.logoUrl });
+          // eslint-disable-next-line no-console
+          console.log('school-info response:', data); // TEMP: verify actual field names, remove once confirmed
+          setSchoolInfo({
+            name: data.name,
+            code: data.code,
+            logoUrl: data.logoUrl,
+            address: data.address,
+            phone: pickPhone(data),
+            email: pickEmail(data)
+          });
         }
       } catch (err) {
         if (mounted) setSchoolInfo({ code: user?.schoolCode, name: user?.schoolName });
@@ -85,13 +142,13 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
 
   const menuItems = [
     { name: 'Dashboard', icon: Home, page: 'dashboard', permission: null },
-    { name: 'My Classes', icon: Users, page: 'student-details', permission: null },
+    { name: 'Student Details', icon: Users, page: 'student-details', permission: null },
     { name: 'Attendance', icon: UserCheck, page: 'attendance', permission: 'viewAttendance' as PermissionKey },
     { name: 'Assignments', icon: FileText, page: 'assignments', permission: 'viewAssignments' as PermissionKey },
     { name: 'Results', icon: BarChart3, page: 'view-results', permission: 'viewResults' as PermissionKey },
     { name: 'Messages', icon: MessageSquare, page: 'messages', permission: 'messageStudentsParents' as PermissionKey },
+    { name: 'Calendar', icon: CalendarDays, page: 'calendar', permission: null },
     { name: 'Leave Request', icon: Calendar, page: 'leave-request', permission: 'viewLeaves' as PermissionKey },
-    { name: 'Settings', icon: Settings, page: 'settings', permission: null }
   ];
 
   const handleMenuClick = (item: typeof menuItems[0]) => {
@@ -107,6 +164,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
   };
 
   const schoolLogoUrl = getLogoUrl(schoolInfo?.logoUrl);
+  const formattedAddress = formatAddress(schoolInfo?.address);
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -120,28 +178,12 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
       {/* Sidebar */}
       <div className={`fixed inset-y-0 left-0 z-30 w-64 bg-white border-r border-gray-100 transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         } transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 flex flex-col`}>
-        <div className="flex items-center justify-between h-20 px-5 border-b border-gray-100 flex-shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
-            {schoolLogoUrl ? (
-              <img
-                src={schoolLogoUrl}
-                alt={schoolInfo?.name || 'School logo'}
-                className="w-12 h-12 rounded-lg object-cover mr-3 flex-shrink-0"
-              />
-            ) : (
-              <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-xl mr-2.5 shadow-sm shadow-violet-200 flex-shrink-0">
-                <ShieldCheck className="h-6 w-6 text-white" />
-              </div>
-            )}
-            <div className="min-w-0">
-              <p className="text-base font-semibold text-violet-600 leading-tight">
-                {schoolInfo?.code || user?.schoolCode || "—"}
-              </p>
-              <p className="text-[11px] font-medium text-gray-400 tracking-wide uppercase leading-tight">
-                Teacher Portal
-              </p>
-            </div>
-          </div>
+        <div className="flex items-center justify-between h-20 px-5 border-b border-gray-100 flex-shrink-0 bg-gradient-to-b from-violet-50/30 to-white relative overflow-hidden">
+  <div className="absolute top-0 right-0 w-24 h-24 bg-violet-100 rounded-full blur-3xl opacity-50 -mr-10 -mt-10 pointer-events-none"></div>
+  <div className="flex items-center gap-2 min-w-0 relative z-10">
+    <UserCheck className="h-6 w-6 text-violet-600 mb-0.5 shrink-0" strokeWidth={2.5} />
+    <h2 className="text-lg font-bold text-gray-900 tracking-tight">Teacher Portal</h2>
+  </div>
           <button
             onClick={() => setSidebarOpen(false)}
             className="lg:hidden p-1 rounded-md hover:bg-gray-100 flex-shrink-0"
@@ -150,7 +192,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
           </button>
         </div>
 
-        <div className="flex flex-col flex-1 overflow-y-auto">
+        <div className="flex flex-col flex-1 overflow-y-auto no-scrollbar">
           <nav className="flex-1 px-4 py-6 space-y-1">
             {menuItems.map((item) => {
               const Icon = item.icon;
@@ -208,21 +250,26 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
       />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white border-b border-gray-100 flex-shrink-0">
-          <div className="flex items-center justify-between h-16 px-4 lg:px-6 gap-4">
-            <div className="flex items-center gap-3 flex-shrink-0 min-w-0">
-              <button
-                onClick={() => setSidebarOpen(true)}
-                className="lg:hidden p-2 rounded-md text-gray-600 hover:bg-gray-100 flex-shrink-0"
+        <header className="bg-white/80 backdrop-blur-md border-b border-gray-100 flex-shrink-0 sticky top-0 z-10">
+          <div className="flex items-center h-[72px] px-4 lg:px-6 gap-4">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden p-2 rounded-md text-gray-600 hover:bg-gray-100 flex-shrink-0"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+
+            <h2 className="text-base font-semibold text-gray-900 capitalize sm:hidden truncate">
+              {currentPage.replace(/-/g, ' ')}
+            </h2>
+
+            <div className="flex-1 flex items-center justify-between overflow-hidden">
+              {/* Left: School Details — collapses out of view while the search is focused */}
+              <div
+                className={`hidden sm:flex items-center gap-3 transition-all duration-500 ease-in-out overflow-hidden ${
+                  isSearchFocused ? 'max-w-0 opacity-0 invisible -translate-x-8' : 'max-w-2xl opacity-100 visible translate-x-0'
+                }`}
               >
-                <Menu className="h-5 w-5" />
-              </button>
-
-              <h2 className="text-base font-semibold text-gray-900 capitalize sm:hidden truncate">
-                {currentPage.replace(/-/g, ' ')}
-              </h2>
-
-              <div className="hidden sm:flex items-center gap-3 min-w-0">
                 {schoolLogoUrl ? (
                   <img
                     src={schoolLogoUrl}
@@ -235,78 +282,81 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
                   </div>
                 )}
 
-                <span className="text-2xl sm:text-3xl font-bold text-gray-900 whitespace-nowrap truncate">
-                  {schoolInfo?.name || "School"}
-                </span>
-              </div>
-            </div>
-
-            {/* Search is pushed to the right, sitting close to the avatar (mirrors the admin portal reference) */}
-            <div className="flex-1 flex items-center justify-end min-w-0">
-              <div className="flex items-center w-full max-w-[260px]">
-                <button
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => setSearchOpen((o) => !o)}
-                  className="p-2.5 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors flex-shrink-0 sm:hidden"
-                  title="Search"
-                >
-                  {searchOpen ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
-                </button>
-
-                <div className="hidden sm:flex items-center w-full relative">
-                  <Search className="absolute left-3 h-4.5 w-4.5 text-gray-400 pointer-events-none" />
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Search anything..."
-                    className="w-full pl-10 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 outline-none"
-                  />
+                <div className="min-w-0 shrink-0">
+                  <span className="block text-xl lg:text-2xl font-bold text-gray-900 truncate whitespace-nowrap">
+                    {schoolInfo?.name || 'School'}
+                  </span>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-xs text-gray-500 whitespace-nowrap">
+                    {formattedAddress && (
+                      <span className="flex items-center gap-1">
+                        <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
+                        <span>{formattedAddress}</span>
+                      </span>
+                    )}
+                    {schoolInfo?.phone && (
+                      <span className="flex items-center gap-1">
+                        <Phone className="h-3.5 w-3.5 flex-shrink-0" />
+                        {schoolInfo.phone}
+                      </span>
+                    )}
+                    {schoolInfo?.email && (
+                      <span className="flex items-center gap-1">
+                        <Mail className="h-3.5 w-3.5 flex-shrink-0" />
+                        {schoolInfo.email}
+                      </span>
+                    )}
+                  </div>
                 </div>
+              </div>
 
+              {/* Right: Search — grows to fill the space the school block just vacated */}
+              <div
+                className={`flex items-center gap-3 transition-all duration-500 ease-in-out ${
+                  isSearchFocused ? 'w-full flex-1' : 'ml-auto'
+                }`}
+              >
                 <div
-                  className={`sm:hidden flex items-center overflow-hidden transition-all duration-300 ease-in-out ${
-                    searchOpen ? "w-full opacity-100 ml-2" : "w-0 opacity-0"
+                  className={`relative transition-all duration-500 ease-in-out ${
+                    isSearchFocused ? 'w-full max-w-full' : 'w-full max-w-[180px] sm:max-w-[220px] lg:max-w-xs'
                   }`}
                 >
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-gray-400 pointer-events-none" />
                   <input
                     type="text"
-                    autoFocus={searchOpen}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    onBlur={() => setSearchOpen(false)}
-                    placeholder="Search..."
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 outline-none"
+                    onFocus={() => setIsSearchFocused(true)}
+                    onBlur={() => setIsSearchFocused(false)}
+                    placeholder="Search anything..."
+                    className="w-full pl-11 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 focus:bg-white transition-all duration-300"
                   />
                 </div>
-              </div>
-            </div>
 
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <button
-                onClick={() => handleMenuClick(menuItems.find(m => m.page === 'messages')!)}
-                className="relative p-2.5 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors"
-                title="Messages"
-              >
-                <Bell className="h-5 w-5" />
-                {notificationCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 h-4 min-w-[16px] px-1 flex items-center justify-center rounded-full bg-violet-600 text-white text-[10px] font-bold">
-                    {notificationCount > 9 ? '9+' : notificationCount}
-                  </span>
-                )}
-              </button>
-              <button
-                onClick={() => handleMenuClick(menuItems.find(m => m.page === 'leave-request')!)}
-                className="p-2.5 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors hidden sm:block"
-                title="Leave Request"
-              >
-                <Calendar className="h-5 w-5" />
-              </button>
+                <button
+                  onClick={() => handleMenuClick(menuItems.find(m => m.page === 'messages')!)}
+                  className="relative p-2.5 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors flex-shrink-0"
+                  title="Messages"
+                >
+                  <Bell className="h-5 w-5" />
+                  {notificationCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 h-4 min-w-[16px] px-1 flex items-center justify-center rounded-full bg-violet-600 text-white text-[10px] font-bold">
+                      {notificationCount > 9 ? '9+' : notificationCount}
+                    </span>
+                  )}
+                </button>
+                <button
+                  onClick={() => handleMenuClick(menuItems.find(m => m.page === 'leave-request')!)}
+                  className="p-2.5 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors hidden sm:block flex-shrink-0"
+                  title="Leave Request"
+                >
+                  <Calendar className="h-5 w-5" />
+                </button>
+              </div>
             </div>
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto p-4 lg:p-6 bg-gray-50">
+        <main className="flex-1 overflow-auto px-4 lg:px-6 pb-4 lg:pb-6 pt-2 bg-gray-50 no-scrollbar">
           {children}
         </main>
       </div>
