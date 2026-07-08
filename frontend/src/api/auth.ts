@@ -4,6 +4,36 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 type LoginResponse = { token: string; user: AuthUser };
 
+export interface ResetPasswordRequest {
+  token: string;
+  password: string;
+}
+
+export async function resetPasswordApi(
+  data: ResetPasswordRequest
+): Promise<{ success: boolean; message: string }> {
+
+  const endpoint = `${API_BASE}/auth/reset-password`;
+
+  const res = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(data)
+  });
+
+  const response = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(
+      response.message || "Unable to reset password."
+    );
+  }
+
+  return response;
+}
+
 export async function loginApi(payload: LoginPayload): Promise<LoginResponse> {
   try {
     // If schoolCode is provided, always use school-login
@@ -104,10 +134,7 @@ async function schoolLogin(payload: LoginPayload): Promise<LoginResponse> {
   const identifier =
     (payload as any).identifier || payload.email;
 
-  const formattedPassword =
-    payload.role === "student"
-      ? payload.password.replace(/\D/g, "")
-      : payload.password;
+  const formattedPassword = payload.password;
 
   console.log(
     `[LOGIN] Trying school login for: ${identifier} (${payload.role})`
@@ -180,6 +207,25 @@ async function schoolLogin(payload: LoginPayload): Promise<LoginResponse> {
   console.log('[SCHOOL LOGIN SUCCESS] Mapped user:', mappedUser);
   console.log('[SCHOOL LOGIN SUCCESS] Mapped user.userId:', mappedUser.userId);
   return { token: data.token, user: mappedUser };
+}
+
+export async function forgotPasswordApi(identifier: string, schoolCode: string): Promise<{ success: boolean; message: string }> {
+  const endpoint = `${API_BASE}/auth/forgot-password`;
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identifier, schoolCode })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.message || 'Could not process your request. Please try again.');
+    }
+    return { success: true, message: data.message || 'A new password has been sent to your registered email.' };
+  } catch (err: any) {
+    console.error('[FORGOT PASSWORD ERROR]', err);
+    throw err;
+  }
 }
 
 export async function getDemoCredentialsApi(): Promise<any> {

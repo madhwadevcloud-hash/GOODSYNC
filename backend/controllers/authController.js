@@ -5,6 +5,10 @@ const UserGenerator = require('../utils/userGenerator');
 const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
+const crypto = require("crypto");
+const PasswordResetToken = require("../models/PasswordResetToken");
+const { sendPasswordResetEmail } = require("../utils/mailer");
+const SchoolDatabaseManager = require("../utils/schoolDatabaseManager");
 
 exports.logout = async (req, res) => {
   try {
@@ -211,6 +215,202 @@ exports.login = async (req, res) => {
   }
 };
 
+// Forgot password (school users, e.g. students, teachers, admins, parents).
+// Looks the account up by email/user ID within the given school, generates
+// a brand-new secret password (the same way every other user's password is
+// generated/stored - see UserGenerator), and emails it to the user.
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { identifier, schoolCode } = req.body;
+
+    if (!identifier || !schoolCode) {
+      return res.status(400).json({
+        success: false,
+        message: "Identifier and school code are required."
+      });
+    }
+
+    console.log(
+      `🔑 Forgot-password request for ${identifier} (${schoolCode})`
+    );
+
+    // Find student
+    const student =
+    await UserGenerator.getUserByIdOrEmail(
+        schoolCode.trim().toUpperCase(),
+        identifier.trim().toUpperCase()
+    );
+
+    // Generic response (don't reveal whether account exists)
+    if (!student || student.role !== "student") {
+      return res.status(200).json({
+        success: true,
+        message:
+          "If the account exists, a password reset link has been sent."
+      });
+    }
+
+    if (!student.email) {
+      return res.status(200).json({
+        success: true,
+        message:
+          "If the account exists, a password reset link has been sent."
+      });
+    }
+
+    // Remove previous unused tokens
+    await PasswordResetToken.deleteMany({
+      studentId: student.userId,
+      used: false
+    });
+
+    const rawToken = crypto.randomBytes(32).toString("hex");
+
+    await PasswordResetToken.create({
+      studentId: student.userId,
+      schoolCode: schoolCode.toUpperCase(),
+      token: rawToken,
+      expiresAt: new Date(Date.now() + 30 * 60 * 1000),
+      used: false
+    });
+
+    const resetLink =
+      `${process.env.FRONTEND_URL}/student/reset-password?token=${rawToken}`;
+
+    await sendPasswordResetEmail({
+      to: student.email,
+      name:
+        student.name?.displayName ||
+        student.name?.firstName ||
+        student.userId,
+      resetLink
+    });
+
+    console.log(
+      `📧 Password reset email sent to ${student.userId}`
+    );
+
+    return res.status(200).json({
+      success: true,
+      message:
+        "If the account exists, a password reset link has been sent."
+    });
+
+  } catch (err) {
+    console.error("[FORGOT PASSWORD]", err);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to process request."
+    });
+  }
+};
+
+exports.resetPassword = async (req, res) => {
+
+  try {
+
+    const { token, password } = req.body;
+
+    if (!token || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Token and password are required."
+      });
+    }
+
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?#&]).{8,}$/;
+
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Password must contain uppercase, lowercase, number and special character."
+      });
+    }
+
+    const resetToken = await PasswordResetToken.findOne({
+      token,
+      used: false,
+      expiresAt: { $gt: new Date() }
+    });
+
+    if (!resetToken) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid or expired reset link."
+      });
+    }
+
+    const connection =
+      await SchoolDatabaseManager.getSchoolConnection(
+        resetToken.schoolCode
+      );
+
+    const studentsCollection =
+      connection.collection("students");
+
+    const student =
+      await studentsCollection.findOne({
+        userId: resetToken.studentId
+      });
+
+    if (!student) {
+      return res.status(400).json({
+        success: false,
+        message: "Student not found."
+      });
+    }
+
+    const hashedPassword =
+      await bcrypt.hash(password, 10);
+
+    await studentsCollection.updateOne(
+      {
+        userId: student.userId
+      },
+      {
+        $set: {
+          password: hashedPassword,
+          passwordChangeRequired: false,
+          updatedAt: new Date()
+        },
+        $unset: {
+          temporaryPassword: ""
+        }
+      }
+    );
+
+    // Remove every reset token for this student
+    await PasswordResetToken.deleteMany({
+      studentId: student.userId
+    });
+
+    console.log(
+      `✅ Password reset completed for ${student.userId}`
+    );
+
+    return res.status(200).json({
+      success: true,
+      message:
+        "Password reset successful."
+    });
+
+  } catch (err) {
+
+    console.error("[RESET PASSWORD]", err);
+
+    return res.status(500).json({
+      success: false,
+      message:
+        "Unable to reset password."
+    });
+
+  }
+
+};
+
 // School-specific login (supports both email and user ID)
 exports.schoolLogin = async (req, res) => {
   try {
@@ -267,6 +467,19 @@ exports.schoolLogin = async (req, res) => {
     console.log(`[SCHOOL LOGIN DEBUG] Verifying credentials for user: ${user.userId || user._id}...`);
     console.log(`[SCHOOL LOGIN DEBUG] User collection used: ${user.collection}`);
 
+    console.log("Entered Password:", password);
+    console.log(
+      "Student DOB:",
+      userWithPassword.studentDetails?.personal?.dateOfBirth
+    );
+
+    console.log(
+      "DOB Hash Match:",
+      await bcrypt.compare(
+        "23112020",   // Replace with this student's DOB in DDMMYYYY format
+        userWithPassword.password
+      )
+    );
     // Verify password
     const isMatch = await bcrypt.compare(password, userWithPassword.password);
     if (!isMatch) {
