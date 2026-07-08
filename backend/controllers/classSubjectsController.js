@@ -562,7 +562,7 @@ const getSubjectsForClass = async (req, res) => {
     let fallbackSubjects = [];
     try {
       const School = require('../models/School');
-      const school = await School.findOne({ code: { $regex: new RegExp(`^${schoolCode}$`, 'i') } });
+      const school = await School.findOne({ code: schoolCode.toUpperCase() }).lean();
       if (school && school.settings && Array.isArray(school.settings.subjects)) {
         fallbackSubjects = school.settings.subjects.map(name => ({
           name,

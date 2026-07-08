@@ -207,6 +207,103 @@ class SchoolDatabaseManager {
   static async createSchoolDatabase(schoolCode) {
     const dbName = this.getDatabaseName(schoolCode);
 
+    const schoolIndexes = {
+      admins: [
+        { key: { userId: 1 }, options: { unique: true } },
+        { key: { email: 1 }, options: { unique: true, sparse: true } },
+        { key: { secureId: 1 }, options: { unique: true, sparse: true } },
+        { key: { schoolCode: 1 }, options: {} }
+      ],
+      teachers: [
+        { key: { userId: 1 }, options: { unique: true } },
+        { key: { email: 1 }, options: { unique: true, sparse: true } },
+        { key: { secureId: 1 }, options: { unique: true, sparse: true } },
+        { key: { schoolCode: 1 }, options: {} }
+      ],
+      students: [
+        { key: { userId: 1 }, options: { unique: true } },
+        { key: { email: 1 }, options: { unique: true, sparse: true } },
+        { key: { secureId: 1 }, options: { unique: true, sparse: true } },
+        { key: { schoolCode: 1 }, options: {} },
+        { key: { class: 1, section: 1, academicYear: 1 }, options: {} },
+        { key: { academicYear: 1 }, options: {} },
+        { key: { "studentDetails.academic.academicYear": 1 }, options: {} },
+        { key: { "academicInfo.academicYear": 1 }, options: {} },
+        { key: { "studentDetails.academicYear": 1 }, options: {} },
+        { key: { parentId: 1 }, options: {} },
+        { key: { class: 1, section: 1 }, options: {} },
+        { key: { "studentDetails.currentClass": 1, "studentDetails.currentSection": 1 }, options: {} }
+      ],
+      parents: [
+        { key: { userId: 1 }, options: { unique: true } },
+        { key: { email: 1 }, options: { unique: true, sparse: true } },
+        { key: { secureId: 1 }, options: { unique: true, sparse: true } },
+        { key: { schoolCode: 1 }, options: {} }
+      ],
+      classes: [
+        { key: { classId: 1 }, options: { unique: true } },
+        { key: { schoolCode: 1, grade: 1, section: 1, academicYear: 1 }, options: { unique: true } },
+        { key: { className: 1 }, options: {} },
+        { key: { academicYear: 1 }, options: {} },
+        { key: { "classTeacher.teacherId": 1 }, options: {} },
+        { key: { schoolCode: 1, academicYear: 1, isActive: 1 }, options: {} },
+        { key: { schoolId: 1, academicYear: 1, isActive: 1 }, options: {} }
+      ],
+      subjects: [
+        { key: { subjectId: 1 }, options: { unique: true } },
+        { key: { subjectCode: 1 }, options: {} },
+        { key: { schoolCode: 1, subjectCode: 1, academicYear: 1 }, options: { unique: true } },
+        { key: { "applicableGrades.grade": 1 }, options: {} }
+      ],
+      attendances: [
+        { key: { attendanceId: 1 }, options: { unique: true } },
+        { key: { studentId: 1, date: 1 }, options: { unique: true } },
+        { key: { class: 1, section: 1, date: 1 }, options: {} },
+        { key: { date: 1 }, options: {} },
+        { key: { academicYear: 1 }, options: {} }
+      ],
+      results: [
+        { key: { student: 1, academicYear: 1, term: 1 }, options: { unique: true } },
+        { key: { studentId: 1, academicYear: 1, term: 1 }, options: { unique: true } },
+        { key: { class: 1, section: 1 }, options: {} },
+        { key: { className: 1, section: 1 }, options: {} },
+        { key: { studentId: 1, academicYear: 1 }, options: {} }
+      ],
+      timetables: [
+        { key: { timetableId: 1 }, options: { unique: true } },
+        { key: { class: 1, section: 1, status: 1 }, options: {} },
+        { key: { classSection: 1, status: 1 }, options: {} },
+        { key: { schoolCode: 1, academicYear: 1 }, options: {} }
+      ],
+      assignments: [
+        { key: { class: 1, section: 1 }, options: {} },
+        { key: { teacher: 1 }, options: {} },
+        { key: { subject: 1 }, options: {} },
+        { key: { dueDate: 1 }, options: {} },
+        { key: { academicYear: 1, term: 1 }, options: {} }
+      ],
+      leaverequests: [
+        { key: { teacherId: 1, createdAt: -1 }, options: {} },
+        { key: { schoolCode: 1, status: 1, createdAt: -1 }, options: {} }
+      ],
+      studentfeerecords: [
+        { key: { studentId: 1 }, options: {} },
+        { key: { studentClass: 1, studentSection: 1 }, options: {} },
+        { key: { status: 1 }, options: {} }
+      ],
+      chalans: [
+        { key: { chalanNumber: 1 }, options: { unique: true } },
+        { key: { studentId: 1, status: 1 }, options: {} },
+        { key: { schoolId: 1, academicYear: 1 }, options: {} }
+      ],
+      admissions: [
+        { key: { admissionNumber: 1 }, options: { unique: true } },
+        { key: { studentId: 1 }, options: {} },
+        { key: { parentId: 1 }, options: {} },
+        { key: { academicYear: 1, class: 1, section: 1 }, options: {} }
+      ]
+    };
+
     try {
       console.log(`🏗️ Creating school database: ${dbName}`);
 
@@ -236,9 +333,39 @@ class SchoolDatabaseManager {
         try {
           await connection.db.createCollection(collectionName);
           console.log(`✅ Created collection: ${collectionName}`);
+
+          // Create indexes
+          const indexes = schoolIndexes[collectionName];
+          if (indexes) {
+            const col = connection.db.collection(collectionName);
+            for (const idx of indexes) {
+              try {
+                await col.createIndex(idx.key, { ...idx.options, background: true });
+              } catch (idxError) {
+                console.warn(`⚠️ Warning creating index on ${collectionName}:`, idxError.message);
+              }
+            }
+          }
         } catch (error) {
           if (error.code !== 48) { // Collection already exists
             console.error(`❌ Error creating collection ${collectionName}:`, error.message);
+          } else {
+            // Collection already exists, but build indexes anyway just in case
+            const indexes = schoolIndexes[collectionName];
+            if (indexes) {
+              try {
+                const col = connection.db.collection(collectionName);
+                for (const idx of indexes) {
+                  try {
+                    await col.createIndex(idx.key, { ...idx.options, background: true });
+                  } catch (idxError) {
+                    // Ignore index build errors on existing collections
+                  }
+                }
+              } catch (idxErr) {
+                console.error(`❌ Error building indexes on existing collection ${collectionName}:`, idxErr.message);
+              }
+            }
           }
         }
       }
@@ -251,7 +378,7 @@ class SchoolDatabaseManager {
         schoolCode: schoolCode
       });
 
-      console.log(`✅ School database ${dbName} created successfully`);
+      console.log(`✅ School database ${dbName} created successfully with indexes`);
       return true;
 
     } catch (error) {
