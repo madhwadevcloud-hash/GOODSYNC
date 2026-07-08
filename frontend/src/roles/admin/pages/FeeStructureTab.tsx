@@ -513,9 +513,9 @@ const FeeStructureTab: React.FC = () => {
         {existingStructures.length === 0 ? (
           <div className="text-center py-8 text-gray-500">No fee structures found.</div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto lg:overflow-visible">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+              <thead className="bg-gray-50 sticky top-[130px] z-10 shadow-sm border-b border-slate-200">
                 <tr>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Class</th>

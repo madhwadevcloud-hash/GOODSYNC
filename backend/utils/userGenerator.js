@@ -52,7 +52,8 @@ class UserGenerator {
       // Generate user ID and a DEFAULT random password
       // This will be overridden for students if DOB is available
       const userId = await this.generateUserId(schoolCode, userData.role);
-      let plainPassword = this.generateRandomPassword();
+      // Respect frontend-provided password if available, otherwise generate one
+      let plainPassword = userData.password || this.generateRandomPassword();
       let hashedPassword = await this.hashPassword(plainPassword);
 
       // Validate role and prevent escalation

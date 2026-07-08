@@ -34,9 +34,9 @@ const FeesPage: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-6 relative">
-      <div className="sticky top-[72px] z-20 flex flex-col gap-6 pt-4 pb-2 -mt-4 bg-[#f8fafc]">
-        {/* Header */}
+    <div className="space-y-6 relative flex flex-col h-full min-h-[calc(100vh-120px)]">
+      {/* Non-sticky Header that scrolls away */}
+      <div className="flex flex-col gap-6 pt-4 pb-2 -mt-4 bg-[#f8fafc] shrink-0">
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sm:p-8 relative overflow-hidden mx-2 sm:mx-0">
           <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50 rounded-full blur-3xl opacity-60 -mr-20 -mt-20 pointer-events-none"></div>
           <div className="flex items-center justify-between relative z-10">
@@ -51,8 +51,10 @@ const FeesPage: React.FC = () => {
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Tab Navigation */}
+      {/* Sticky Tab Navigation */}
+      <div className="sticky top-[72px] z-[30] pt-2 pb-2 -mt-2 bg-[#f8fafc]">
         <div className="bg-slate-100/80 p-1.5 rounded-2xl mx-2 sm:mx-0 overflow-x-auto custom-scrollbar border border-slate-200/60">
           <nav className="flex space-x-1 min-w-max">
             {tabs.map((tab) => {
