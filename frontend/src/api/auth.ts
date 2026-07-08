@@ -182,6 +182,49 @@ async function schoolLogin(payload: LoginPayload): Promise<LoginResponse> {
   return { token: data.token, user: mappedUser };
 }
 
+type GenericMessageResponse = { success: boolean; message: string };
+
+export async function forgotTeacherPasswordApi(email: string): Promise<GenericMessageResponse> {
+  const endpoint = `${API_BASE}/auth/teacher/forgot-password`;
+
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email })
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(data.message || 'Failed to send reset link. Please try again.');
+  }
+
+  return data as GenericMessageResponse;
+}
+
+export async function resetTeacherPasswordApi(payload: {
+  token: string;
+  schoolCode: string;
+  newPassword: string;
+  confirmPassword: string;
+}): Promise<GenericMessageResponse> {
+  const endpoint = `${API_BASE}/auth/teacher/reset-password`;
+
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(data.message || 'Failed to reset password. Please try again.');
+  }
+
+  return data as GenericMessageResponse;
+}
+
 export async function getDemoCredentialsApi(): Promise<any> {
   const endpoint = `${API_BASE}/auth/demo-credentials`;
   try {

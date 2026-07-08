@@ -311,13 +311,15 @@ export default function Login() {
                   />
                   Remember me
                 </label>
-                <button
-                  type="button"
-                  onClick={() => alert("Hook this to your /auth/forgot-password route")}
-                  className="text-xs sm:text-sm text-slate-600 hover:text-slate-900 text-left sm:text-right"
-                >
-                  Forgot your password?
-                </button>
+                {selectedRole === "teacher" && (
+                  <button
+                    type="button"
+                    onClick={() => navigate("/teacher/forgot-password")}
+                    className="text-xs sm:text-sm text-slate-600 hover:text-slate-900 text-left sm:text-right"
+                  >
+                    Forgot your password?
+                  </button>
+                )}
               </div>
 
               {error && <div className="text-sm text-red-600">{error}</div>}

@@ -793,6 +793,136 @@ class UserGenerator {
   }
 
   /**
+   * Find a user of a given role by email across ALL school databases.
+   * Used by the Forgot Password flow, where the school code is not yet known.
+   *
+   * Returns null if no match is found (callers should treat this the same as
+   * "found but we're not telling you" to avoid leaking account existence).
+   *
+   * @param {string} email
+   * @param {string} role - e.g. 'teacher'
+   * @returns {Promise<{schoolCode: string, user: object} | null>}
+   */
+  static async findUserByEmailAcrossSchools(email, role) {
+    const raw = (email || '').toString().trim();
+    if (!raw) return null;
+
+    const collectionMap = {
+      admin: 'admins',
+      teacher: 'teachers',
+      student: 'students',
+      parent: 'parents'
+    };
+    const collectionName = collectionMap[role.toLowerCase()];
+    if (!collectionName) return null;
+
+    const escapedEmail = raw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const emailRegex = new RegExp(`^${escapedEmail}$`, 'i');
+
+    try {
+      const School = require('../models/School');
+      const schools = await School.find({ isActive: { $ne: false } }).select('code').lean();
+
+      for (const school of schools) {
+        const schoolCode = school.code;
+        try {
+          const connection = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
+          const collection = connection.collection(collectionName);
+          const user = await collection.findOne({ email: emailRegex });
+
+          if (user) {
+            return { schoolCode, user: { ...user, role } };
+          }
+        } catch (innerError) {
+          // Skip schools whose database is unreachable rather than failing the whole search
+          console.error(`Error searching school ${schoolCode} for ${role} email:`, innerError.message);
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error finding user across schools:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Store a hashed password-reset token (and its expiry) on a user's document.
+   * @param {string} schoolCode
+   * @param {string} role
+   * @param {string} userId - Mongo _id of the user document
+   * @param {string} hashedToken - sha256 hash of the raw token sent to the user
+   * @param {Date} expiresAt
+   */
+  static async setPasswordResetToken(schoolCode, role, userId, hashedToken, expiresAt) {
+    const collectionMap = { admin: 'admins', teacher: 'teachers', student: 'students', parent: 'parents' };
+    const collectionName = collectionMap[role.toLowerCase()];
+    if (!collectionName) throw new Error(`Invalid role: ${role}`);
+
+    const connection = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
+    const collection = connection.collection(collectionName);
+
+    await collection.updateOne(
+      { _id: new ObjectId(userId) },
+      {
+        $set: {
+          passwordResetToken: hashedToken,
+          passwordResetExpires: expiresAt,
+          updatedAt: new Date()
+        }
+      }
+    );
+  }
+
+  /**
+   * Look up a user by a hashed reset token, within a known school + role,
+   * enforcing that the token has not expired.
+   */
+  static async findByPasswordResetToken(schoolCode, role, hashedToken) {
+    const collectionMap = { admin: 'admins', teacher: 'teachers', student: 'students', parent: 'parents' };
+    const collectionName = collectionMap[role.toLowerCase()];
+    if (!collectionName) return null;
+
+    const connection = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
+    const collection = connection.collection(collectionName);
+
+    const user = await collection.findOne({
+      passwordResetToken: hashedToken,
+      passwordResetExpires: { $gt: new Date() }
+    });
+
+    return user;
+  }
+
+  /**
+   * Complete a password reset: set the new hashed password and invalidate the token.
+   */
+  static async completePasswordReset(schoolCode, role, userId, hashedPassword) {
+    const collectionMap = { admin: 'admins', teacher: 'teachers', student: 'students', parent: 'parents' };
+    const collectionName = collectionMap[role.toLowerCase()];
+    if (!collectionName) throw new Error(`Invalid role: ${role}`);
+
+    const connection = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
+    const collection = connection.collection(collectionName);
+
+    await collection.updateOne(
+      { _id: new ObjectId(userId) },
+      {
+        $set: {
+          password: hashedPassword,
+          passwordChangeRequired: false,
+          loginAttempts: 0,
+          updatedAt: new Date()
+        },
+        $unset: {
+          passwordResetToken: '',
+          passwordResetExpires: ''
+        }
+      }
+    );
+  }
+
+  /**
    * Get user by ID or email from school database
    */
   static async getUserByIdOrEmail(schoolCode, identifier, includePassword = false) {
