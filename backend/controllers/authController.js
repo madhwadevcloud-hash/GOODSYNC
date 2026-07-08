@@ -9,9 +9,12 @@ const crypto = require("crypto");
 const PasswordResetToken = require("../models/PasswordResetToken");
 const { sendPasswordResetEmail } = require("../utils/mailer");
 const SchoolDatabaseManager = require("../utils/schoolDatabaseManager");
+const sendEmail = require('../utils/sendEmail');
+
 
 exports.logout = async (req, res) => {
   try {
+    const frontendUrl = process.env.FRONTEND_URL || req.headers.origin || 'http://localhost:5173';
     const token = req.cookies?.token || req.headers.authorization?.split(' ')[1];
 
     if (token) {
@@ -599,5 +602,161 @@ exports.schoolLogin = async (req, res) => {
       message: 'Login failed. Please try again.',
       error: error.message
     });
+  }
+};
+
+// @desc    Forgot password (Admin only)
+// @route   POST /api/auth/forgot-password
+// @access  Public
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { identifier, schoolCode } = req.body;
+
+    if (!identifier) {
+      return res.status(400).json({ success: false, message: 'Please provide an email' });
+    }
+
+    let user;
+    if (schoolCode) {
+      const UserGenerator = require('../utils/userGenerator');
+      user = await UserGenerator.getUserByIdOrEmail(schoolCode, identifier);
+    } else {
+      user = await User.findOne({ email: identifier });
+    }
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'There is no user with that email' });
+    }
+
+    if (user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Password reset is only available for admins.' });
+    }
+
+    const resetToken = crypto.randomBytes(20).toString('hex');
+    user.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+    user.resetPasswordExpire = Date.now() + 10 * 60 * 1000;
+    
+    if (schoolCode) {
+       const SchoolDatabaseManager = require('../utils/schoolDatabaseManager');
+       const connection = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
+       const collectionName = user.collection || 'admins';
+       await connection.collection(collectionName).updateOne(
+          { _id: user._id },
+          { $set: { resetPasswordToken: user.resetPasswordToken, resetPasswordExpire: user.resetPasswordExpire } }
+       );
+    } else {
+       await user.save();
+    }
+
+    const frontendUrl = process.env.FRONTEND_URL || req.headers.origin || 'http://localhost:5173';
+    const resetUrl = `${frontendUrl}/reset-password/${resetToken}`;
+    
+    const message = `
+      <h1>You have requested a password reset</h1>
+      <p>Please go to this link to reset your password:</p>
+      <a href="${resetUrl}" clicktracking="off">${resetUrl}</a>
+      <br/><br/>
+      <p>If you did not request this, please ignore this email.</p>
+    `;
+
+    try {
+      await sendEmail({
+        email: user.email,
+        subject: 'Goodsync ERP Password Reset',
+        html: message
+      });
+
+      res.status(200).json({ success: true, message: 'Email sent' });
+    } catch (err) {
+      console.log(err);
+      
+      if (schoolCode) {
+         const SchoolDatabaseManager = require('../utils/schoolDatabaseManager');
+         const connection = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
+         const collectionName = user.collection || 'admins';
+         await connection.collection(collectionName).updateOne(
+            { _id: user._id },
+            { $unset: { resetPasswordToken: "", resetPasswordExpire: "" } }
+         );
+      } else {
+         user.resetPasswordToken = undefined;
+         user.resetPasswordExpire = undefined;
+         await user.save();
+      }
+
+      return res.status(500).json({ success: false, message: 'Email could not be sent' });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// @desc    Reset password
+// @route   POST /api/auth/reset-password/:token
+// @access  Public
+exports.resetPassword = async (req, res) => {
+  try {
+    const resetPasswordToken = crypto.createHash('sha256').update(req.params.token).digest('hex');
+    const { schoolCode } = req.body;
+    
+    let user;
+    if (schoolCode) {
+      const SchoolDatabaseManager = require('../utils/schoolDatabaseManager');
+      const connection = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
+      const collections = ['admins', 'users'];
+      for (const coll of collections) {
+         const found = await connection.collection(coll).findOne({
+            resetPasswordToken,
+            resetPasswordExpire: { $gt: Date.now() }
+         });
+         if (found) {
+            user = found;
+            user.collection = coll;
+            break;
+         }
+      }
+    } else {
+      user = await User.findOne({
+        resetPasswordToken,
+        resetPasswordExpire: { $gt: Date.now() }
+      });
+    }
+
+    if (!user) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired token' });
+    }
+
+    if (user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Password reset is only available for admins.' });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(req.body.password, salt);
+    
+    if (schoolCode) {
+      const SchoolDatabaseManager = require('../utils/schoolDatabaseManager');
+      const connection = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
+      const collectionName = user.collection || 'admins';
+      await connection.collection(collectionName).updateOne(
+         { _id: user._id },
+         { 
+            $set: { password: user.password },
+            $unset: { resetPasswordToken: "", resetPasswordExpire: "" }
+         }
+      );
+    } else {
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpire = undefined;
+      await user.save();
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Password reset successfully'
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 };

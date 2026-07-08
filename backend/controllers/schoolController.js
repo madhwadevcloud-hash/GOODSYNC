@@ -2005,7 +2005,58 @@ exports.getSchoolProfile = async (req, res) => {
     });
   }
 };
+// Get lightweight school contact info for the logged-in user's school
+// Used by the "Contact Info" page shown to students (and other roles).
+// Only returns the fields relevant to that page - school name, principal
+// details, and general school contact info.
+exports.getSchoolContactInfo = async (req, res) => {
+  try {
+    const schoolCode = req.user?.schoolCode;
 
+    if (!schoolCode) {
+      return res.status(400).json({
+        success: false,
+        message: 'School code is required'
+      });
+    }
+
+    const school = await School.findOne({ code: schoolCode.toUpperCase() })
+      .select('name code logoUrl principalName principalEmail principalContact mobile contact address website')
+      .lean();
+
+    if (!school) {
+      return res.status(404).json({
+        success: false,
+        message: 'School contact information not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        schoolName: school.name || '',
+        schoolCode: school.code || '',
+        logoUrl: school.logoUrl || '',
+        principalName: school.principalName || '',
+        principalEmail: school.principalEmail || school.contact?.email || '',
+        // "Principal Contact" falls back to the general school mobile number
+        // when a dedicated principal contact number hasn't been set.
+        principalContact: school.principalContact || school.mobile || school.contact?.phone || '',
+        schoolEmail: school.contact?.email || school.principalEmail || '',
+        schoolPhone: school.contact?.phone || school.mobile || '',
+        website: school.website || school.contact?.website || '',
+        address: school.address || {}
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching school contact info:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching school contact info',
+      error: error.message
+    });
+  }
+};
 // Fix corrupted school data (utility endpoint)
 exports.fixSchoolData = async (req, res) => {
   try {

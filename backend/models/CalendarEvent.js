@@ -44,6 +44,12 @@ const calendarEventSchema = new mongoose.Schema({
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
+  },
+  // NEW: role of whoever created the event, so we can quickly tell
+  // "admin event" apart from "teacher event" without an extra lookup.
+  createdByRole: {
+    type: String,
+    enum: ['admin', 'superadmin', 'teacher'],
   }
 }, {
   timestamps: true
