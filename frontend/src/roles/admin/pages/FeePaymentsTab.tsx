@@ -1499,9 +1499,9 @@ return (
           <h3 className="text-lg font-medium text-gray-900">Student Fee Records</h3>
 </div>
 
-<div className="overflow-x-auto">
+<div className="overflow-x-auto lg:overflow-visible">
 <table className="min-w-full divide-y divide-gray-200">
-<thead className="bg-gray-50">
+<thead className="bg-gray-50 sticky top-[130px] z-10 shadow-sm border-b border-slate-200">
 <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Student
