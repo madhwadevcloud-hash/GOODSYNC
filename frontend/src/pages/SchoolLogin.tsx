@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { School, User, Eye, EyeOff, AlertCircle, ArrowLeft } from 'lucide-react';
+import { School, User, Eye, EyeOff, AlertCircle, ArrowLeft, X, CheckCircle } from 'lucide-react';
 import api from '../api/axios';
+import { forgotPasswordApi } from '../api/auth';
 
 interface LoginFormData {
   identifier: string;
@@ -36,6 +37,44 @@ export function SchoolLogin({ role = "teacher", schoolCode = "", onLoginSuccess,
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [forgotIdentifier, setForgotIdentifier] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotError, setForgotError] = useState<string | null>(null);
+  const [forgotSuccess, setForgotSuccess] = useState<string | null>(null);
+
+  const handleForgotPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotError(null);
+    setForgotSuccess(null);
+
+    if (!forgotIdentifier.trim()) {
+      setForgotError(role === 'student' ? 'Please enter your Student ID' : 'Please enter your email address');
+      return;
+    }
+    if (!schoolCode) {
+      setForgotError('School code is missing. Please go back and try again.');
+      return;
+    }
+
+    setForgotLoading(true);
+    try {
+      const result = await forgotPasswordApi(forgotIdentifier.trim(), schoolCode);
+      setForgotSuccess(result.message);
+    } catch (err: any) {
+      setForgotError(err?.message || 'Could not process your request. Please try again.');
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  const closeForgotModal = () => {
+    setShowForgotModal(false);
+    setForgotIdentifier('');
+    setForgotError(null);
+    setForgotSuccess(null);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -51,7 +90,7 @@ export function SchoolLogin({ role = "teacher", schoolCode = "", onLoginSuccess,
       if (role === "student") {
           loginPayload = {
               identifier: formData.identifier,
-              password: formData.password.replace(/\D/g, ""),
+              password: formData.password,
               schoolCode
           };
           const response = await api.post(
@@ -123,7 +162,7 @@ export function SchoolLogin({ role = "teacher", schoolCode = "", onLoginSuccess,
           </h2>
           <p className="mt-2 text-sm text-gray-600">
             {role === "student"
-                ? "Sign in using Student ID and Date of Birth"
+                ? "Sign in using your Student ID and password"
                 : "Sign in to access your school account"}
           </p>
         </div>
@@ -166,9 +205,7 @@ export function SchoolLogin({ role = "teacher", schoolCode = "", onLoginSuccess,
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                {role==="student"
-                    ? "Date of Birth"
-                    : "Password"}
+                Password
               </label>
               <div className="relative">
                 <input
@@ -179,14 +216,8 @@ export function SchoolLogin({ role = "teacher", schoolCode = "", onLoginSuccess,
                   required
                   value={formData.password}
                   onChange={(e) => handleInputChange('password', e.target.value)}
-                  onFocus={() => setShowPassword(true)}
-                  onBlur={() => setShowPassword(false)}
                   className="w-full px-3 py-3 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                  placeholder={
-                    role==="student"
-                        ? "DD/MM/YYYY"
-                        : "Enter your password"
-                }
+                  placeholder="Enter your password"
                 />
                 <button
                   type="button"
@@ -196,6 +227,16 @@ export function SchoolLogin({ role = "teacher", schoolCode = "", onLoginSuccess,
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
               </div>
+            </div>
+
+            <div className="flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => setShowForgotModal(true)}
+                className="text-sm font-medium text-blue-600 hover:text-blue-500"
+              >
+                Forgot your password?
+              </button>
             </div>
 
             <div>
@@ -230,6 +271,60 @@ export function SchoolLogin({ role = "teacher", schoolCode = "", onLoginSuccess,
           </p>
         </div>
       </div>
+
+      {showForgotModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 relative">
+            <button
+              onClick={closeForgotModal}
+              className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
+              aria-label="Close"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">Reset your password</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              {role === 'student'
+                ? "Enter your Student ID and we'll email a new password to your registered email address."
+                : "Enter your email address and we'll email you a new password."}
+            </p>
+
+            {forgotSuccess ? (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start space-x-3">
+                <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-green-700">{forgotSuccess}</p>
+              </div>
+            ) : (
+              <form onSubmit={handleForgotPasswordSubmit} className="space-y-4">
+                {forgotError && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center space-x-2">
+                    <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0" />
+                    <p className="text-sm text-red-700">{forgotError}</p>
+                  </div>
+                )}
+                <input
+                  type="text"
+                  value={forgotIdentifier}
+                  onChange={(e) => setForgotIdentifier(e.target.value)}
+                  placeholder={role === 'student' ? 'Enter Student ID' : 'Enter your email'}
+                  className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+                <button
+                  type="submit"
+                  disabled={forgotLoading}
+                  className={`w-full py-3 px-4 rounded-lg text-sm font-medium text-white transition-colors ${
+                    forgotLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+                  }`}
+                >
+                  {forgotLoading ? 'Sending...' : 'Send new password'}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

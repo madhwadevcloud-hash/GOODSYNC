@@ -8,8 +8,11 @@ import { TeacherApp } from './roles/teacher/TeacherApp';
 import { StudentApp } from './roles/student/StudentApp';
 import { SuperAdminApp } from './roles/superadmin/SuperAdminApp';
 import Login from './pages/Login';
+
 import TeacherForgotPassword from './pages/TeacherForgotPassword';
 import TeacherResetPassword from './pages/TeacherResetPassword';
+import ResetPassword from "./pages/ResetPassword";
+
 
 function RootRedirect() {
   const { user } = useAuth();
@@ -37,9 +40,13 @@ export default function App() {
       <Routes>
         {/* Public */}
         <Route path="/login" element={<Login />} />
+
         <Route path="/teacher/forgot-password" element={<TeacherForgotPassword />} />
         <Route path="/teacher/reset-password" element={<TeacherResetPassword />} />
 
+
+        <Route path="/student/reset-password" element={<ResetPassword />} />
+       
         {/* Private: must be logged in */}
         <Route element={<ProtectedRoute />}>
           <Route index element={<RootRedirect />} />

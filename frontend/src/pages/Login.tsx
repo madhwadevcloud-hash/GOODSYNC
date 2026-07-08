@@ -1,8 +1,8 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Eye, EyeOff, Shield, GraduationCap, Settings, Users } from "lucide-react";
-import { getDemoCredentialsApi } from "../api/auth";
+import { Eye, EyeOff, Shield, GraduationCap, Settings, Users, X, CheckCircle, AlertCircle } from "lucide-react";
+import { getDemoCredentialsApi, forgotPasswordApi } from "../api/auth";
 
 type RoleKey = "superadmin" | "admin" | "teacher" | "student";
 
@@ -51,6 +51,13 @@ export default function Login() {
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [forgotIdentifier, setForgotIdentifier] = useState("");
+  const [forgotSchoolCode, setForgotSchoolCode] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotError, setForgotError] = useState<string | null>(null);
+  const [forgotSuccess, setForgotSuccess] = useState<string | null>(null);
 
   const navigate = useNavigate();
   const location = useLocation() as any;
@@ -135,6 +142,45 @@ export default function Login() {
       }),
     [selectedRole, roleMeta]
   );
+
+  const openForgotModal = () => {
+    setForgotIdentifier(identifier);
+    setForgotSchoolCode(schoolCode);
+    setForgotError(null);
+    setForgotSuccess(null);
+    setShowForgotModal(true);
+  };
+
+  const closeForgotModal = () => {
+    setShowForgotModal(false);
+    setForgotError(null);
+    setForgotSuccess(null);
+  };
+
+  const handleForgotPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotError(null);
+    setForgotSuccess(null);
+
+    if (!forgotIdentifier.trim()) {
+      setForgotError(selectedRole === "student" ? "Please enter your Student ID" : "Please enter your email address");
+      return;
+    }
+    if (!forgotSchoolCode.trim()) {
+      setForgotError("School code is required");
+      return;
+    }
+
+    setForgotLoading(true);
+    try {
+      const result = await forgotPasswordApi(forgotIdentifier.trim(), forgotSchoolCode.trim());
+      setForgotSuccess(result.message);
+    } catch (err: any) {
+      setForgotError(err?.message || "Could not process your request. Please try again.");
+    } finally {
+      setForgotLoading(false);
+    }
+  };
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -256,18 +302,12 @@ export default function Login() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-sm text-slate-600">
-                  {selectedRole === "student" ? "Date of Birth" : "Password"}
-                </label>
+                <label className="text-sm text-slate-600">Password</label>
                 <div className="relative">
                   <input
                     type={showPass ? "text" : "password"}
                     className="w-full border border-slate-200 rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-violet-200 focus:border-violet-400 text-sm sm:text-base"
-                    placeholder={
-                      selectedRole === "student"
-                        ? "DD/MM/YYYY"
-                        : "Your super secret password"
-                    }
+                    placeholder="Your super secret password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
@@ -311,10 +351,18 @@ export default function Login() {
                   />
                   Remember me
                 </label>
-                {selectedRole === "teacher" && (
+{selectedRole === "teacher" ? (
                   <button
                     type="button"
                     onClick={() => navigate("/teacher/forgot-password")}
+                    className="text-xs sm:text-sm text-slate-600 hover:text-slate-900 text-left sm:text-right"
+                  >
+                    Forgot your password?
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={openForgotModal}
                     className="text-xs sm:text-sm text-slate-600 hover:text-slate-900 text-left sm:text-right"
                   >
                     Forgot your password?
@@ -340,6 +388,73 @@ export default function Login() {
           </div>
         </div>
       </div>
+
+      {showForgotModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 relative">
+            <button
+              onClick={closeForgotModal}
+              className="absolute right-4 top-4 text-slate-400 hover:text-slate-600"
+              aria-label="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <h3 className="text-lg font-semibold text-slate-900 mb-1">Reset your password</h3>
+            <p className="text-sm text-slate-600 mb-4">
+              {selectedRole === "student"
+                ? "Enter your Student ID and school code — We'll send a secure password reset link to your registered email address."
+                : "Enter your email and school code — We'll send a secure password reset link to your email address."}
+            </p>
+
+            {forgotSuccess ? (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start space-x-3">
+                <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-green-700">{forgotSuccess}</p>
+              </div>
+            ) : (
+              <form onSubmit={handleForgotPasswordSubmit} className="space-y-3">
+                {forgotError && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center space-x-2">
+                    <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+                    <p className="text-sm text-red-700">{forgotError}</p>
+                  </div>
+                )}
+                <input
+                  type="text"
+                  value={forgotIdentifier}
+                  onChange={(e) =>
+                    setForgotIdentifier(
+                      selectedRole === "student"
+                        ? e.target.value.toUpperCase()
+                        : e.target.value
+                    )
+                  }
+                  placeholder={selectedRole === "student" ? "Student ID" : "Email address"}
+                  className="w-full border border-slate-200 rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 uppercase focus:outline-none focus:ring-2 focus:ring-violet-200 focus:border-violet-400 text-sm sm:text-base"
+                  autoComplete="off"
+                  required
+                />
+                <input
+                  type="text"
+                  value={forgotSchoolCode}
+                  onChange={(e) => setForgotSchoolCode(e.target.value)}
+                  placeholder="School code"
+                  className="w-full border border-slate-200 rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 focus:outline-none focus:ring-2 focus:ring-violet-200 focus:border-violet-400 text-sm sm:text-base"
+                  required
+                />
+                <button
+                  type="submit"
+                  disabled={forgotLoading}
+                  className="w-full h-10 sm:h-12 rounded-xl text-white text-sm sm:text-base font-medium shadow-lg disabled:opacity-60 bg-gradient-to-r from-violet-600 via-fuchsia-500 to-blue-500 hover:opacity-95 transition"
+                >
+                  {forgotLoading ? "Sending..." : "Send Reset Link"}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

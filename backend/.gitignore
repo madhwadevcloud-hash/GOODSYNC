@@ -7,6 +7,7 @@ uploads/generated-idcards/*
 .env
 .env.local
 .env.*.local
+backend/.env
 
 # Dependencies
 node_modules/
