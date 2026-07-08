@@ -9,3 +9,4 @@ backend/.env.local
 # Scratch files
 scratch/
 backend/scratch_*
+backend/.env
