@@ -1,10 +1,24 @@
+
 const express = require('express');
 const router = express.Router();
-const { register, login, schoolLogin, logout, getDemoCredentials, forgotPassword, resetPassword } = require('../controllers/authController');
-const { loginLimiter } = require('../middleware/rateLimiter');
-const { register, login, schoolLogin, logout, getDemoCredentials } = require('../controllers/authController');
-const { forgotPassword, resetPassword } = require('../controllers/teacherPasswordResetController');
-const { loginLimiter, passwordResetLimiter } = require('../middleware/rateLimiter');
+
+const {
+  register,
+  login,
+  schoolLogin,
+  logout,
+  getDemoCredentials,
+} = require('../controllers/authController');
+
+const {
+  forgotPassword,
+  resetPassword,
+} = require('../controllers/teacherPasswordResetController');
+
+const {
+  loginLimiter,
+  passwordResetLimiter,
+} = require('../middleware/rateLimiter');
 
 router.get('/demo-credentials', getDemoCredentials);
 
