@@ -40,6 +40,7 @@ interface DisplayUser extends ApiUser {
   teacherDetails?: { subjects?: string[]; };
   adminDetails?: { designation?: string; };
   profileImage?: string | null; // 💡 FIX 1: Add the missing profileImage field to the DisplayUser interface
+  phone?: string | null;
 }
 // User interface now imported from standardized types
 
@@ -2325,11 +2326,13 @@ const ManageUsers: React.FC = () => {
   };
 
   // Function to check if email already exists across all roles
-  const checkEmailExists = async (email: string): Promise<{ exists: boolean, role?: string, name?: string }> => {
+  const checkEmailExists = async (email: string, excludeId?: string): Promise<{ exists: boolean, role?: string, name?: string }> => {
     try {
       // Check against the current users list first (in memory check)
+      // Exclude the user currently being edited (identified by excludeId)
       const existingUser = users.find(user =>
-        user.email.toLowerCase() === email.toLowerCase()
+        user.email.toLowerCase() === email.toLowerCase() &&
+        (!excludeId || (user._id !== excludeId && (user as any).userId !== excludeId))
       );
 
       if (existingUser) {
@@ -2350,10 +2353,11 @@ const ManageUsers: React.FC = () => {
         try {
           const response = await schoolUserAPI.getAllUsers(schoolCode, token);
 
-          // Check across all users in the response
+          // Check across all users in the response, excluding the current user being edited
           if (response.data && Array.isArray(response.data)) {
             const emailConflict = response.data.find((userData: any) =>
-              userData.email && userData.email.toLowerCase() === email.toLowerCase()
+              userData.email && userData.email.toLowerCase() === email.toLowerCase() &&
+              (!excludeId || (userData._id !== excludeId && userData.userId !== excludeId))
             );
 
             if (emailConflict) {
@@ -3649,8 +3653,11 @@ const ManageUsers: React.FC = () => {
       setLoading(true);
 
       // Check if email is being changed and if it already exists
-      if (formData.email !== editingUser.email) {
-        const emailExists = await checkEmailExists(formData.email);
+      // Pass editingUser._id as excludeId so the user's own email doesn't block the save
+      const currentEmail = editingUser.email || '';
+      if (formData.email && formData.email.toLowerCase() !== currentEmail.toLowerCase() && formData.email !== 'No email') {
+        const excludeId = editingUser._id || (editingUser as any).userId;
+        const emailExists = await checkEmailExists(formData.email, excludeId);
         if (emailExists.exists) {
           toast.error(`Email already exists for ${emailExists.role}: ${emailExists.name}`);
           setLoading(false);
@@ -3886,7 +3893,9 @@ const ManageUsers: React.FC = () => {
       updateData.pinCode = formData.pinCode;
       updateData.district = formData.district;
 
-      console.log('Updating user with data:', updateData);
+      console.log('🔵 [handleUpdateUser] Sending update for user:', editingUser._id, '(', editingUser.role, ')');
+      console.log('🔵 [handleUpdateUser] email:', updateData.email, '| firstName:', updateData.firstName, '| class:', updateData.class);
+      console.log('🔵 [handleUpdateUser] Full updateData:', JSON.stringify(updateData).slice(0, 300));
 
       // Make API call to update user - use FormData if profile image is present
       if (profileImageFile) {
@@ -3934,12 +3943,45 @@ const ManageUsers: React.FC = () => {
       }
 
       toast.success('User updated successfully');
+
+      // Capture id before clearing state
+      const updatedId = editingUser._id || (editingUser as any).userId;
+
       setShowEditModal(false);
       setEditingUser(null);
       setProfileImageFile(null);
       setProfileImagePreview(null);
       resetForm();
-      fetchUsers();
+
+      // Optimistically update the local state so UI reflects changes immediately
+      setUsers(prevUsers => prevUsers.map(u => {
+        if (u._id === updatedId || (u as any).userId === updatedId) {
+          return {
+            ...u,
+            email: updateData.email || u.email,
+            name: updateData.firstName ? {
+              ...((u.name as any) || {}),
+              firstName: updateData.firstName,
+              middleName: updateData.middleName || (u.name as any)?.middleName || '',
+              lastName: updateData.lastName || (u.name as any)?.lastName || '',
+              displayName: `${updateData.firstName} ${updateData.lastName || ''}`.trim()
+            } : u.name,
+            phone: updateData.primaryPhone || updateData.phone || u.phone,
+            studentDetails: u.studentDetails ? {
+              ...u.studentDetails,
+              academic: {
+                ...(u.studentDetails as any).academic,
+                currentClass: updateData.class || (u.studentDetails as any).academic?.currentClass,
+                currentSection: updateData.section || (u.studentDetails as any).academic?.currentSection,
+              }
+            } : u.studentDetails
+          };
+        }
+        return u;
+      }));
+
+      // Also re-fetch from backend to sync
+      await fetchUsers();
     } catch (error: any) {
       console.error('Error updating user:', error);
       toast.error(error.response?.data?.message || 'Failed to update user');
@@ -6144,7 +6186,7 @@ const ManageUsers: React.FC = () => {
   };
   const itemVariants = {
     hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
+    visible: { opacity: 1, y: 0, transition: { type: 'spring' as const, stiffness: 300, damping: 24 } }
   };
 
   return (

@@ -34,7 +34,10 @@ export const schoolUserAPI = {
       const response = await api.get(
         `/school-users/${schoolCode}/users`,
         {
-          params: academicYear ? { academicYear } : {},
+          params: {
+            ...(academicYear ? { academicYear } : {}),
+            _t: Date.now()
+          },
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -65,7 +68,10 @@ export const schoolUserAPI = {
       const response = await api.get(
         `/school-users/${schoolCode}/users/role/${role}`,
         {
-          params: academicYear ? { academicYear } : {},
+          params: {
+            ...(academicYear ? { academicYear } : {}),
+            _t: Date.now()
+          },
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -83,6 +89,9 @@ export const schoolUserAPI = {
       const response = await api.get(
         `/school-users/${schoolCode}/users/${userId}`,
         {
+          params: {
+            _t: Date.now()
+          },
           headers: {
             'Authorization': `Bearer ${token}`
           }
