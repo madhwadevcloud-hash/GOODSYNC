@@ -4,7 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '@/contexts/ThemeContext';
-import { getStudentMessages, getStudentAssignments, getStudentAttendance, getStudentResults } from '@/src/services/student';
+import { ThemedLogo } from '@/components/ThemedLogo';
+import { getStudentMessages, getStudentAssignments, getStudentAttendance, getStudentResults, getSchoolInfo, SchoolInfo } from '@/src/services/student';
 import { io, Socket } from 'socket.io-client';
 import ENV from '@/src/config/env';
 
@@ -29,6 +30,7 @@ export default function StudentHomeScreen() {
   const [sosCountdown, setSosCountdown] = useState(5);
   const socketRef = useRef<Socket | null>(null);
   const [userData, setUserData] = useState<any>(null);
+  const [schoolInfo, setSchoolInfo] = useState<SchoolInfo | null>(null);
 
   const loadData = async () => {
     try {
@@ -51,7 +53,7 @@ export default function StudentHomeScreen() {
         try {
           const socketUrl = ENV.API_BASE_URL.replace('/api', '');
           console.log('[SOCKET] Connecting to:', socketUrl);
-          
+
           socketRef.current = io(socketUrl, {
             transports: ['polling', 'websocket'],
             reconnection: true,
@@ -106,17 +108,19 @@ export default function StudentHomeScreen() {
       console.log('[STUDENT HOME] Fetching attendance for range:', startOfMonth, 'to', endOfMonth);
 
       // Fetch overall attendance stats (no date range) and current month for today's data
-      const [messagesData, assignmentsData, overallAttendanceData, currentMonthAttendanceData, resultsData] = await Promise.all([
+      const [messagesData, assignmentsData, overallAttendanceData, currentMonthAttendanceData, resultsData, schoolInfoData] = await Promise.all([
         getStudentMessages(),
         getStudentAssignments(),
         getStudentAttendance(), // Overall stats - no date range
         getStudentAttendance(startOfMonth, endOfMonth), // Current month for today's data
-        getStudentResults()
+        getStudentResults(),
+        getSchoolInfo()
       ]);
 
       setMessages(messagesData.slice(0, 3));
       setAssignments(assignmentsData.slice(0, 3));
-      
+      setSchoolInfo(schoolInfoData);
+
       // Use overall attendance stats for the percentage display
       setAttendanceStats(overallAttendanceData.stats);
       console.log('[STUDENT HOME] Setting overall attendance stats:', overallAttendanceData.stats);
@@ -167,7 +171,7 @@ export default function StudentHomeScreen() {
   // SOS Countdown Timer
   useEffect(() => {
     let countdownInterval: ReturnType<typeof setInterval>;
-    
+
     if (showSOSModal && sosCountdown > 0) {
       countdownInterval = setInterval(() => {
         setSosCountdown((prev) => {
@@ -209,14 +213,14 @@ export default function StudentHomeScreen() {
       console.log('[SOS] User data:', userData);
       console.log('[SOS] Socket connected:', socketRef.current.connected);
       console.log('[SOS] Socket ID:', socketRef.current.id);
-      
+
       // Debug: Log all possible locations for class and roll number
       console.log('[SOS] Checking class from:');
       console.log('  - userData.studentDetails?.class:', userData.studentDetails?.class);
       console.log('  - userData.academicInfo?.class:', userData.academicInfo?.class);
       console.log('  - userData.class:', userData.class);
       console.log('  - userData.collection:', userData.collection);
-      
+
       console.log('[SOS] Checking roll number from:');
       console.log('  - userData.studentDetails?.rollNumber:', userData.studentDetails?.rollNumber);
       console.log('  - userData.studentDetails?.rollNo:', userData.studentDetails?.rollNo);
@@ -226,24 +230,24 @@ export default function StudentHomeScreen() {
 
       // Extract class and roll number from various possible locations
       // Try multiple nested paths based on the actual data structure
-      const studentClass = userData.studentDetails?.class || 
-                          userData.academicInfo?.class || 
-                          userData.class || 
-                          userData.section || // Sometimes stored as section
-                          (typeof userData.studentDetails === 'object' && userData.studentDetails !== null ? 
-                            Object.values(userData.studentDetails).find(v => typeof v === 'string' && /^[0-9]{1,2}[A-Z]?$/.test(v)) : null) ||
-                          'N/A';
-      
-      const studentRollNo = userData.studentDetails?.rollNumber || 
-                           userData.studentDetails?.rollNo ||
-                           userData.studentDetails?.admissionNumber ||
-                           userData.academicInfo?.rollNumber || 
-                           userData.rollNumber ||
-                           userData.rollNo ||
-                           userData.admissionNumber ||
-                           userData.userId?.split('-').pop() || // Extract from userId like AB-S-0006
-                           'N/A';
-      
+      const studentClass = userData.studentDetails?.class ||
+        userData.academicInfo?.class ||
+        userData.class ||
+        userData.section || // Sometimes stored as section
+        (typeof userData.studentDetails === 'object' && userData.studentDetails !== null ?
+          Object.values(userData.studentDetails).find(v => typeof v === 'string' && /^[0-9]{1,2}[A-Z]?$/.test(v)) : null) ||
+        'N/A';
+
+      const studentRollNo = userData.studentDetails?.rollNumber ||
+        userData.studentDetails?.rollNo ||
+        userData.studentDetails?.admissionNumber ||
+        userData.academicInfo?.rollNumber ||
+        userData.rollNumber ||
+        userData.rollNo ||
+        userData.admissionNumber ||
+        userData.userId?.split('-').pop() || // Extract from userId like AB-S-0006
+        'N/A';
+
       console.log('[SOS] Final extracted values:');
       console.log('  - Class:', studentClass);
       console.log('  - Roll No:', studentRollNo);
@@ -259,7 +263,7 @@ export default function StudentHomeScreen() {
       };
 
       console.log('[SOS] Sending alert with data:', JSON.stringify(sosData, null, 2));
-      
+
       if (!sosData.schoolCode) {
         throw new Error('School code is missing from user data');
       }
@@ -298,11 +302,11 @@ export default function StudentHomeScreen() {
 
   const getCurrentDateTime = () => {
     const now = new Date();
-    return now.toLocaleDateString('en-US', { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
+    return now.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
     });
   };
 
@@ -327,13 +331,20 @@ export default function StudentHomeScreen() {
         }
       >
         <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <Image
-              source={require('@/assets/images/logo.png')}
-              style={styles.logoIcon}
-              resizeMode="contain"
-            />
-            <Text style={styles.logoText}>GOODSYNK ERP</Text>
+          <View style={[styles.headerLeft, { flex: 1, marginRight: 10 }]}>
+            {schoolInfo?.logo ? (
+              <Image
+                source={{ uri: schoolInfo.logo }}
+                style={styles.logoIcon}
+                resizeMode="contain"
+              />
+            ) : (
+              <ThemedLogo
+                style={styles.logoIcon}
+                resizeMode="contain"
+              />
+            )}
+            <Text style={styles.logoText} numberOfLines={1}>{schoolInfo?.schoolName || 'GOODSYNK ERP'}</Text>
           </View>
           <TouchableOpacity style={styles.settingsButton} onPress={() => router.push('/menu')}>
             <Text style={styles.settingsIcon}>☰</Text>
@@ -345,8 +356,8 @@ export default function StudentHomeScreen() {
             <Text style={styles.welcomeText}>Hi, {studentName}</Text>
             <Text style={styles.dateText}>{getCurrentDateTime()}</Text>
           </View>
-          <TouchableOpacity 
-            style={[styles.sosButton, sendingSOSAlert && styles.sosButtonDisabled]} 
+          <TouchableOpacity
+            style={[styles.sosButton, sendingSOSAlert && styles.sosButtonDisabled]}
             onPress={handleSOSPress}
             disabled={sendingSOSAlert}
           >
@@ -546,21 +557,21 @@ export default function StudentHomeScreen() {
               {' \n\n'}
               <Text style={styles.modalWarning}>Press CANCEL to stop the alert.</Text>
             </Text>
-            
+
             {/* Countdown Timer */}
             <View style={styles.countdownContainer}>
               <Text style={styles.countdownText}>{sosCountdown}</Text>
               <Text style={styles.countdownLabel}>seconds remaining</Text>
             </View>
-            
+
             <View style={styles.modalButtons}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.modalButton, styles.modalButtonCancel]}
                 onPress={handleSOSCancel}
               >
                 <Text style={styles.modalButtonTextCancel}>CANCEL ALERT</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.modalButton, styles.modalButtonConfirm]}
                 onPress={handleSOSConfirm}
                 disabled={sendingSOSAlert}
@@ -599,12 +610,12 @@ function getStyles(isDark: boolean) {
       alignItems: 'center',
     },
     logoIcon: {
-      width: 24,
-      height: 24,
-      marginRight: 8,
+      width: 60,
+      height: 60,
+      marginRight: 10,
     },
     logoText: {
-      fontSize: 16,
+      fontSize: 20,
       fontWeight: '700',
       color: isDark ? '#93C5FD' : '#1E3A8A',
     },
@@ -618,6 +629,7 @@ function getStyles(isDark: boolean) {
     },
     settingsIcon: {
       fontSize: 20,
+      color: isDark ? '#FFFFFF' : '#1F2937',
     },
     welcomeSection: {
       flexDirection: 'row',
