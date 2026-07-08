@@ -237,6 +237,9 @@ exports.updateUser = async (req, res) => {
   try {
     // userId from params can be either the _id or the custom userId
     const { schoolCode, userId } = req.params;
+    console.log(`\n🔵 [updateUser] === RECEIVED UPDATE REQUEST ===`);
+    console.log(`🔵 [updateUser] schoolCode: ${schoolCode}, userId: ${userId}`);
+    console.log(`🔵 [updateUser] Content-Type: ${req.headers['content-type']}`);
     let updateData;
     let oldPublicId = null; // Variable to hold the old image ID for deletion
 
