@@ -258,7 +258,7 @@ const TeacherAssignments: React.FC = () => {
             <UserCheck className="h-6 w-6 text-indigo-600" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Teacher Subject Assignments</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Assign Teacher</h1>
             <p className="text-sm text-gray-500">Assign teachers to subjects for each class and section</p>
           </div>
         </div>

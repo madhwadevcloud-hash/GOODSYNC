@@ -51,7 +51,7 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     { name: 'Attendance', href: '/admin/attendance', icon: UserCheck },
     { name: 'Assignments', href: '/admin/assignments', icon: BookOpen },
     { name: 'Results', href: '/admin/results', icon: BarChart3 },
-    { name: 'Teacher Assignments', href: '/admin/teacher-assignments', icon: UserCheck },
+    { name: 'Assign Teacher', href: '/admin/teacher-assignments', icon: UserCheck },
     { name: 'Leave Management', href: '/admin/leave-management', icon: Calendar },
     { name: 'Messages', href: '/admin/messages', icon: MessageSquare },
     { name: 'Fees', href: '/admin/fees/structure', icon: CreditCard },
