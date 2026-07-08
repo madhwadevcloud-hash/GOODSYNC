@@ -12,49 +12,51 @@ export default function MenuScreen() {
   const [school, setSchool] = useState<SchoolInfo | null>(null);
   const [userName, setUserName] = useState<string>('');
   const [schoolAddressText, setSchoolAddressText] = useState<string>('BY SPANDHAN TECHNOLOGIES');
+  const [role, setRole] = useState<string>('');
   
   const isDark = theme === 'dark';
   const styles = getStyles(isDark);
 
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [schoolInfo, userDataStr] = await Promise.all([
-          getSchoolInfo(),
-          AsyncStorage.getItem('userData')
-        ]);
-        setSchool(schoolInfo);
-        if (schoolInfo && (schoolInfo as any).address) {
-          const addr: any = (schoolInfo as any).address;
-          const parts = [addr.city, addr.district, addr.taluka, addr.state, addr.country, addr.zipCode || addr.pinCode]
-            .filter(Boolean)
-            .map((p: any) => String(p));
-          if (parts.length > 0) setSchoolAddressText(parts.join(', '));
-        } else if (schoolInfo?.address && typeof schoolInfo.address === 'string') {
-          setSchoolAddressText(String(schoolInfo.address));
+    // Fast local storage reads
+    AsyncStorage.getItem('role').then(roleStr => {
+      if (roleStr) setRole(roleStr);
+    }).catch(() => {});
+
+    AsyncStorage.getItem('userData').then(userDataStr => {
+      if (userDataStr) {
+        const userData = JSON.parse(userDataStr);
+        const rawName = userData?.name ?? userData?.fullName ?? userData?.displayName;
+        let display = '';
+        if (typeof rawName === 'string') {
+          display = rawName;
+        } else if (rawName && typeof rawName === 'object') {
+          display = rawName.displayName || [rawName.firstName, rawName.middleName, rawName.lastName].filter(Boolean).join(' ');
+        } else {
+          display = [userData?.firstName, userData?.middleName, userData?.lastName].filter(Boolean).join(' ');
         }
-        if (userDataStr) {
-          const userData = JSON.parse(userDataStr);
-          const rawName = userData?.name ?? userData?.fullName ?? userData?.displayName;
-          let display = '';
-          if (typeof rawName === 'string') {
-            display = rawName;
-          } else if (rawName && typeof rawName === 'object') {
-            display = rawName.displayName || [rawName.firstName, rawName.middleName, rawName.lastName].filter(Boolean).join(' ');
-          } else {
-            display = [userData?.firstName, userData?.middleName, userData?.lastName].filter(Boolean).join(' ');
-          }
-          setUserName(display || 'Student');
-        }
-      } catch (e) {
-        // no-op; keep graceful defaults
+        setUserName(display || 'Student');
       }
-    };
-    loadData();
+    }).catch(() => {});
+
+    // Slower network/db fetch
+    getSchoolInfo().then(schoolInfo => {
+      setSchool(schoolInfo);
+      if (schoolInfo && (schoolInfo as any).address) {
+        const addr: any = (schoolInfo as any).address;
+        const parts = [addr.city, addr.district, addr.taluka, addr.state, addr.country, addr.zipCode || addr.pinCode]
+          .filter(Boolean)
+          .map((p: any) => String(p));
+        if (parts.length > 0) setSchoolAddressText(parts.join(', '));
+      } else if (schoolInfo?.address && typeof schoolInfo.address === 'string') {
+        setSchoolAddressText(String(schoolInfo.address));
+      }
+    }).catch(() => {});
   }, []);
 
   const menuItems = [
     { id: 1, title: 'My Profile', icon: '👤', iconBg: '#FECACA', route: '/profile' },
+    ...(role === 'student' ? [{ id: 4, title: 'Fees', icon: '💰', iconBg: '#BBF7D0', route: '/fees' }] : []),
     { id: 2, title: 'My School', icon: '🏫', iconBg: '#DBEAFE', route: '/school' },
     { id: 3, title: theme === 'dark' ? 'Light Mode' : 'Dark Mode', icon: theme === 'dark' ? '☀️' : '🌙', iconBg: '#FEF3C7', route: 'theme-toggle' },
   ];

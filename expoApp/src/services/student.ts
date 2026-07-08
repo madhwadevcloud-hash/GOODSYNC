@@ -1008,4 +1008,83 @@ export async function getStudentProfile(): Promise<StudentProfile | null> {
     console.error('[STUDENT SERVICE] Error status:', error?.response?.status);
     return null;
   }
+}
+
+// --- Fees Module Interfaces & API Calls ---
+
+export interface Installment {
+  name: string;
+  amount: number;
+  dueDate: string | null;
+  paidAmount: number;
+  status: 'PENDING' | 'PAID' | 'OVERDUE';
+}
+
+export interface ChalanItem {
+  id: string | null;
+  chalanNumber: string;
+  installmentName: string;
+  amount: number;
+  paidAmount: number;
+  dueDate: string | null;
+  status: 'PENDING' | 'PAID' | 'OVERDUE';
+  issueDate: string | null;
+}
+
+export interface PaymentRecord {
+  receiptNumber: string;
+  installmentName: string;
+  amount: number;
+  paymentDate: string | null;
+  paymentMethod: string;
+  paymentReference?: string;
+}
+
+export interface BankDetails {
+  bankName: string;
+  accountNumber: string;
+  ifscCode: string;
+  branch: string;
+  accountHolderName: string;
+}
+
+export interface FeeRecord {
+  totalAmount: number;
+  totalPaid: number;
+  totalPending: number;
+  status: string;
+  academicYear: string;
+  feeStructureName: string;
+  studentName: string;
+  studentClass: string;
+  studentSection: string;
+  installments: Installment[];
+}
+
+export interface FeesData {
+  feeRecord: FeeRecord | null;
+  challans: ChalanItem[];
+  payments: PaymentRecord[];
+  bankDetails: BankDetails | null;
+  schoolName: string;
+}
+
+export async function getStudentFeesOverview(): Promise<FeesData | null> {
+  try {
+    const res = await api.get('/student/fees');
+    return res.data;
+  } catch (error) {
+    console.error('[STUDENT SERVICE] Error fetching student fees overview:', error);
+    return null;
+  }
+}
+
+export async function getInstallmentChallan(installmentName: string): Promise<any | null> {
+  try {
+    const res = await api.post('/student/fees/challan', { installmentName });
+    return res.data?.data;
+  } catch (error) {
+    console.error('[STUDENT SERVICE] Error fetching installment challan:', error);
+    return null;
+  }
 }

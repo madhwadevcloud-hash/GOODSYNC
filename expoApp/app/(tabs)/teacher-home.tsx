@@ -347,14 +347,16 @@ function getStyles(isDark: boolean) {
       alignItems: 'center',
     },
     logoIcon: {
-      width: 60,
-      height: 60,
+      width: 40,
+      height: 40,
       marginRight: 10,
+      borderRadius: 8,
     },
     logoText: {
       fontSize: 20,
       fontWeight: '700',
       color: isDark ? '#93C5FD' : '#1E3A8A',
+      flexShrink: 1,
     },
     settingsButton: {
       width: 40,
@@ -363,10 +365,15 @@ function getStyles(isDark: boolean) {
       backgroundColor: isDark ? '#111827' : '#FFFFFF',
       justifyContent: 'center',
       alignItems: 'center',
+      shadowColor: isDark ? '#000' : '#1E3A8A',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 3,
+      elevation: 2,
     },
     settingsIcon: {
       fontSize: 20,
-      color: isDark ? '#FFFFFF' : '#1F2937',
+      color: isDark ? '#93C5FD' : '#1E3A8A',
     },
     welcomeSection: {
       flexDirection: 'row',
@@ -376,7 +383,7 @@ function getStyles(isDark: boolean) {
       marginBottom: 20,
     },
     welcomeText: {
-      fontSize: 24,
+      fontSize: 20,
       fontWeight: '700',
       color: isDark ? '#93C5FD' : '#1E3A8A',
     },
