@@ -11,6 +11,7 @@ import {
   LogOut,
   Calendar,
   GraduationCap,
+  Contact,
   X,
 } from "lucide-react";
 import { useAuth } from "../../../auth/AuthContext";
@@ -65,6 +66,11 @@ const menu = [
     title: "Profile",
     icon: User,
     path: "/student/profile",
+  },
+  {
+    title: "Contact Info",
+    icon: Contact,
+    path: "/student/contact-info",
   },
 ];
 

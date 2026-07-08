@@ -12,6 +12,7 @@ import Fees from "./pages/Fees";
 import Profile from "./pages/Profile";
 import Message from "./pages/Message";
 import CalendarPage from "./pages/Calendar";
+import ContactInfo from "./pages/ContactInfo";
 
 export function StudentApp() {
   const { user } = useAuth();
@@ -28,6 +29,7 @@ export function StudentApp() {
           <Route path="profile" element={<Profile />} />
           <Route path="messages" element={<Message />} />
           <Route path="calendar" element={<CalendarPage />} />
+          <Route path="contact-info" element={<ContactInfo />} />
           <Route path="*" element={<Navigate to="." replace />} />
         </Routes>
       </Layout>
