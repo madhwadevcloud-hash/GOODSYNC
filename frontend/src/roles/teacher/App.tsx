@@ -17,6 +17,7 @@ import { PermissionGuard } from '../../components/PermissionGuard';
 import { AcademicYearProvider } from '../../contexts/AcademicYearContext';
 import { useAuth } from '../../auth/AuthContext';
 import CalendarPage from './components/Calendar/CalendarPage';
+import TeacherProfile from './components/Profile/Profile';
 
 function App() {
   const { user, logout } = useAuth();
@@ -34,6 +35,8 @@ function App() {
 
   const renderPage = () => {
     switch (currentPage) {
+      case 'profile':
+        return <TeacherProfile />;
       case 'dashboard':
         return <Dashboard onNavigate={handleNavigate} />;
       case 'attendance':

@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   Home,
   UserCheck,
+  User,
   Search,
   Bell,
   MapPin,
@@ -149,6 +150,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
     { name: 'Messages', icon: MessageSquare, page: 'messages', permission: 'messageStudentsParents' as PermissionKey },
     { name: 'Calendar', icon: CalendarDays, page: 'calendar', permission: null },
     { name: 'Leave Request', icon: Calendar, page: 'leave-request', permission: 'viewLeaves' as PermissionKey },
+    { name: 'Profile', icon: User, page: 'profile', permission: null },
   ];
 
   const handleMenuClick = (item: typeof menuItems[0]) => {
