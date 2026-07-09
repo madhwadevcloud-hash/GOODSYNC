@@ -1038,6 +1038,7 @@ function getTeacherHeadersSimplified() {
     'First Name',
     'Last Name',
     'Email',
+    'Phone Number',
     'Date of Birth',
     'Gender',
     'Qualification',
@@ -1087,9 +1088,9 @@ function getStudentHeadersRobust() {
 function validateTeacherRowSimplified(normalizedRow, rowNumber) {
   const errors = [];
 
-  // Updated required keys to include new headers (phone removed from template)
+  // Updated required keys to include new headers (phone re-added to template)
   const requiredKeys = [
-    'firstname', 'lastname', 'email',
+    'firstname', 'lastname', 'email', 'primaryphone',
     'dateofbirth', 'gender', 'qualification'
   ];
 

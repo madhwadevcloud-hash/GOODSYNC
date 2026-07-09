@@ -452,10 +452,10 @@ function SchoolDetailsContent() {
 
       // Prepare update data
       const updateData: any = {
-        'name.firstName': userEditForm.firstName || currentUser.name.firstName,
-        'name.lastName': userEditForm.lastName || currentUser.name.lastName,
+        firstName: userEditForm.firstName || currentUser.name.firstName,
+        lastName: userEditForm.lastName || currentUser.name.lastName,
         email: userEditForm.email || currentUser.email,
-        'contact.primaryPhone': userEditForm.phone || currentUser.contact.primaryPhone
+        phone: userEditForm.phone || currentUser.contact?.primaryPhone
       };
 
       // Add password if provided

@@ -8466,6 +8466,19 @@ const ManageUsers: React.FC = () => {
                     <h4 className="text-lg font-semibold text-gray-800 mb-4">Professional Information</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
+                        <input
+                          type="tel"
+                          required
+                          value={formData.phone}
+                          onChange={(e) => setFormData({ ...formData, phone: e.target.value, primaryPhone: e.target.value })}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                          placeholder="Enter phone number (10 digits)"
+                          pattern="[0-9]{10}"
+                          maxLength={10}
+                        />
+                      </div>
+                      <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Qualification *</label>
                         <input
                           type="text"
@@ -9818,6 +9831,19 @@ const ManageUsers: React.FC = () => {
                     <h4 className="text-lg font-semibold text-gray-800 mb-4">Professional Information</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
+                        <input
+                          type="tel"
+                          required
+                          value={formData.phone}
+                          onChange={(e) => setFormData({ ...formData, phone: e.target.value, primaryPhone: e.target.value })}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                          placeholder="Enter phone number (10 digits)"
+                          pattern="[0-9]{10}"
+                          maxLength={10}
+                        />
+                      </div>
+                      <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
                         <input
                           type="date"
@@ -10693,4 +10719,3 @@ const ManageUsers: React.FC = () => {
 };
 
 export default ManageUsers;
-
