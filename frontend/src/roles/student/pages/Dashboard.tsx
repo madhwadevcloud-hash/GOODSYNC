@@ -396,8 +396,11 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-96">
-        Loading dashboard...
+      <div className="flex justify-center items-center h-80">
+        <div className="flex flex-col items-center gap-3 text-gray-400">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-blue-600" />
+          <p className="text-sm font-medium">Loading Dashboard...</p>
+        </div>
       </div>
     );
   }

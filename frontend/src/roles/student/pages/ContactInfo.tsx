@@ -82,13 +82,20 @@ export default function ContactInfo() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-80">
-        Loading contact information...
+        <div className="flex flex-col items-center gap-3 text-gray-400">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-blue-600" />
+          <p className="text-sm font-medium">Loading Contact Information...</p>
+        </div>
       </div>
     );
   }
 
   if (error) {
-    return <div className="text-red-600">{error}</div>;
+    return (
+      <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
+        {error}
+      </div>
+    );
   }
 
   if (!info) {
@@ -165,7 +172,7 @@ export default function ContactInfo() {
 
       <SectionTitle icon={<User />} title="Principal Information" />
 
-      <div className="bg-white rounded-xl shadow-sm border p-6 grid md:grid-cols-2 gap-6">
+      <div className="bg-white rounded-xl shadow-sm border p-6 grid md:grid-cols-2 gap-6 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
 
         <Info icon={<User size={18} />} label="Principal Name" value={fallback(info.principalName)} />
         <Info icon={<Phone size={18} />} label="Principal Contact" value={fallback(info.principalContact)} />
@@ -177,7 +184,7 @@ export default function ContactInfo() {
 
       <SectionTitle icon={<School />} title="School Office" />
 
-      <div className="bg-white rounded-xl shadow-sm border p-6 grid md:grid-cols-2 gap-6">
+      <div className="bg-white rounded-xl shadow-sm border p-6 grid md:grid-cols-2 gap-6 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
 
         <Info icon={<Phone size={18} />} label="School Phone" value={fallback(info.schoolPhone)} />
         <Info icon={<Mail size={18} />} label="School Email" value={fallback(info.schoolEmail)} />

@@ -10,7 +10,6 @@ import {
   MessageSquare,
   LogOut,
   Calendar,
-  GraduationCap,
   Contact,
   X,
 } from "lucide-react";
@@ -138,16 +137,33 @@ export default function Sidebar({ isOpen, onClose }: Props) {
         ${isOpen ? "translate-x-0" : "-translate-x-full"}
         lg:translate-x-0`}
       >
-        {/* Header */}
-        <div className="border-b p-5 flex-shrink-0">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-11 h-11 rounded-xl bg-blue-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm shadow-blue-200">
-                <GraduationCap size={22} />
+        {/* Header — student identity (avatar, name, grade & section) */}
+        <div className="h-20 border-b px-5 flex-shrink-0 flex items-center">
+          <div className="flex items-center justify-between gap-3 w-full">
+            <div className="flex items-center min-w-0 gap-3">
+              <div className="w-10 h-10 rounded-full bg-green-100 text-green-700 font-semibold flex items-center justify-center flex-shrink-0">
+                {(user?.name ?? "S")
+                  .split(" ")
+                  .map((name) => name[0])
+                  .join("")
+                  .substring(0, 2)
+                  .toUpperCase()}
               </div>
-              <h2 className="text-lg font-bold text-gray-900 tracking-tight truncate">
-                Student Portal
-              </h2>
+
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-gray-900 truncate">
+                  {user?.name ?? "Student"}
+                </p>
+                <p className="text-xs text-gray-500 truncate">
+                  {profile.grade || profile.class || profile.currentClass
+                    ? `Grade ${profile.grade || profile.class || profile.currentClass}${
+                        profile.section || profile.currentSection
+                          ? ` • Section ${profile.section || profile.currentSection}`
+                          : ""
+                      }`
+                    : (user?.userId || user?.email || "Student")}
+                </p>
+              </div>
             </div>
 
             {/* Close button (mobile only) */}
@@ -161,7 +177,7 @@ export default function Sidebar({ isOpen, onClose }: Props) {
         </div>
 
         {/* Navigation (scrolls independently so the footer below always stays visible) */}
-        <nav className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+        <nav className="flex-1 min-h-0 overflow-y-auto px-4 py-6 space-y-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
             {menu.map((item) => {
               const Icon = item.icon;
 
@@ -172,7 +188,7 @@ export default function Sidebar({ isOpen, onClose }: Props) {
                   end={item.end}
                   onClick={onClose}
                   className={({ isActive }) =>
-                    `flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200
+                    `flex items-center justify-between px-3 py-2.5 rounded-xl text-base font-medium transition-all duration-200
                     ${
                       isActive
                         ? "bg-blue-600 text-white shadow"
@@ -195,10 +211,10 @@ export default function Sidebar({ isOpen, onClose }: Props) {
             })}
         </nav>
 
-        {/* Logout + Profile */}
-        <div className="border-t p-4 space-y-2 flex-shrink-0">
-          
-        <div className="border-t border-gray-100 px-5 py-3 flex-shrink-0">
+        {/* Footer — sidebar ends with the logout button */}
+        <div className="p-4 space-y-1 flex-shrink-0">
+
+        <div className="border-t border-gray-100 px-5 py-2 flex-shrink-0">
           <p className="text-center text-xs text-gray-400">
             Powered by{" "}
             <span className="font-semibold text-indigo-600">
@@ -206,7 +222,7 @@ export default function Sidebar({ isOpen, onClose }: Props) {
             </span>
           </p>
         </div>
-          
+
           <button
             onClick={handleLogout}
             className="w-full flex items-center gap-3 rounded-xl px-4 py-2.5 text-red-600 hover:bg-red-50 transition-all hover:scale-[1.02]"
@@ -214,33 +230,6 @@ export default function Sidebar({ isOpen, onClose }: Props) {
             <LogOut size={18} />
             Logout
           </button>
-
-          <div className="flex items-center min-w-0 rounded-xl bg-gray-50 px-2.5 py-2">
-            <div className="w-10 h-10 rounded-full bg-green-100 text-green-700 font-semibold flex items-center justify-center mr-3 flex-shrink-0">
-              {(user?.name ?? "S")
-                .split(" ")
-                .map((name) => name[0])
-                .join("")
-                .substring(0, 2)
-                .toUpperCase()}
-            </div>
-
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">
-                {user?.name ?? "Student"}
-              </p>
-              <p className="text-xs text-gray-500 truncate">
-                {profile.grade || profile.class || profile.currentClass
-                  ? `Grade ${profile.grade || profile.class || profile.currentClass}${
-                      profile.section || profile.currentSection
-                        ? ` • Section ${profile.section || profile.currentSection}`
-                        : ""
-                    }`
-                  : (user?.userId || user?.email || "Student")}
-              </p>
-
-            </div>
-          </div>
         </div>
       </aside>
     </>
