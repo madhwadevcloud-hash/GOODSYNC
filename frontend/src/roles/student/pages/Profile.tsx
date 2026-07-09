@@ -134,7 +134,7 @@ export default function Profile() {
 
       {/* Summary Card */}
 
-      <div className="bg-white rounded-xl border shadow-sm p-6 sm:p-8 transition-all duration-300 hover:shadow-md">
+      <div className="bg-white rounded-xl border shadow-sm p-6 sm:p-8 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
 
         <div className="flex flex-col items-center gap-5 text-center sm:flex-row sm:items-center sm:gap-6 sm:text-left">
 
@@ -177,7 +177,7 @@ export default function Profile() {
       <section className="space-y-4">
         <SectionTitle icon={<User size={20} />} title="Personal Information" />
 
-        <div className="bg-white rounded-xl shadow-sm border p-6 sm:p-7 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5 transition-shadow duration-300 hover:shadow-md">
+        <div className="bg-white rounded-xl shadow-sm border p-6 sm:p-7 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
           <Info icon={<CalendarDays size={18} />} label="Date of Birth" value={formatDate(profile.dob)} />
           <Info icon={<User size={18} />} label="Gender" value={fallback(profile.gender)} />
           <Info icon={<Droplets size={18} />} label="Blood Group" value={fallback(profile.bloodGroup)} />
@@ -192,7 +192,7 @@ export default function Profile() {
       <section className="space-y-4">
         <SectionTitle icon={<GraduationCap size={20} />} title="Academic Information" />
 
-        <div className="bg-white rounded-xl shadow-sm border p-6 sm:p-7 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5 transition-shadow duration-300 hover:shadow-md">
+        <div className="bg-white rounded-xl shadow-sm border p-6 sm:p-7 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
           <Info icon={<Hash size={18} />} label="Enrollment No" value={fallback(profile.enrollmentNo)} />
           <Info icon={<GraduationCap size={18} />} label="Academic Year" value={fallback(profile.academicYear)} />
           <Info icon={<GraduationCap size={18} />} label="Class" value={`${fallback(profile.class)}-${fallback(profile.section)}`} />
@@ -206,7 +206,7 @@ export default function Profile() {
       <section className="space-y-4">
         <SectionTitle icon={<Users size={20} />} title="Parent Information" />
 
-        <div className="bg-white rounded-xl shadow-sm border p-6 sm:p-7 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5 transition-shadow duration-300 hover:shadow-md">
+        <div className="bg-white rounded-xl shadow-sm border p-6 sm:p-7 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
           <Info icon={<Users size={18} />} label="Father Name" value={fallback(profile.fatherName)} />
           <Info icon={<Users size={18} />} label="Mother Name" value={fallback(profile.motherName)} />
           <Info icon={<Users size={18} />} label="Guardian" value={fallback(profile.guardianName)} />
@@ -219,7 +219,7 @@ export default function Profile() {
       <section className="space-y-4">
         <SectionTitle icon={<MapPin size={20} />} title="Address & Transport" />
 
-        <div className="bg-white rounded-xl shadow-sm border p-6 sm:p-7 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5 transition-shadow duration-300 hover:shadow-md">
+        <div className="bg-white rounded-xl shadow-sm border p-6 sm:p-7 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
           <Info icon={<MapPin size={18} />} label="Address" value={fallback(profile.address)} />
           <Info icon={<MapPin size={18} />} label="City" value={fallback(profile.city)} />
           <Info icon={<MapPin size={18} />} label="State" value={fallback(profile.state)} />
