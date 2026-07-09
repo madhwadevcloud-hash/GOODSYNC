@@ -10,7 +10,6 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
 
-type TabType = 'overview' | 'installments' | 'receipts';
 type ChallanCopyType = 'student' | 'office' | 'admin';
 type ReceiptCopyType = 'student' | 'admin';
 
@@ -24,7 +23,6 @@ export default function FeesScreen() {
   const [data, setData] = useState<FeesData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState<TabType>('overview');
 
   // Modal states
   const [selectedChallan, setSelectedChallan] = useState<any | null>(null);
@@ -322,33 +320,14 @@ export default function FeesScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color={isDark ? '#93C5FD' : '#1E3A8A'} />
-        </TouchableOpacity>
         <Text style={styles.headerTitle}>Fees & Receipts</Text>
-        <View style={{ width: 24 }} />
       </View>
 
-      {/* Tabs */}
-      <View style={styles.tabContainer}>
-        {(['overview', 'installments', 'receipts'] as TabType[]).map((tab) => (
-          <TouchableOpacity
-            key={tab}
-            style={[styles.tab, activeTab === tab && styles.activeTab]}
-            onPress={() => setActiveTab(tab)}
-          >
-            <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
         
-        {/* OVERVIEW TAB */}
-        {activeTab === 'overview' && (
-          <View style={styles.tabContent}>
+        {/* OVERVIEW */}
+        <View style={styles.tabContent}>
             <View style={styles.overviewHeader}>
               <View>
                 <Text style={styles.academicYearText}>AY: {feeRecord.academicYear}</Text>
@@ -431,12 +410,11 @@ export default function FeesScreen() {
                 </View>
               </View>
             )}
-          </View>
-        )}
+        </View>
 
-        {/* INSTALLMENTS TAB */}
-        {activeTab === 'installments' && (
-          <View style={styles.tabContent}>
+        {/* INSTALLMENTS */}
+        <View style={styles.tabContent}>
+          <Text style={styles.sectionHeader}>Installments</Text>
             {feeRecord.installments.map((inst, index) => {
               const isPaid = String(inst.status).toUpperCase() === 'PAID';
               const isCurrent = inst.name === currentPayableInstallmentName;
@@ -485,7 +463,7 @@ export default function FeesScreen() {
                       ) : (
                         <>
                           <Ionicons name="eye-outline" size={16} color="#3B82F6" />
-                          <Text style={styles.actionButtonText}>View Challan</Text>
+                          <Text style={styles.actionButtonText}>View / Download Challan</Text>
                         </>
                       )}
                     </TouchableOpacity>
@@ -501,11 +479,10 @@ export default function FeesScreen() {
               );
             })}
           </View>
-        )}
 
-        {/* RECEIPTS TAB */}
-        {activeTab === 'receipts' && (
-          <View style={styles.tabContent}>
+        {/* RECEIPTS */}
+        <View style={styles.tabContent}>
+          <Text style={styles.sectionHeader}>Receipts</Text>
             {payments.length === 0 ? (
               <View style={styles.emptyState}>
                 <Ionicons name="receipt-outline" size={48} color={isDark ? '#374151' : '#D1D5DB'} />
@@ -542,13 +519,12 @@ export default function FeesScreen() {
                     onPress={() => handleViewReceipt(p)}
                   >
                     <Ionicons name="eye-outline" size={16} color="#3B82F6" />
-                    <Text style={styles.actionButtonText}>View / Share Slip</Text>
+                    <Text style={styles.actionButtonText}>Download Invoice</Text>
                   </TouchableOpacity>
                 </View>
               ))
             )}
           </View>
-        )}
 
       </ScrollView>
 
@@ -744,6 +720,7 @@ function getStyles(isDark: boolean) {
     bankDetailValue: { fontSize: 12, color: isDark ? '#BFDBFE' : '#1E3A8A', flex: 1 },
 
     // Installment Styles
+    sectionHeader: { fontSize: 18, fontWeight: '700', color: isDark ? '#F9FAFB' : '#111827', marginVertical: 16, paddingHorizontal: 4 },
     installmentCard: { backgroundColor: isDark ? '#1F2937' : '#FFFFFF', borderRadius: 16, borderWidth: 1, borderColor: isDark ? '#374151' : '#E5E7EB', padding: 16, marginBottom: 12 },
     installmentHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
     installmentTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },

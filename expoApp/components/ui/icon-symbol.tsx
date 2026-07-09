@@ -22,6 +22,7 @@ const MAPPING = {
   'calendar.badge.checkmark': 'event-available',
   'chart.bar.fill': 'bar-chart',
   'message.fill': 'message',
+  'banknote.fill': 'account-balance-wallet',
 } as IconMapping;
 
 /**

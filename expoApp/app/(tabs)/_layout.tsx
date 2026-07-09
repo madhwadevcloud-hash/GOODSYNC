@@ -2,7 +2,8 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, ScrollView } from 'react-native';
+import { BottomTabBar } from '@react-navigation/bottom-tabs';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -54,6 +55,13 @@ export default function TabLayout() {
             tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
             headerShown: false,
             tabBarButton: HapticTab,
+            tabBarLabelStyle: {
+              fontSize: 10,
+              flexWrap: 'nowrap',
+            },
+            tabBarItemStyle: {
+              paddingVertical: 2,
+            }
           }}>
           
           <Tabs.Screen
@@ -85,6 +93,14 @@ export default function TabLayout() {
             options={{
               title: 'Results',
               tabBarIcon: ({ color }) => <IconSymbol size={28} name="chart.bar.fill" color={color} />,
+            }}
+          />
+          
+          <Tabs.Screen
+            name="fees"
+            options={{
+              title: 'Fees',
+              tabBarIcon: ({ color }) => <IconSymbol size={28} name="banknote.fill" color={color} />,
             }}
           />
           
@@ -182,6 +198,7 @@ export default function TabLayout() {
           <Tabs.Screen name="teacher-home" options={{ href: null }} />
           <Tabs.Screen name="student-home" options={{ href: null }} />
           <Tabs.Screen name="attendance" options={{ href: null }} />
+          <Tabs.Screen name="fees" options={{ href: null }} />
         </Tabs>
         <PermissionRefreshIndicator />
       </View>

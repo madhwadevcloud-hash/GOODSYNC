@@ -56,7 +56,6 @@ export default function MenuScreen() {
 
   const menuItems = [
     { id: 1, title: 'My Profile', icon: '👤', iconBg: '#FECACA', route: '/profile' },
-    ...(role === 'student' ? [{ id: 4, title: 'Fees', icon: '💰', iconBg: '#BBF7D0', route: '/fees' }] : []),
     { id: 2, title: 'My School', icon: '🏫', iconBg: '#DBEAFE', route: '/school' },
     { id: 3, title: theme === 'dark' ? 'Light Mode' : 'Dark Mode', icon: theme === 'dark' ? '☀️' : '🌙', iconBg: '#FEF3C7', route: 'theme-toggle' },
   ];
