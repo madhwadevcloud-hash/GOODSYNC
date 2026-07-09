@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { CalendarClock } from 'lucide-react';
 import { useAuth } from '../../../../auth/AuthContext';
 import { toast } from 'react-hot-toast';
 import api from '../../../../api/axios';
@@ -105,9 +106,14 @@ const LeaveRequest: React.FC = () => {
     <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
       {/* Leave Request Form */}
       <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
-        <div className="mb-4 sm:mb-6">
-          <h2 className="text-base sm:text-lg font-semibold text-gray-900">Submit Leave Request</h2>
-          <p className="text-xs sm:text-sm text-gray-600 mt-1">Fill in the details below to request leave</p>
+        <div className="mb-4 sm:mb-6 flex items-center gap-3">
+          <div className="flex items-center justify-center w-10 h-10 bg-violet-100 rounded-lg flex-shrink-0">
+            <CalendarClock className="h-6 w-6 text-violet-600" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">Submit Leave Request</h2>
+            <p className="text-xs sm:text-sm text-gray-600 mt-1">Fill in the details below to request leave</p>
+          </div>
         </div>
 
         <div className="space-y-4 sm:space-y-6">

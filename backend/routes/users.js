@@ -7,14 +7,66 @@ const { setSchoolContext, requireSchoolContext, validateSchoolAccess } = require
 // Apply authentication middleware to all routes
 router.use(authMiddleware.auth);
 
-// Student-specific route - must come before role checks
+// Teacher-specific route - must come before role checks
 router.get('/my-profile', authMiddleware.auth, async (req, res) => {
   try {
-    // Only students can access this endpoint
+    // Teachers get their own handling below so their profile always reflects
+    // the live data in the 'teachers' collection (same fields captured when
+    // the teacher was added/imported in the admin portal).
+    if (req.user.role === 'teacher') {
+      const teacherId = req.user.userId || req.user._id;
+      const schoolCode = req.user.schoolCode;
+
+      if (!schoolCode) {
+        return res.status(400).json({
+          success: false,
+          message: 'School code not found'
+        });
+      }
+
+      const SchoolDatabaseManager = require('../utils/schoolDatabaseManager');
+      const schoolConnection = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
+
+      if (!schoolConnection) {
+        return res.status(404).json({
+          success: false,
+          message: 'School database not found'
+        });
+      }
+
+      const db = schoolConnection.db;
+      const { ObjectId } = require('mongodb');
+
+      const query = ObjectId.isValid(teacherId)
+        ? { $or: [{ userId: teacherId }, { _id: new ObjectId(teacherId) }] }
+        : { userId: teacherId };
+
+      const teacher = await db.collection('teachers').findOne(query);
+
+      if (!teacher) {
+        return res.status(404).json({
+          success: false,
+          message: 'Teacher not found',
+          data: null
+        });
+      }
+
+      // Return the live document as-is (minus sensitive fields) - same shape as
+      // GET /users/:userId - so the teacher portal always reflects whatever was
+      // actually entered/updated in the admin portal (import or edit).
+      const { password, temporaryPassword, passwordHistory, ...teacherWithoutSensitiveData } = teacher;
+
+      return res.json({
+        success: true,
+        data: teacherWithoutSensitiveData
+      });
+    }
+
+    // Only students can access the rest of this endpoint
     if (req.user.role !== 'student') {
       return res.status(403).json({ 
         success: false,
-        message: 'This endpoint is only for students' 
+        message: 'This endpoint is only for students and teachers' 
       });
     }
 

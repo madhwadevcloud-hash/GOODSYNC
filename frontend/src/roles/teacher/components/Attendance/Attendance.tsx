@@ -25,7 +25,7 @@ const Attendance: React.FC<AttendanceProps> = ({ onNavigate }) => {
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
           <div className="flex items-center justify-center w-10 h-10 bg-violet-100 rounded-lg">
-            <Calendar className="h-6 w-6 text-violet-600" />
+            <UserCheck className="h-6 w-6 text-violet-600" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Attendance Management</h1>
         </div>

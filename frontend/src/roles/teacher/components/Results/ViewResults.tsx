@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Search, Save, ShieldAlert } from 'lucide-react';
+import { Search, Save, ShieldAlert, BarChart3 } from 'lucide-react';
 import { useAuth } from '../../../../auth/AuthContext';
 import { useAcademicYear } from '../../../../contexts/AcademicYearContext';
 import { resultsAPI } from '../../../../services/api';
@@ -458,7 +458,12 @@ const ViewResults: React.FC = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900">Academic Results</h1>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center w-10 h-10 bg-violet-100 rounded-lg flex-shrink-0">
+            <BarChart3 className="h-6 w-6 text-violet-600" />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900">Academic Results</h1>
+        </div>
         {showResultsTable && !isFrozen && (
           <button
             onClick={handleSaveAll}

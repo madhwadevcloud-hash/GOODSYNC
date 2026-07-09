@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import {
   Calendar,
   CalendarDays,
+  CalendarClock,
   Users,
-  FileText,
+  BookOpen,
   BarChart3,
   MessageSquare,
   Menu,
@@ -145,11 +146,11 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
     { name: 'Dashboard', icon: Home, page: 'dashboard', permission: null },
     { name: 'Student Details', icon: Users, page: 'student-details', permission: null },
     { name: 'Attendance', icon: UserCheck, page: 'attendance', permission: 'viewAttendance' as PermissionKey },
-    { name: 'Assignments', icon: FileText, page: 'assignments', permission: 'viewAssignments' as PermissionKey },
+    { name: 'Assignments', icon: BookOpen, page: 'assignments', permission: 'viewAssignments' as PermissionKey },
     { name: 'Results', icon: BarChart3, page: 'view-results', permission: 'viewResults' as PermissionKey },
     { name: 'Messages', icon: MessageSquare, page: 'messages', permission: 'messageStudentsParents' as PermissionKey },
     { name: 'Calendar', icon: CalendarDays, page: 'calendar', permission: null },
-    { name: 'Leave Request', icon: Calendar, page: 'leave-request', permission: 'viewLeaves' as PermissionKey },
+    { name: 'Leave Request', icon: CalendarClock, page: 'leave-request', permission: 'viewLeaves' as PermissionKey },
     { name: 'Profile', icon: User, page: 'profile', permission: null },
   ];
 
@@ -347,7 +348,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
                   className="p-2.5 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors hidden sm:block flex-shrink-0"
                   title="Leave Request"
                 >
-                  <Calendar className="h-5 w-5" />
+                  <CalendarClock className="h-5 w-5" />
                 </button>
               </div>
             </div>
