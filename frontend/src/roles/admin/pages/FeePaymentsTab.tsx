@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Search, Plus, X, FileText, Receipt, Eye, Filter } from 'lucide-react';
+import { Search, Plus, X, FileText, Receipt, Eye, Filter, Lock, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../../../auth/AuthContext';
 import { useAcademicYear } from '../../../contexts/AcademicYearContext';
 import ClassSectionSelect from '../components/ClassSectionSelect';
@@ -1499,9 +1499,9 @@ return (
           <h3 className="text-lg font-medium text-gray-900">Student Fee Records</h3>
 </div>
 
-<div className="overflow-x-auto">
+<div className="overflow-x-auto lg:overflow-visible">
 <table className="min-w-full divide-y divide-gray-200">
-<thead className="bg-gray-50">
+<thead className="bg-gray-50 sticky top-[130px] z-10 shadow-sm border-b border-slate-200">
 <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Student
@@ -1827,15 +1827,15 @@ return (
       {/* Payment Modal */}
       {isModalOpen && activeStudent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl mx-4">
-            <div className="flex items-center justify-between px-4 py-3 border-b">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-4 py-3 border-b sticky top-0 bg-white z-10">
               <h3 className="text-lg font-semibold text-gray-900">Record Payment - {activeStudent.name}</h3>
               <button onClick={closePaymentModal} className="text-gray-500 hover:text-gray-700">
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="overflow-auto">
+            <div className="p-4 grid grid-cols-1 md:grid-cols-5 gap-6">
+              <div className="overflow-x-auto md:col-span-3">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
@@ -1853,31 +1853,65 @@ return (
                         <td colSpan={6} className="px-3 py-3 text-sm text-gray-500">No installments data available.</td>
                       </tr>
                     ) : (
-                      activeStudent.installments.map((inst: any, idx: number) => {
-                        const pending = Math.max(0, (inst.amount || 0) - (inst.paidAmount || 0));
-                        return (
-                          <tr key={idx} className="hover:bg-gray-50">
-                            <td className="px-3 py-2 text-sm text-gray-900">{inst.name}</td>
-                            <td className="px-3 py-2 text-sm text-gray-600">{inst.dueDate ? new Date(inst.dueDate).toLocaleDateString() : '-'}</td>
-                            <td className="px-3 py-2 text-sm text-gray-900">{formatCurrency(inst.amount || 0)}</td>
-                            <td className="px-3 py-2 text-sm text-gray-900">{formatCurrency(inst.paidAmount || 0)}</td>
-                            <td className="px-3 py-2 text-sm text-gray-900">{formatCurrency(pending)}</td>
-                            <td className="px-3 py-2 text-right">
-          <button
-                                onClick={() => onSelectInstallment(inst)}
-                                className="text-blue-600 hover:text-blue-800 text-sm"
-                              >
-                                Select
-          </button>
-                            </td>
-                          </tr>
-                        );
-                      })
+                      (() => {
+                        const installmentsList = activeStudent.installments || [];
+                        // The first installment (in order) that still has a pending balance
+                        // is the only one allowed to be selected — installments after it
+                        // stay locked until this one is fully paid off (queue behaviour).
+                        const firstPendingIndex = installmentsList.findIndex((i: any) => {
+                          const p = Math.max(0, (i.amount || 0) - (i.paidAmount || 0));
+                          return p > 0;
+                        });
+
+                        return installmentsList.map((inst: any, idx: number) => {
+                          const pending = Math.max(0, (inst.amount || 0) - (inst.paidAmount || 0));
+                          const isPaid = pending <= 0;
+                          const isSelectable = firstPendingIndex !== -1 && idx === firstPendingIndex;
+                          const isLocked = firstPendingIndex !== -1 && idx > firstPendingIndex;
+                          const isActiveSelection = selectedInstallmentName === inst.name;
+
+                          return (
+                            <tr
+                              key={idx}
+                              className={`hover:bg-gray-50 ${isActiveSelection ? 'bg-blue-50' : ''}`}
+                            >
+                              <td className="px-3 py-2 text-sm text-gray-900">{inst.name}</td>
+                              <td className="px-3 py-2 text-sm text-gray-600">{inst.dueDate ? new Date(inst.dueDate).toLocaleDateString() : '-'}</td>
+                              <td className="px-3 py-2 text-sm text-gray-900">{formatCurrency(inst.amount || 0)}</td>
+                              <td className="px-3 py-2 text-sm text-gray-900">{formatCurrency(inst.paidAmount || 0)}</td>
+                              <td className="px-3 py-2 text-sm text-gray-900">{formatCurrency(pending)}</td>
+                              <td className="px-3 py-2 text-right">
+                                {isPaid ? (
+                                  <span className="inline-flex items-center gap-1 text-green-600 text-xs font-medium">
+                                    <CheckCircle2 className="h-3.5 w-3.5" />
+                                    Paid
+                                  </span>
+                                ) : isSelectable ? (
+                                  <button
+                                    onClick={() => onSelectInstallment(inst)}
+                                    className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                                  >
+                                    Select
+                                  </button>
+                                ) : (
+                                  <span
+                                    className="inline-flex items-center gap-1 text-gray-400 text-xs font-medium cursor-not-allowed"
+                                    title="Complete the previous installment first"
+                                  >
+                                    <Lock className="h-3.5 w-3.5" />
+                                    Locked
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        });
+                      })()
                     )}
                   </tbody>
                 </table>
         </div>
-            <div>
+            <div className="md:col-span-2">
                 <div className="space-y-3">
                   <div className="text-sm text-gray-600">
                     {selectedInstallmentName

@@ -32,6 +32,25 @@ router.get('/teacher/messages',
   messagesController.getTeacherMessages
 );
 
+// Teachers can now compose and send their own messages to Students,
+// Teachers, and/or Admins (multi-select audience).
+router.post('/teacher/send',
+  roleCheck(['teacher']),
+  messagesController.sendStaffMessage
+);
+
+router.post('/teacher/preview',
+  roleCheck(['teacher']),
+  messagesController.previewStaffMessage
+);
+
+// Admin-accessible route to view messages sent BY teachers (the "Staff
+// Messages" tab in the admin portal).
+router.get('/staff',
+  roleCheck(['admin', 'superadmin']),
+  messagesController.getStaffMessages
+);
+
 // Student-accessible routes - students and teachers can view messages sent to students
 router.get('/student',
   roleCheck(['student', 'teacher']),

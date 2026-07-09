@@ -12,11 +12,12 @@ import ViewResults from './components/Results/ViewResults';
 import Messages from './components/Messages/Messages';
 import LeaveRequestManagement from './components/LeaveRequest/LeaveRequestManagement';
 import StudentDetails from './components/StudentDetails/StudentDetails';
-import SchoolSettings from './components/Settings/SchoolSettings';
 import { PermissionProvider } from '../../hooks/usePermissions';
 import { PermissionGuard } from '../../components/PermissionGuard';
 import { AcademicYearProvider } from '../../contexts/AcademicYearContext';
 import { useAuth } from '../../auth/AuthContext';
+import CalendarPage from './components/Calendar/CalendarPage';
+import TeacherProfile from './components/Profile/Profile';
 
 function App() {
   const { user, logout } = useAuth();
@@ -34,6 +35,8 @@ function App() {
 
   const renderPage = () => {
     switch (currentPage) {
+      case 'profile':
+        return <TeacherProfile />;
       case 'dashboard':
         return <Dashboard onNavigate={handleNavigate} />;
       case 'attendance':
@@ -60,8 +63,9 @@ function App() {
         );
       case 'student-details':
         return <StudentDetails />;
-      case 'settings':
-        return <SchoolSettings />;
+      case 'calendar':
+        return <CalendarPage />;
+      
       default:
         return <Dashboard onNavigate={handleNavigate} />;
     }

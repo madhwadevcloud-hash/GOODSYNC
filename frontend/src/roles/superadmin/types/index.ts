@@ -12,7 +12,7 @@ export interface School {
   bankDetails: BankDetails;
   accessMatrix: AccessMatrix;
   schoolType?: string;
-  address?: string;
+  address?: string | Address;
   city?: string;
   state?: string;
   phone?: string;
@@ -21,6 +21,25 @@ export interface School {
   affiliationBoard?: string;
   website?: string;
   secondaryContact?: string;
+  contact?: {
+    phone: string;
+    email: string;
+    website?: string;
+  };
+}
+
+export interface Address {
+  street: string;
+  area: string;
+  city: string;
+  district: string;
+  taluka: string;
+  state: string;
+  stateId?: number;
+  districtId?: number;
+  talukaId?: number;
+  pinCode: string;
+  country: string;
 }
 
 export interface BankDetails {

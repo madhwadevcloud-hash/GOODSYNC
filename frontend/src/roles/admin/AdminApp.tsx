@@ -17,6 +17,7 @@ import MessagesPage from './pages/MessagesPage'
 import FeesPage from './pages/FeesPage'
 import ReportsPage from './pages/ReportsPage'
 import LeaveManagement from './pages/LeaveManagement'
+import CalendarPage from './pages/CalendarPage'
 
 import TeacherAssignments from './pages/TeacherAssignments'
 
@@ -124,6 +125,13 @@ export function AdminApp() {
               <PermissionGuard permission="viewLeaves" permissionName="Leave Management">
                 <LeaveManagement />
               </PermissionGuard>
+            } />
+
+            {/* Calendar */}
+            <Route path="calendar" element={
+              <ErrorBoundary>
+                <CalendarPage />
+              </ErrorBoundary>
             } />
 
             {/* Fees - Requires viewFees permission */}

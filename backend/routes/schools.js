@@ -35,7 +35,7 @@ const logoUpload = multer({
     const allowedTypes = /jpeg|jpg|png|gif|webp/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
     const mimetype = allowedTypes.test(file.mimetype);
-    
+
     if (mimetype && extname) {
       return cb(null, true);
     } else {
@@ -85,6 +85,11 @@ router.post('/:schoolId/sync', setMainDbContext, requireSuperAdmin, schoolContro
 
 // School-specific routes (require school context)
 router.get('/profile', schoolController.getSchoolProfile);
+
+// Lightweight contact info (school name, principal name/contact/email) for
+// the "Contact Info" page - accessible to any authenticated user (student,
+// teacher, parent, admin) belonging to that school.
+router.get('/contact-info', schoolController.getSchoolContactInfo);
 
 // Direct school info route (must stay on the main/central connection)
 router.get('/:id/info', authMiddleware.auth, setMainDbContext, schoolController.getSchoolInfo);

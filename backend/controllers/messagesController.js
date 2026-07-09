@@ -4,6 +4,18 @@ const Message = require('../models/Message');
 const User = require('../models/User');
 const SchoolDatabaseManager = require('../utils/schoolDatabaseManager');
 
+// Helper: resolve a human-friendly display name for whoever is sending a message
+function resolveSenderName(user) {
+  if (!user) return 'Unknown';
+  return (
+    user.name?.displayName ||
+    (user.name?.firstName ? `${user.name.firstName} ${user.name.lastName || ''}`.trim() : null) ||
+    user.displayName ||
+    user.email ||
+    'School Staff'
+  );
+}
+
 // Send message to students by class/section
 exports.sendMessage = async (req, res) => {
   try {
@@ -148,12 +160,23 @@ exports.sendMessage = async (req, res) => {
 
     // Create message document
     const sectionLabel = sectionsArray.join(', ');
+
+    // Normalised audience list so every reader (teacher inbox, student inbox,
+    // admin "staff messages" tab) can filter reliably instead of guessing
+    // from legacy fields like `includeTeachers`.
+    const audience = ['student'];
+    if (includeTeachers) audience.push('teacher');
+
     const messageData = {
       class: targetClass,
       section: sectionLabel,
       sections: sectionsArray,          // store the full array
       includeTeachers: includeTeachers,
+      audience,                          // ['student'] or ['student', 'teacher']
       adminId: req.user._id,
+      senderId: req.user._id,
+      senderRole: 'admin',
+      senderName: resolveSenderName(req.user),
       title: title,
       subject: subject,
       message: message,
@@ -208,6 +231,246 @@ exports.sendMessage = async (req, res) => {
       message: 'Failed to send message',
       error: error.message
     });
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Teacher composing: teachers can now send messages of their own, to any
+// combination of Students (by class/section), other Teachers, and Admins.
+// Stored in the same `messages` collection as admin messages, but tagged
+// with senderRole: 'teacher' and an explicit `audience` array so every inbox
+// (teacher/student/admin) can filter to exactly what it should see.
+// ---------------------------------------------------------------------------
+exports.sendStaffMessage = async (req, res) => {
+  try {
+    console.log('📨 [TEACHER SEND] Sending message:', req.body);
+
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({ success: false, message: 'Authentication required' });
+    }
+
+    let {
+      title,
+      subject,
+      message,
+      recipients,          // array subset of ['students', 'teachers', 'admin']
+      class: targetClass,
+      sections: targetSections,
+      academicYear
+    } = req.body;
+
+    const recipientTypes = Array.isArray(recipients) ? recipients : [];
+
+    if (!title || !subject || !message || recipientTypes.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Title, subject, message, and at least one recipient type are required'
+      });
+    }
+
+    const wantsStudents = recipientTypes.includes('students');
+    const wantsTeachers = recipientTypes.includes('teachers');
+    const wantsAdmin = recipientTypes.includes('admin');
+
+    const sectionsArray = Array.isArray(targetSections) ? targetSections : [];
+
+    if (wantsStudents && (!targetClass || sectionsArray.length === 0)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please select a class and at least one section to message students'
+      });
+    }
+
+    const schoolCode = req.user.schoolCode;
+    const userSchoolId = req.user.schoolId;
+    if (!schoolCode || !userSchoolId) {
+      return res.status(400).json({
+        success: false,
+        message: 'School information not found for this account'
+      });
+    }
+
+    const connection = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
+    const db = connection.db;
+
+    // Resolve academic year, same behaviour as admin sendMessage
+    if (!academicYear) {
+      try {
+        const schoolInfo = await db.collection('school_info').findOne({});
+        if (schoolInfo && schoolInfo.academicYear) academicYear = schoolInfo.academicYear;
+      } catch (e) {
+        console.warn('⚠️ [TEACHER SEND] Could not resolve academic year:', e.message);
+      }
+    }
+
+    // Count recipients for the response (best-effort, non-blocking)
+    let studentCount = 0;
+    let teacherCount = 0;
+    let adminCount = 0;
+
+    if (wantsStudents) {
+      const studentsCollection = db.collection('students');
+      const classRegex = new RegExp(`^${targetClass}$`, 'i');
+      const classConditions = [
+        { class: classRegex },
+        { 'studentDetails.academic.currentClass': classRegex },
+        { 'studentDetails.currentClass': classRegex }
+      ];
+      const sectionOrConditions = sectionsArray.flatMap(sec => {
+        const secRegex = new RegExp(`^${sec}$`, 'i');
+        return [
+          { section: secRegex },
+          { 'studentDetails.academic.currentSection': secRegex },
+          { 'studentDetails.currentSection': secRegex }
+        ];
+      });
+      studentCount = await studentsCollection.countDocuments({
+        role: 'student',
+        _placeholder: { $ne: true },
+        $and: [{ $or: classConditions }, { $or: sectionOrConditions }]
+      });
+    }
+
+    if (wantsTeachers) {
+      try {
+        teacherCount = await db.collection('teachers').countDocuments({ _placeholder: { $ne: true } });
+      } catch (e) {
+        teacherCount = 0;
+      }
+    }
+
+    if (wantsAdmin) {
+      try {
+        adminCount = await db.collection('admins').countDocuments({ _placeholder: { $ne: true } });
+      } catch (e) {
+        adminCount = 0;
+      }
+    }
+
+    const totalRecipients = studentCount + teacherCount + adminCount;
+    if (totalRecipients === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No recipients found matching the selected criteria'
+      });
+    }
+
+    const audience = [];
+    if (wantsStudents) audience.push('student');
+    if (wantsTeachers) audience.push('teacher');
+    if (wantsAdmin) audience.push('admin');
+
+    const messageData = {
+      class: wantsStudents ? targetClass : null,
+      section: wantsStudents ? sectionsArray.join(', ') : null,
+      sections: wantsStudents ? sectionsArray : [],
+      includeTeachers: wantsTeachers,
+      audience,
+      senderId: req.user._id,
+      senderRole: 'teacher',
+      senderName: resolveSenderName(req.user),
+      // Kept for backward compatibility with any code reading `adminId`
+      adminId: req.user._id,
+      title,
+      subject,
+      message,
+      createdAt: new Date(),
+      schoolId: userSchoolId
+    };
+
+    if (academicYear) messageData.academicYear = academicYear;
+
+    const result = await db.collection('messages').insertOne(messageData);
+
+    console.log(`✅ [TEACHER SEND] Message sent to ${totalRecipients} recipients (students: ${studentCount}, teachers: ${teacherCount}, admins: ${adminCount})`);
+
+    res.json({
+      success: true,
+      message: 'Message sent successfully',
+      data: {
+        messageId: result.insertedId,
+        sentCount: totalRecipients,
+        studentCount,
+        teacherCount,
+        adminCount,
+        audience
+      }
+    });
+  } catch (error) {
+    console.error('❌ [TEACHER SEND] Error sending message:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send message',
+      error: error.message
+    });
+  }
+};
+
+// Preview recipient counts for a teacher-composed message (mirrors previewMessage)
+exports.previewStaffMessage = async (req, res) => {
+  try {
+    const { recipients, class: targetClass, sections: targetSections } = req.body;
+    const recipientTypes = Array.isArray(recipients) ? recipients : [];
+    const sectionsArray = Array.isArray(targetSections) ? targetSections : [];
+
+    const schoolCode = req.user.schoolCode;
+    if (!schoolCode) {
+      return res.status(400).json({ success: false, message: 'School code not found in user profile' });
+    }
+
+    const connection = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
+    const db = connection.db;
+
+    let studentCount = 0;
+    if (recipientTypes.includes('students') && targetClass && sectionsArray.length > 0) {
+      const studentsCollection = db.collection('students');
+      const classRegex = new RegExp(`^${targetClass}$`, 'i');
+      const classConditions = [
+        { class: classRegex },
+        { 'studentDetails.academic.currentClass': classRegex },
+        { 'studentDetails.currentClass': classRegex }
+      ];
+      const sectionOrConditions = sectionsArray.flatMap(sec => {
+        const secRegex = new RegExp(`^${sec}$`, 'i');
+        return [
+          { section: secRegex },
+          { 'studentDetails.academic.currentSection': secRegex },
+          { 'studentDetails.currentSection': secRegex }
+        ];
+      });
+      studentCount = await studentsCollection.countDocuments({
+        role: 'student',
+        _placeholder: { $ne: true },
+        $and: [{ $or: classConditions }, { $or: sectionOrConditions }]
+      });
+    }
+
+    let teacherCount = 0;
+    if (recipientTypes.includes('teachers')) {
+      try {
+        teacherCount = await db.collection('teachers').countDocuments({ _placeholder: { $ne: true } });
+      } catch (e) { teacherCount = 0; }
+    }
+
+    let adminCount = 0;
+    if (recipientTypes.includes('admin')) {
+      try {
+        adminCount = await db.collection('admins').countDocuments({ _placeholder: { $ne: true } });
+      } catch (e) { adminCount = 0; }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        estimatedRecipients: studentCount + teacherCount + adminCount,
+        studentCount,
+        teacherCount,
+        adminCount
+      }
+    });
+  } catch (error) {
+    console.error('❌ [TEACHER PREVIEW] Error previewing message:', error);
+    res.status(500).json({ success: false, message: 'Failed to preview message', error: error.message });
   }
 };
 
@@ -490,6 +753,18 @@ exports.getMessages = async (req, res) => {
         query.section = filterSection;
         console.log(`📚 [GET MESSAGES] Admin filter - section: ${filterSection}`);
       }
+
+      // This endpoint is the admin's "messages I sent" list. Without this
+      // filter, messages composed by teachers targeting the same class/section
+      // would leak into the admin's own sent-messages view. Older documents
+      // predate the senderRole field and were only ever created by admins, so
+      // treat "senderRole missing" as admin too.
+      if (req.user.role === 'admin' || req.user.role === 'superadmin') {
+        query.$or = [
+          { senderRole: 'admin' },
+          { senderRole: { $exists: false } }
+        ];
+      }
     }
     
     // Filter by academic year for all users
@@ -556,6 +831,8 @@ exports.getMessages = async (req, res) => {
         class: msg.class,
         section: msg.section,
         adminId: msg.adminId,
+        senderName: msg.senderName || 'School Admin',
+        senderRole: msg.senderRole || 'admin',
         title: msg.title,
         subject: msg.subject,
         message: msg.message,
@@ -713,6 +990,79 @@ exports.getMessageStats = async (req, res) => {
   }
 };
 
+// Get messages authored by teachers, for the admin "Staff Messages" tab.
+// This is how admins can now read what teachers have sent (e.g. to admins,
+// to other teachers, or to a class) instead of only being able to send.
+exports.getStaffMessages = async (req, res) => {
+  try {
+    const schoolCode = req.user.schoolCode;
+    if (!schoolCode) {
+      return res.status(400).json({ success: false, message: 'School code not found in user profile' });
+    }
+
+    const connection = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
+    const db = connection.db;
+    const messagesCollection = db.collection('messages');
+
+    const { limit = 20, page = 1, academicYear } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const query = { senderRole: 'teacher' };
+    if (academicYear) query.academicYear = academicYear;
+
+    const collectionExists = await db.listCollections({ name: 'messages' }).hasNext();
+    if (!collectionExists) {
+      return res.json({
+        success: true,
+        data: { messages: [], pagination: { page: parseInt(page), limit: parseInt(limit), total: 0, pages: 0 } }
+      });
+    }
+
+    const messages = await messagesCollection.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .toArray();
+
+    const total = await messagesCollection.countDocuments(query);
+
+    const formattedMessages = messages.map(msg => ({
+      id: msg._id.toString(),
+      title: msg.title,
+      subject: msg.subject,
+      message: msg.message,
+      senderName: msg.senderName || 'Teacher',
+      senderRole: 'teacher',
+      audience: msg.audience || (msg.includeTeachers ? ['student', 'teacher'] : ['student']),
+      class: msg.class || null,
+      section: msg.section || null,
+      createdAt: msg.createdAt,
+      messageAge: calculateMessageAge(msg.createdAt),
+      academicYear: msg.academicYear
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        messages: formattedMessages,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total,
+          pages: Math.ceil(total / parseInt(limit))
+        }
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error fetching staff messages:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch staff messages',
+      error: error.message
+    });
+  }
+};
+
 // Get messages for teachers (read-only)
 exports.getTeacherMessages = async (req, res) => {
   try {
@@ -741,10 +1091,22 @@ exports.getTeacherMessages = async (req, res) => {
     const currentAcademicYear = school?.settings?.academicYear?.currentYear || `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`;
     console.log(`📅 School's current academic year: ${currentAcademicYear}`);
     
-    // Build query - use provided academicYear or default to current academic year
-    const query = {};
+    // Build query - use provided academicYear or default to current academic year.
+    //
+    // BUG FIX: this endpoint used to return every message in the school
+    // regardless of who it was actually addressed to, so a teacher could see
+    // messages an admin sent privately to a single class of students. It now
+    // only returns messages whose audience actually includes 'teacher' —
+    // either sent by an admin with "include teachers" checked, or sent by
+    // another teacher/admin directly to teachers.
     const yearToFilter = academicYear || currentAcademicYear;
-    query.academicYear = yearToFilter;
+    const query = {
+      academicYear: yearToFilter,
+      $or: [
+        { audience: 'teacher' },
+        { includeTeachers: true }
+      ]
+    };
     console.log(`📅 Filtering messages by Academic Year: ${yearToFilter}`);
     
     // Fetch messages from the teacher's school (sorted by newest first)
@@ -761,8 +1123,8 @@ exports.getTeacherMessages = async (req, res) => {
       .filter(msg => msg.title && msg.subject && msg.message) // Filter out incomplete messages
       .map(msg => ({
         id: msg._id.toString(),
-        class: msg.class || 'Unknown',
-        section: msg.section || 'Unknown',
+        class: msg.class || null,
+        section: msg.section || null,
         adminId: msg.adminId,
         title: msg.title,
         subject: msg.subject,
@@ -774,10 +1136,10 @@ exports.getTeacherMessages = async (req, res) => {
         messageAge: calculateMessageAge(msg.createdAt),
         type: 'group', // All admin messages are group messages
         isRead: true, // Teachers can only view, so mark as read
-        sender: 'Admin',
-        senderName: 'School Admin', // Add senderName for dashboard compatibility
-        recipient: [`Class ${msg.class || 'Unknown'}-${msg.section || 'Unknown'}`],
-        recipientType: `Class ${msg.class || 'Unknown'}-${msg.section || 'Unknown'}` // Add recipientType for dashboard compatibility
+        sender: msg.senderRole === 'teacher' ? 'Teacher' : 'Admin',
+        senderName: msg.senderName || (msg.senderRole === 'teacher' ? 'A Teacher' : 'School Admin'),
+        recipient: msg.class ? [`Class ${msg.class}-${msg.section || 'Unknown'}`] : ['Teachers'],
+        recipientType: msg.class ? `Class ${msg.class}-${msg.section || 'Unknown'}` : 'Teachers'
       }));
     
     res.json({
@@ -857,10 +1219,22 @@ exports.getStudentMessages = async (req, res) => {
     const school = await School.findOne({ code: schoolCode });
     const currentAcademicYear = school?.settings?.academicYear?.currentYear || `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`;
     
-    // Build query to fetch messages for student's class and section
+    // Build query to fetch messages for student's class and section.
+    //
+    // BUG FIX: when a message is sent to multiple sections at once (e.g.
+    // sections A and B together) the `section` field is stored as a joined
+    // label like "A, B", which never exactly matches a single student's
+    // section ("A"). We now also match against the `sections` array so a
+    // student correctly sees every message actually addressed to their
+    // section, whether it was sent to just their section or several at once.
+    const classRegex = new RegExp(`^${studentClass}$`, 'i');
+    const sectionRegex = new RegExp(`^${studentSection}$`, 'i');
     const query = {
-      class: studentClass,
-      section: studentSection
+      class: classRegex,
+      $or: [
+        { sections: sectionRegex },
+        { section: sectionRegex }
+      ]
     };
     
     // Add academic year filter
@@ -882,7 +1256,9 @@ exports.getStudentMessages = async (req, res) => {
     
     console.log(`✅ Found ${messages.length} messages for student`);
     
-    // Format messages
+    // Format messages - include sender identity so the student portal can
+    // show a clear "From Admin" / "From Teacher <name>" description and
+    // distinguish the two in one shared feed.
     const formattedMessages = messages.map(msg => ({
       id: msg._id.toString(),
       class: msg.class,
@@ -891,7 +1267,9 @@ exports.getStudentMessages = async (req, res) => {
       subject: msg.subject,
       message: msg.message,
       content: msg.message, // Alias used by the student portal UI
-      sender: 'Admin',
+      sender: msg.senderRole === 'teacher' ? 'Teacher' : 'Admin',
+      senderName: msg.senderName || (msg.senderRole === 'teacher' ? 'A Teacher' : 'School Admin'),
+      senderRole: msg.senderRole || 'admin',
       createdAt: msg.createdAt,
       messageAge: calculateMessageAge(msg.createdAt),
       isRead: true // No per-student read tracking yet; messages are shown as read once fetched

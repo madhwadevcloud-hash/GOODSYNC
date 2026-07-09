@@ -40,6 +40,7 @@ interface DisplayUser extends ApiUser {
   teacherDetails?: { subjects?: string[]; };
   adminDetails?: { designation?: string; };
   profileImage?: string | null; // 💡 FIX 1: Add the missing profileImage field to the DisplayUser interface
+  phone?: string | null;
 }
 // User interface now imported from standardized types
 
@@ -1348,10 +1349,21 @@ const ManageUsers: React.FC = () => {
 
   // --- ADD TOGGLE FUNCTION ---
   const togglePasswordVisibility = (userId: string, userName: string) => {
-    setPasswordVisibility(prev => ({
-      ...prev,
-      [userId]: !prev[userId]
-    }));
+    const isCurrentlyVisible = passwordVisibility[userId];
+    if (isCurrentlyVisible) {
+      // Hide the password without verification
+      setPasswordVisibility(prev => ({
+        ...prev,
+        [userId]: false
+      }));
+    } else {
+      // Show/reveal requires admin password verification
+      setSelectedTeacherId(userId);
+      setSelectedTeacherName(userName);
+      setPasswordModalType('single');
+      setAdminPasswordInput('');
+      setShowPasswordModal(true);
+    }
   };
 
   // Handle showing/hiding all teacher passwords
@@ -2325,11 +2337,13 @@ const ManageUsers: React.FC = () => {
   };
 
   // Function to check if email already exists across all roles
-  const checkEmailExists = async (email: string): Promise<{ exists: boolean, role?: string, name?: string }> => {
+  const checkEmailExists = async (email: string, excludeId?: string): Promise<{ exists: boolean, role?: string, name?: string }> => {
     try {
       // Check against the current users list first (in memory check)
+      // Exclude the user currently being edited (identified by excludeId)
       const existingUser = users.find(user =>
-        user.email.toLowerCase() === email.toLowerCase()
+        user.email.toLowerCase() === email.toLowerCase() &&
+        (!excludeId || (user._id !== excludeId && (user as any).userId !== excludeId))
       );
 
       if (existingUser) {
@@ -2350,10 +2364,11 @@ const ManageUsers: React.FC = () => {
         try {
           const response = await schoolUserAPI.getAllUsers(schoolCode, token);
 
-          // Check across all users in the response
+          // Check across all users in the response, excluding the current user being edited
           if (response.data && Array.isArray(response.data)) {
             const emailConflict = response.data.find((userData: any) =>
-              userData.email && userData.email.toLowerCase() === email.toLowerCase()
+              userData.email && userData.email.toLowerCase() === email.toLowerCase() &&
+              (!excludeId || (userData._id !== excludeId && userData.userId !== excludeId))
             );
 
             if (emailConflict) {
@@ -3649,8 +3664,11 @@ const ManageUsers: React.FC = () => {
       setLoading(true);
 
       // Check if email is being changed and if it already exists
-      if (formData.email !== editingUser.email) {
-        const emailExists = await checkEmailExists(formData.email);
+      // Pass editingUser._id as excludeId so the user's own email doesn't block the save
+      const currentEmail = editingUser.email || '';
+      if (formData.email && formData.email.toLowerCase() !== currentEmail.toLowerCase() && formData.email !== 'No email') {
+        const excludeId = editingUser._id || (editingUser as any).userId;
+        const emailExists = await checkEmailExists(formData.email, excludeId);
         if (emailExists.exists) {
           toast.error(`Email already exists for ${emailExists.role}: ${emailExists.name}`);
           setLoading(false);
@@ -3886,7 +3904,9 @@ const ManageUsers: React.FC = () => {
       updateData.pinCode = formData.pinCode;
       updateData.district = formData.district;
 
-      console.log('Updating user with data:', updateData);
+      console.log('🔵 [handleUpdateUser] Sending update for user:', editingUser._id, '(', editingUser.role, ')');
+      console.log('🔵 [handleUpdateUser] email:', updateData.email, '| firstName:', updateData.firstName, '| class:', updateData.class);
+      console.log('🔵 [handleUpdateUser] Full updateData:', JSON.stringify(updateData).slice(0, 300));
 
       // Make API call to update user - use FormData if profile image is present
       if (profileImageFile) {
@@ -3934,12 +3954,45 @@ const ManageUsers: React.FC = () => {
       }
 
       toast.success('User updated successfully');
+
+      // Capture id before clearing state
+      const updatedId = editingUser._id || (editingUser as any).userId;
+
       setShowEditModal(false);
       setEditingUser(null);
       setProfileImageFile(null);
       setProfileImagePreview(null);
       resetForm();
-      fetchUsers();
+
+      // Optimistically update the local state so UI reflects changes immediately
+      setUsers(prevUsers => prevUsers.map(u => {
+        if (u._id === updatedId || (u as any).userId === updatedId) {
+          return {
+            ...u,
+            email: updateData.email || u.email,
+            name: updateData.firstName ? {
+              ...((u.name as any) || {}),
+              firstName: updateData.firstName,
+              middleName: updateData.middleName || (u.name as any)?.middleName || '',
+              lastName: updateData.lastName || (u.name as any)?.lastName || '',
+              displayName: `${updateData.firstName} ${updateData.lastName || ''}`.trim()
+            } : u.name,
+            phone: updateData.primaryPhone || updateData.phone || u.phone,
+            studentDetails: u.studentDetails ? {
+              ...u.studentDetails,
+              academic: {
+                ...(u.studentDetails as any).academic,
+                currentClass: updateData.class || (u.studentDetails as any).academic?.currentClass,
+                currentSection: updateData.section || (u.studentDetails as any).academic?.currentSection,
+              }
+            } : u.studentDetails
+          };
+        }
+        return u;
+      }));
+
+      // Also re-fetch from backend to sync
+      await fetchUsers();
     } catch (error: any) {
       console.error('Error updating user:', error);
       toast.error(error.response?.data?.message || 'Failed to update user');
@@ -6144,7 +6197,7 @@ const ManageUsers: React.FC = () => {
   };
   const itemVariants = {
     hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
+    visible: { opacity: 1, y: 0, transition: { type: 'spring' as const, stiffness: 300, damping: 24 } }
   };
 
   return (
@@ -6158,8 +6211,8 @@ const ManageUsers: React.FC = () => {
           </div>
         )}
 
-        {/* Header & Tabs - Sticky */}
-        <div className="sticky top-[72px] z-20 flex flex-col gap-6 pt-4 pb-2 -mt-4 bg-[#f8fafc]">
+        {/* Header & Tabs */}
+        <div className="flex flex-col gap-6 pt-4 pb-2 -mt-4 bg-[#f8fafc]">
           <motion.div variants={itemVariants} className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sm:p-8 relative overflow-hidden mx-2 sm:mx-0">
             <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50 rounded-full blur-3xl opacity-60 -mr-20 -mt-20 pointer-events-none"></div>
             <div className="flex justify-between items-center relative z-10">
@@ -6245,7 +6298,7 @@ const ManageUsers: React.FC = () => {
         </div>
 
           {/* Controls */}
-          <div className="flex flex-col md:flex-row gap-4 items-center justify-between mb-4">
+          <div className="flex flex-col md:flex-row gap-4 items-center justify-between sticky top-[72px] z-[40] pt-4 pb-4 -mt-4 mb-0 bg-slate-50 border-b border-slate-200/50 shadow-[0_10px_15px_-3px_rgba(248,250,252,1),0_4px_6px_-2px_rgba(0,0,0,0.05)]">
             <div className="flex flex-col md:flex-row gap-4 flex-1 w-full">
               <div className="relative flex-1 max-w-md group">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -6423,7 +6476,7 @@ const ManageUsers: React.FC = () => {
 
 
         {/* Users Display */}
-        <motion.div variants={itemVariants} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        <motion.div variants={itemVariants} className="bg-white rounded-2xl shadow-sm border border-slate-100">
           {activeTab === 'student' && viewMode === 'hierarchy' ? (
             /* Hierarchical Student View */
             <div className="p-6">
@@ -6543,9 +6596,9 @@ const ManageUsers: React.FC = () => {
             </div>
           ) : (
             /* Table View */
-            <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-320px)] border border-slate-100 shadow-sm sm:rounded-2xl custom-scrollbar" style={{ scrollBehavior: 'smooth' }}>
+            <div className="overflow-x-auto lg:overflow-visible border border-slate-100 shadow-sm sm:rounded-2xl no-scrollbar" style={{ scrollBehavior: 'smooth' }}>
               <table className="min-w-full divide-y divide-slate-100">
-                <thead className="bg-slate-50/80 backdrop-blur-md sticky top-0 z-10 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+                <thead className="bg-slate-50 sticky top-0 lg:top-[144px] z-20 shadow-sm border-b border-slate-200">
                   <tr>
                     <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">Photo</th>
                     <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">User</th>
@@ -6622,8 +6675,8 @@ const ManageUsers: React.FC = () => {
                                   }}
                                 />
                               ) : (
-                                <div className="h-10 w-10 rounded-full bg-indigo-50 flex items-center justify-center shadow-inner border border-indigo-100/50">
-                                  <span className="text-sm font-bold text-indigo-600">{initials}</span>
+                                <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-indigo-100 to-purple-50 flex items-center justify-center shadow-sm border border-indigo-200/50">
+                                  <span className="text-sm font-bold text-indigo-700">{initials}</span>
                                 </div>
                               )}
                             </div>
@@ -6671,12 +6724,12 @@ const ManageUsers: React.FC = () => {
                               {/* Password Column - Access user.temporaryPassword directly */}
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                 <div className="flex items-center space-x-1">
-                                  {(user as any).temporaryPassword ? (
+                                  {((user as any).temporaryPassword || (user as any).hasTemporaryPassword) ? (
                                     <>
                                       {/* Display Password with Show/Hide */}
                                       <span className="flex-grow font-mono text-xs text-gray-700">
                                         {passwordVisibility[user.userId || user._id]
-                                          ? (user as any).temporaryPassword
+                                          ? (user as any).temporaryPassword || '********'
                                           : '********'
                                         }
                                       </span>
@@ -6717,25 +6770,23 @@ const ManageUsers: React.FC = () => {
                             </>
                           )}
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold shadow-sm ${user.isActive ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60' : 'bg-rose-50 text-rose-700 border border-rose-200/60'}`}>
                               {user.isActive ? (
-                                <UserCheck className="h-4 w-4 text-green-500 mr-1" />
+                                <UserCheck className="h-3.5 w-3.5" />
                               ) : (
-                                <UserX className="h-4 w-4 text-red-500 mr-1" />
+                                <UserX className="h-3.5 w-3.5" />
                               )}
-                              <span className={`text-sm ${user.isActive ? 'text-green-700' : 'text-red-700'}`}>
-                                {user.isActive ? 'Active' : 'Inactive'}
-                              </span>
-                            </div>
+                              {user.isActive ? 'Active' : 'Inactive'}
+                            </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {new Date(user.createdAt).toLocaleDateString()}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <div className="flex space-x-2">
+                            <div className="flex items-center space-x-2">
                               <button
                                 onClick={() => handleEditClick(user)}
-                                className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
+                                className="text-slate-400 hover:text-indigo-600 p-1.5 rounded-lg hover:bg-indigo-50 transition-colors shadow-sm border border-transparent hover:border-indigo-100"
                                 title="Edit User"
                               >
                                 <Edit className="h-4 w-4" />
@@ -6744,14 +6795,13 @@ const ManageUsers: React.FC = () => {
                               {activeTab === 'teacher' && (
                                 <button
                                   onClick={() => {
-                                    console.log('Change password clicked for:', user.userId, user.email);
                                     handleOpenChangePassword(
                                       user.userId || user._id,
                                       (user as any).name?.displayName || (user as any).name || 'User',
                                       user.email
                                     );
                                   }}
-                                  className="text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-50"
+                                  className="text-slate-400 hover:text-emerald-600 p-1.5 rounded-lg hover:bg-emerald-50 transition-colors shadow-sm border border-transparent hover:border-emerald-100"
                                   title="Change Password (Set New Password)"
                                 >
                                   <KeyRound className="h-4 w-4" />
@@ -6760,7 +6810,7 @@ const ManageUsers: React.FC = () => {
                               {/* Delete button - prevent self-deletion */}
                               <button
                                 onClick={() => handleDeleteUser(user._id, (user.name as any)?.displayName || (user.name as any)?.firstName || `User ${user._id}`)}
-                                className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition-colors shadow-sm border border-transparent hover:border-rose-100 disabled:opacity-50 disabled:cursor-not-allowed"
                                 title="Delete User"
                                 disabled={false} // Temporarily allow all deletions for testing
                               >

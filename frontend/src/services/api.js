@@ -144,6 +144,8 @@ export const schoolAPI = {
   getSchoolStats: (schoolId) => api.get(`/schools/${schoolId}/stats`),
   getAllSchoolsStats: () => api.get('/schools/all-stats'),
   toggleSchoolStatus: (schoolId) => api.patch(`/schools/${schoolId}/toggle-status`),
+  // School name, principal name/contact/email for the "Contact Info" page
+  getContactInfo: () => api.get('/schools/contact-info'),
 };
 
 // User Management APIs
