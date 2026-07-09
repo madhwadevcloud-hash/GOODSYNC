@@ -32,6 +32,7 @@ interface School {
 
 interface DisplayUser extends ApiUser {
   temporaryPassword?: string | null;
+  hasTemporaryPassword?: boolean;
   // Class/section should be provided top-level by the updated backend controller
   class?: string | null;
   section?: string | null;
@@ -1460,7 +1461,10 @@ const ManageUsers: React.FC = () => {
 
         // Update the users list with all fetched passwords
         setUsers(prevUsers => prevUsers.map(u => {
-          const fetchedTeacher = teachersWithPasswords.find((t: any) => t.userId === u.userId || t._id === u._id);
+          const fetchedTeacher = teachersWithPasswords.find((t: any) => 
+            (t.userId && u.userId && t.userId === u.userId) || 
+            (t._id && u._id && String(t._id) === String(u._id))
+          );
           if (fetchedTeacher) {
             return { ...u, temporaryPassword: fetchedTeacher.temporaryPassword };
           }
@@ -2114,6 +2118,7 @@ const ManageUsers: React.FC = () => {
               role: userData.role,
               phone: userData.contact?.primaryPhone || userData.contact?.phone || userData.phone,
               temporaryPassword: userData.temporaryPassword || userData.tempPassword || null,
+              hasTemporaryPassword: userData.hasTemporaryPassword || !!userData.temporaryPassword || false,
               address: userData.address,
               isActive: userData.isActive !== false,
               createdAt: userData.createdAt || new Date().toISOString(),
@@ -2195,6 +2200,7 @@ const ManageUsers: React.FC = () => {
                   role: role,
                   phone: userData.contact?.primaryPhone || userData.contact?.phone || userData.phone,
                   temporaryPassword: userData.temporaryPassword || userData.tempPassword || null,
+                  hasTemporaryPassword: userData.hasTemporaryPassword || !!userData.temporaryPassword || false,
                   address: userData.address?.permanent?.street || userData.address?.street || userData.address,
                   profileImage: userData.profileImage || userData.profilePicture || null, // 💡 FIX 2b: Map profileImage here (grouped response)
                   isActive: userData.isActive !== false,

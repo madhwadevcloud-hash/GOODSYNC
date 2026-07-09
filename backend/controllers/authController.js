@@ -248,78 +248,52 @@ exports.forgotPassword = async (req, res) => {
       });
     }
 
-    if (user.role === 'student') {
-      // --- Student Reset Logic (from main branch) ---
-      if (!user.email) {
-        return res.status(200).json({
-          success: true,
-          message: "If the account exists, a password reset link has been sent."
-        });
-      }
+    const allowedRoles = ['admin', 'teacher', 'student', 'parent'];
+    if (!allowedRoles.includes(user.role)) {
+      return res.status(403).json({ success: false, message: 'Password reset is not supported for this role.' });
+    }
 
-      // Remove previous unused tokens
-      await PasswordResetToken.deleteMany({
-        studentId: user.userId,
-        used: false
-      });
-
-      const rawToken = crypto.randomBytes(32).toString("hex");
-
-      await PasswordResetToken.create({
-        studentId: user.userId,
-        schoolCode: schoolCode.toUpperCase(),
-        token: rawToken,
-        expiresAt: new Date(Date.now() + 30 * 60 * 1000),
-        used: false
-      });
-
-      const resetLink = `${process.env.FRONTEND_URL}/student/reset-password?token=${rawToken}`;
-
-      await sendPasswordResetEmail({
-        to: user.email,
-        name: user.name?.displayName || user.name?.firstName || user.userId,
-        resetLink
-      });
-
+    if (!user.email) {
       return res.status(200).json({
         success: true,
         message: "If the account exists, a password reset link has been sent."
       });
-
-    } else if (user.role === 'admin') {
-      // --- Admin Reset Logic (from our branch) ---
-      const resetToken = crypto.randomBytes(20).toString('hex');
-      const resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
-      const resetPasswordExpire = Date.now() + 10 * 60 * 1000;
-      
-      const connection = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
-      const collectionName = user.collection || 'admins';
-      await connection.collection(collectionName).updateOne(
-         { _id: user._id },
-         { $set: { resetPasswordToken, resetPasswordExpire } }
-      );
-
-      const frontendUrl = process.env.FRONTEND_URL || req.headers.origin || 'http://localhost:5173';
-      const resetUrl = `${frontendUrl}/reset-password/${resetToken}`;
-      
-      const message = `
-        <h1>You have requested a password reset</h1>
-        <p>Please go to this link to reset your password:</p>
-        <a href="${resetUrl}" clicktracking="off">${resetUrl}</a>
-        <br/><br/>
-        <p>If you did not request this, please ignore this email.</p>
-      `;
-
-      await sendEmail({
-        email: user.email,
-        subject: 'Goodsync ERP Password Reset',
-        html: message
-      });
-
-      return res.status(200).json({ success: true, message: 'Email sent' });
-    } else {
-      return res.status(403).json({ success: false, message: 'Password reset is not supported for this role.' });
     }
+
+    // --- Unified Reset Link Generation ---
+    const resetToken = crypto.randomBytes(20).toString('hex');
+    const resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+    const resetPasswordExpire = Date.now() + 10 * 60 * 1000;
+    
+    const connection = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
+    const collectionName = user.collection || 
+      (user.role === 'teacher' ? 'teachers' : 
+       user.role === 'student' ? 'students' : 
+       user.role === 'parent' ? 'parents' : 'admins');
+
+    await connection.collection(collectionName).updateOne(
+       { _id: user._id },
+       { $set: { resetPasswordToken, resetPasswordExpire } }
+    );
+
+    const frontendUrl = process.env.FRONTEND_URL || req.headers.origin || 'http://localhost:5173';
+    const resetUrl = `${frontendUrl}/reset-password/${resetToken}`;
+    
+    const message = `
+      <h1>You have requested a password reset</h1>
+      <p>Please go to this link to reset your password:</p>
+      <a href="${resetUrl}" clicktracking="off">${resetUrl}</a>
+      <br/><br/>
+      <p>If you did not request this, please ignore this email.</p>
+    `;
+
+    await sendEmail({
+      email: user.email,
+      subject: 'Goodsync ERP Password Reset',
+      html: message
+    });
+
+    return res.status(200).json({ success: true, message: 'If the account exists, a password reset link has been sent.' });
 
   } catch (err) {
     console.error("[FORGOT PASSWORD ERROR]", err);
@@ -385,15 +359,15 @@ exports.resetPassword = async (req, res) => {
       });
     }
 
-    // --- Otherwise, try Admin Reset Logic (from our branch) ---
+    // --- Otherwise, try database-backed Reset Logic (from our branch) ---
     if (!schoolCode) {
-      return res.status(400).json({ success: false, message: "School code is required for admin reset." });
+      return res.status(400).json({ success: false, message: "School code is required for password reset." });
     }
 
     const resetPasswordToken = crypto.createHash('sha256').update(token).digest('hex');
     const connection = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
-    const collections = ['admins', 'users'];
-    let adminUser;
+    const collections = ['admins', 'teachers', 'students', 'parents', 'users'];
+    let matchedUser;
 
     for (const coll of collections) {
        const found = await connection.collection(coll).findOne({
@@ -401,29 +375,42 @@ exports.resetPassword = async (req, res) => {
           resetPasswordExpire: { $gt: Date.now() }
        });
        if (found) {
-          adminUser = found;
-          adminUser.collection = coll;
+          matchedUser = found;
+          matchedUser.collection = coll;
           break;
        }
     }
 
-    if (!adminUser) {
+    if (!matchedUser) {
       return res.status(400).json({ success: false, message: 'Invalid or expired token' });
     }
 
-    if (adminUser.role !== 'admin') {
-      return res.status(403).json({ success: false, message: 'Password reset is only available for admins.' });
+    const allowedRoles = ['admin', 'teacher', 'student', 'parent'];
+    if (!allowedRoles.includes(matchedUser.role)) {
+      return res.status(403).json({ success: false, message: 'Password reset is not supported for this role.' });
     }
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
     
-    const collectionName = adminUser.collection || 'admins';
+    const collectionName = matchedUser.collection || 
+      (matchedUser.role === 'teacher' ? 'teachers' : 
+       matchedUser.role === 'student' ? 'students' : 
+       matchedUser.role === 'parent' ? 'parents' : 'admins');
+
     await connection.collection(collectionName).updateOne(
-       { _id: adminUser._id },
+       { _id: matchedUser._id },
        { 
-          $set: { password: hashedPassword },
-          $unset: { resetPasswordToken: "", resetPasswordExpire: "" }
+          $set: { 
+            password: hashedPassword,
+            passwordChangeRequired: false,
+            updatedAt: new Date()
+          },
+          $unset: { 
+            resetPasswordToken: "", 
+            resetPasswordExpire: "",
+            temporaryPassword: ""
+          }
        }
     );
 
