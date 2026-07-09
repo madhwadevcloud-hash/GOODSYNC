@@ -1,3 +1,5 @@
+import { Address } from './index';
+
 export type SchoolUserRole = 'admin' | 'teacher' | 'student' | 'parent';
 
 export interface User {
@@ -68,7 +70,7 @@ export interface School {
   name: string;
   schoolType?: string;
   code?: string;
-  address?: string;
+  address?: string | Address;
   city?: string;
   state?: string;
   pinCode?: string;
@@ -90,4 +92,9 @@ export interface School {
   affiliationBoard?: string;
   website?: string;
   secondaryContact?: string;
+  contact?: {
+    phone: string;
+    email: string;
+    website?: string;
+  };
 }

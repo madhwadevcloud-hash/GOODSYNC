@@ -224,7 +224,7 @@ const CalendarPage: React.FC = () => {
           key={day.toString()}
           onClick={() => onDateClick(cloneDay)}
           className={`
-            relative min-h-[100px] sm:min-h-[120px] p-1 sm:p-2 border-r border-b border-slate-100 transition-all duration-200 cursor-pointer group flex flex-col
+            relative min-h-[90px] sm:min-h-[110px] p-1 sm:p-2 border-r border-b border-slate-100 transition-all duration-200 cursor-pointer group flex flex-col
             ${!isCurrentMonth ? 'bg-slate-50/50 text-slate-400' : 'bg-white text-slate-700'}
             ${isSelected ? 'ring-2 ring-indigo-500 ring-inset bg-indigo-50/10 z-10' : 'hover:bg-slate-50'}
             ${i === 0 ? 'border-l' : ''}
@@ -232,7 +232,10 @@ const CalendarPage: React.FC = () => {
         >
           <div className="flex justify-between items-start mb-1">
             <span className={`
-              text-xs sm:text-sm font-semibold h-6 w-6 sm:h-7 sm:w-7 flex items-center justify-center rounded-full
+              font-bold flex items-center justify-center rounded-full transition-all duration-300
+              ${dayEvents.length === 0 
+                ? 'text-base sm:text-xl md:text-2xl h-8 w-8 sm:h-10 sm:w-10 text-slate-800' 
+                : 'text-xs sm:text-sm h-6 w-6 sm:h-7 sm:w-7'}
               ${isTodayDate ? 'bg-indigo-600 text-white shadow-sm' : ''}
               ${!isTodayDate && isSelected ? 'bg-indigo-100 text-indigo-700' : ''}
             `}>
@@ -249,7 +252,7 @@ const CalendarPage: React.FC = () => {
             {dayEvents.map(event => (
               <div 
                 key={event._id || event.title}
-                className={`text-[9px] sm:text-[11px] leading-tight px-1 sm:px-1.5 py-0.5 sm:py-1 rounded border truncate font-medium flex items-center gap-1 sm:gap-1.5 ${getTypeColor(event.type)}`}
+                className={`text-[12px] sm:text-[14px] leading-tight px-1.5 sm:px-2 py-1 sm:py-1.5 rounded-md border truncate font-bold flex items-center gap-1.5 sm:gap-2 shadow-sm ${getTypeColor(event.type)}`}
               >
                 <span className={`w-1.5 h-1.5 rounded-full hidden sm:block ${getBadgeColor(event.type)} shrink-0`}></span>
                 <span className="truncate">{event.title}</span>
