@@ -14,7 +14,27 @@ interface Student {
   class: string;
   section: string;
   rollNumber?: string;
+  academicYear?: string;
+  academicInfo?: {
+    class?: string;
+    section?: string;
+    academicYear?: string;
+    rollNumber?: string;
+  };
+  studentDetails?: {
+    class?: string;
+    section?: string;
+    academicYear?: string;
+    rollNumber?: string;
+    academic?: {
+      currentClass?: string;
+      currentSection?: string;
+      academicYear?: string;
+      rollNumber?: string;
+    };
+  };
 }
+
 
 interface AttendanceRecord {
   studentId: string;

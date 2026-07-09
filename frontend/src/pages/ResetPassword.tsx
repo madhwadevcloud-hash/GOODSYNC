@@ -14,7 +14,7 @@ export default function ResetPassword() {
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [schoolCode, setSchoolCode] = useState("");
+  const [schoolCode, setSchoolCode] = useState(searchParams.get("schoolCode") || "");
   const [showPass, setShowPass] = useState(false);
   const [showConfirmPass, setShowConfirmPass] = useState(false);
   
