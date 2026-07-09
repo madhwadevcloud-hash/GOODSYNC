@@ -1091,7 +1091,7 @@ exports.getResults = async (req, res) => {
       console.log(`🔍 [RESULTS] Looking for school with code: ${schoolCode}`);
       try {
         const School = require('../models/School');
-        const school = await School.findOne({ code: { $regex: new RegExp(`^${schoolCode}$`, 'i') } });
+        const school = await School.findOne({ code: schoolCode.toUpperCase() }).lean();
         
         if (school && school.settings && school.settings.academicYear && school.settings.academicYear.currentYear) {
           yearToFilter = school.settings.academicYear.currentYear;
@@ -1342,7 +1342,7 @@ exports.getMyResults = async (req, res) => {
     let yearToFilter;
     try {
       const School = require('../models/School');
-      const school = await School.findOne({ code: { $regex: new RegExp(`^${schoolCode}$`, 'i') } });
+      const school = await School.findOne({ code: schoolCode.toUpperCase() }).lean();
       yearToFilter = school?.settings?.academicYear?.currentYear;
     } catch (e) {
       // ignore, fall back below
@@ -1780,7 +1780,7 @@ exports.getResultsForTeacher = async (req, res) => {
       console.log(`🔍 [👨‍🏫 TEACHER] Looking for school with code: ${schoolCode}`);
       try {
         const School = require('../models/School');
-        const school = await School.findOne({ code: { $regex: new RegExp(`^${schoolCode}$`, 'i') } });
+        const school = await School.findOne({ code: schoolCode.toUpperCase() }).lean();
         
         if (school && school.settings && school.settings.academicYear && school.settings.academicYear.currentYear) {
           yearToFilter = school.settings.academicYear.currentYear;

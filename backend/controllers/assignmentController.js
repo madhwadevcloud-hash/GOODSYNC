@@ -72,8 +72,8 @@ exports.createAssignment = async (req, res) => {
     schoolCode = schoolCode.toLowerCase();
     console.log(`[ASSIGNMENT] Normalized school code to: ${schoolCode}`);
 
-    // Find the school in the main database to get its ObjectId (case-insensitive)
-    const school = await School.findOne({ code: { $regex: new RegExp(`^${schoolCode}$`, 'i') } });
+    // Find the school in the main database using exact match on unique uppercase code index
+    const school = await School.findOne({ code: schoolCode.toUpperCase() }).lean();
     if (!school) {
       return res.status(404).json({ message: `School not found with code ${schoolCode}` });
     }
@@ -449,7 +449,7 @@ exports.getAssignments = async (req, res) => {
 
     // Get school's current academic year if not provided
     const School = require('../models/School');
-    const school = await School.findOne({ code: { $regex: new RegExp(`^${schoolCode}$`, 'i') } });
+    const school = await School.findOne({ code: schoolCode.toUpperCase() }).lean();
     const currentAcademicYear = school?.settings?.academicYear?.currentYear || `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`;
     console.log(`[GET ASSIGNMENTS] School's current academic year: ${currentAcademicYear}`);
 

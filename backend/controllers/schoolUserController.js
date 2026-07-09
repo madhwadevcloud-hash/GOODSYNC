@@ -1084,6 +1084,7 @@ exports.verifyAdminAndGetPasswords = async (req, res) => {
       return res.json({
         success: true,
         data: {
+          _id: teacher._id?.toString?.() || teacher._id,
           userId: teacher.userId,
           email: teacher.email,
           name: teacher.name?.displayName || `${teacher.name?.firstName} ${teacher.name?.lastName}`,
@@ -1096,6 +1097,7 @@ exports.verifyAdminAndGetPasswords = async (req, res) => {
     const teachers = await UserGenerator.getUsersByRole(schoolCode, 'teacher');
 
     const teacherPasswords = teachers.map(teacher => ({
+      _id: teacher._id?.toString?.() || teacher._id,
       userId: teacher.userId,
       email: teacher.email,
       name: teacher.name?.displayName || `${teacher.name?.firstName} ${teacher.name?.lastName}`,

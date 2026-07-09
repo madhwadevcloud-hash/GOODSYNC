@@ -23,7 +23,6 @@ import {
   FileText,
   CalendarDays,
   CalendarClock,
-  ShieldCheck,
   Bell
 } from 'lucide-react';
 import { useAuth } from '../../../auth/AuthContext';
@@ -40,6 +39,7 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, logout } = useAuth();
   const { hasPermission, showPermissionDenied, setShowPermissionDenied, deniedPermissionName, checkAndNavigate } = usePermissions();
   const [schoolDetails, setSchoolDetails] = useState<any>(null);
+  const [schoolLoading, setSchoolLoading] = useState(true);
 
   useEffect(() => {
     const fetchSchool = async () => {
@@ -48,10 +48,14 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         setSchoolDetails(response.data?.data || response.data);
       } catch (err) {
         console.error('Failed to fetch school info for header', err);
+      } finally {
+        setSchoolLoading(false);
       }
     };
     if (user?.schoolCode || user?.schoolId) {
       fetchSchool();
+    } else {
+      setSchoolLoading(false);
     }
   }, [user?.schoolCode, user?.schoolId]);
 
@@ -82,8 +86,7 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     { name: 'Attendance', href: '/admin/attendance', icon: UserCheck },
     { name: 'Assignments', href: '/admin/assignments', icon: BookOpen },
     { name: 'Results', href: '/admin/results', icon: BarChart3 },
-    { name: 'Teacher Assignments', href: '/admin/teacher-assignments', icon: UserCheck },
-    { name: 'Academic Calendar', href: '/admin/calendar', icon: CalendarDays },
+    { name: 'Assign Teacher', href: '/admin/teacher-assignments', icon: UserCheck }, { name: 'Academic Calendar', href: '/admin/calendar', icon: CalendarDays },
     { name: 'Leave Management', href: '/admin/leave-management', icon: CalendarClock },
     { name: 'Messages', href: '/admin/messages', icon: MessageSquare },
     { name: 'Fees', href: '/admin/fees/structure', icon: CreditCard },
@@ -97,28 +100,33 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       {/* Sidebar */}
       <div className="w-[280px] bg-white border-r border-slate-200 hidden lg:flex flex-col justify-between h-screen sticky top-0 overflow-hidden text-slate-700">
         <div className="flex flex-col h-full overflow-y-auto overflow-x-hidden no-scrollbar">
-          <div className="py-5 px-5 flex flex-col justify-center border-b border-slate-100 shrink-0 bg-gradient-to-b from-indigo-50/30 to-white relative overflow-hidden">
+          <div className="h-[72px] px-5 flex items-center border-b border-slate-100 shrink-0 bg-gradient-to-b from-indigo-50/30 to-white relative overflow-hidden">
             <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-100 rounded-full blur-3xl opacity-50 -mr-10 -mt-10 pointer-events-none"></div>
-            <div className="flex items-center justify-center gap-3 relative z-10 w-full">
-              <div className="flex items-center justify-center gap-2">
-                <ShieldCheck className="h-6 w-6 text-indigo-600 mb-0.5" strokeWidth={2.5} />
-                <h2 className="text-lg font-bold text-gray-900 tracking-tight">Admin Portal</h2>
+            <div className="flex items-center gap-3 min-w-0 relative z-10">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center flex-shrink-0">
+                <span className="text-white font-bold text-sm">
+                  {user?.name ? user.name.substring(0, 2).toUpperCase() : 'AD'}
+                </span>
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-gray-900 truncate">{user?.name || 'Admin'}</p>
+                <p className="text-xs text-gray-500 truncate">{user?.userId || user?.email || 'Admin'}</p>
               </div>
             </div>
           </div>
-          <nav className="mt-6 px-4 space-y-2 flex-1 pb-4">
+          <nav className="flex-1 px-4 pt-1 pb-6 space-y-1">
             {navigation.map((item) => {
               const active = isActive(item.href);
               return (
                 <Link
                   key={item.name}
                   to={item.href}
-                  className={`flex items-center px-4 py-3 text-[15px] font-semibold rounded-xl transition-all duration-200 ${active
+                  className={`flex items-center px-3 py-2.5 text-[15px] font-semibold rounded-xl transition-all duration-200 ${active
                       ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
                       : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                     }`}
                 >
-                  <item.icon className={`mr-4 h-[22px] w-[22px] ${active ? 'text-white' : 'text-slate-500'}`} strokeWidth={active ? 2.5 : 2} />
+                  <item.icon className={`mr-3 h-5 w-5 ${active ? 'text-white' : 'text-slate-500'}`} strokeWidth={active ? 2.5 : 2} />
                   {item.name}
                 </Link>
               );
@@ -127,11 +135,11 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         </div>
 
         <div className="shrink-0 bg-white border-t border-slate-100 z-10">
-          <div className="px-4 py-3 text-center border-b border-gray-100">
+          <div className="px-4 py-2 text-center border-b border-gray-100">
             <p className="text-[11px] text-gray-400 font-medium">Powered by <span className="text-violet-500 font-semibold">GoodSync ERP</span></p>
           </div>
 
-          <div className="px-4 py-4 border-t border-gray-100 shrink-0">
+          <div className="px-4 pt-2 pb-3 border-t border-gray-100 shrink-0">
             <div className="flex flex-col gap-2">
               <button
                 onClick={handleLogout}
@@ -141,17 +149,6 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 <LogOut className="h-5 w-5 mr-3" />
                 Logout
               </button>
-              <div className="flex items-center min-w-0 rounded-xl bg-gray-50 px-2.5 py-2 border border-slate-100/50">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center mr-3 flex-shrink-0">
-                  <span className="text-white font-bold text-sm">
-                    {user?.name ? user.name.substring(0, 2).toUpperCase() : 'AD'}
-                  </span>
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{user?.name || 'Admin'}</p>
-                  <p className="text-xs text-gray-500 truncate">{user?.userId || user?.email || 'Admin Portal'}</p>
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -166,19 +163,26 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           }`}
       >
         <div className="flex flex-col h-full overflow-y-auto overflow-x-hidden no-scrollbar">
-          <div className="py-4 px-5 flex items-center justify-between border-b border-slate-100 shrink-0 bg-gradient-to-b from-indigo-50/30 to-white">
-            <div className="flex items-center gap-2.5">
-              <ShieldCheck className="h-5 w-5 text-indigo-600" strokeWidth={2.5} />
-              <h2 className="text-lg font-bold text-gray-900 tracking-tight mt-0.5">Admin Portal</h2>
+          <div className="h-[72px] px-5 flex items-center justify-between border-b border-slate-100 shrink-0 bg-gradient-to-b from-indigo-50/30 to-white">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center flex-shrink-0">
+                <span className="text-white font-bold text-sm">
+                  {user?.name ? user.name.substring(0, 2).toUpperCase() : 'AD'}
+                </span>
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-gray-900 truncate">{user?.name || 'Admin'}</p>
+                <p className="text-xs text-gray-500 truncate">{user?.userId || user?.email || 'Admin'}</p>
+              </div>
             </div>
             <button
               onClick={() => setSidebarOpen(false)}
-              className="text-slate-400 hover:bg-slate-100 hover:text-slate-600 p-2 rounded-xl transition-colors"
+              className="text-slate-400 hover:bg-slate-100 hover:text-slate-600 p-2 rounded-xl transition-colors flex-shrink-0"
             >
               <X className="h-5 w-5" />
             </button>
           </div>
-          <nav className="mt-4 px-4 space-y-2 flex-1 pb-4">
+          <nav className="flex-1 px-4 pt-1 pb-6 space-y-1">
             {navigation.map((item) => {
               const active = isActive(item.href);
               return (
@@ -186,12 +190,12 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                   key={item.name}
                   to={item.href}
                   onClick={() => setSidebarOpen(false)}
-                  className={`flex items-center px-4 py-3 text-[15px] font-semibold rounded-xl transition-all duration-200 ${active
+                  className={`flex items-center px-3 py-2.5 text-[15px] font-semibold rounded-xl transition-all duration-200 ${active
                       ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
                       : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                     }`}
                 >
-                  <item.icon className={`mr-4 h-[22px] w-[22px] ${active ? 'text-white' : 'text-slate-500'}`} strokeWidth={active ? 2.5 : 2} />
+                  <item.icon className={`mr-3 h-5 w-5 ${active ? 'text-white' : 'text-slate-500'}`} strokeWidth={active ? 2.5 : 2} />
                   {item.name}
                 </Link>
               );
@@ -200,11 +204,11 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         </div>
 
         <div className="shrink-0 bg-white border-t border-slate-100 z-10">
-          <div className="px-4 py-3 text-center border-b border-gray-100">
+          <div className="px-4 py-2 text-center border-b border-gray-100">
             <p className="text-[11px] text-gray-400 font-medium">Powered by <span className="text-violet-500 font-semibold">GoodSync ERP</span></p>
           </div>
 
-          <div className="px-4 py-4 border-t border-gray-100 shrink-0">
+          <div className="px-4 pt-2 pb-3 border-t border-gray-100 shrink-0">
             <div className="flex flex-col gap-2">
               <button
                 onClick={handleLogout}
@@ -214,17 +218,6 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 <LogOut className="h-5 w-5 mr-3" />
                 Logout
               </button>
-              <div className="flex items-center min-w-0 rounded-xl bg-gray-50 px-2.5 py-2 border border-slate-100/50">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center mr-3 flex-shrink-0">
-                  <span className="text-white font-bold text-sm">
-                    {user?.name ? user.name.substring(0, 2).toUpperCase() : 'AD'}
-                  </span>
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{user?.name || 'Admin'}</p>
-                  <p className="text-xs text-gray-500 truncate">{user?.userId || user?.email || 'Admin Portal'}</p>
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -253,7 +246,9 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               {/* Left: School Details */}
               <div className={`flex items-center gap-3 group cursor-pointer rounded-xl hover:bg-slate-50/80 transition-all duration-500 ease-in-out overflow-hidden ${isSearchFocused ? 'max-w-0 opacity-0 invisible -translate-x-8 p-0 m-0' : 'max-w-2xl opacity-100 visible translate-x-0 p-1.5 -ml-1.5'}`}>
                 <div className="h-10 w-10 bg-white border border-indigo-100/80 rounded-xl hidden sm:flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:-rotate-3 group-hover:shadow-md group-hover:border-indigo-200 transition-all duration-300 ease-out overflow-hidden">
-                  {schoolDetails?.logoUrl ? (
+                  {schoolLoading ? (
+                    <div className="h-5 w-5 rounded bg-slate-200 animate-pulse" />
+                  ) : schoolDetails?.logoUrl ? (
                     <img 
                       src={getLogoUrl(schoolDetails.logoUrl)} 
                       alt="School Logo" 
@@ -264,23 +259,38 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                   )}
                 </div>
                 <div className="flex flex-col justify-center min-w-0 shrink-0">
-                  <h2 className="text-[15px] font-bold text-slate-800 leading-tight truncate group-hover:text-indigo-700 transition-colors duration-300 whitespace-nowrap">
-                    {user?.schoolName || 'Vidyaniketan High School'}
-                  </h2>
-                  <div className="flex items-center text-[11px] font-medium text-slate-500 gap-3 mt-0.5 truncate hidden md:flex whitespace-nowrap">
-                    <span 
-                      className="flex items-center gap-1 hover:text-indigo-600 transition-colors cursor-default"
-                      title={schoolDetails?.address?.fullAddress || [schoolDetails?.address?.street, schoolDetails?.address?.area, schoolDetails?.address?.city].filter(Boolean).join(', ')}
-                    >
-                      <MapPin className="h-3 w-3" /> {schoolDetails?.address?.fullAddress || [schoolDetails?.address?.street, schoolDetails?.address?.area, schoolDetails?.address?.city].filter(Boolean).join(', ') || '123 Education Lane, City'}
-                    </span>
-                    <span className="flex items-center gap-1 hidden lg:flex hover:text-indigo-600 transition-colors cursor-default">
-                      <Phone className="h-3 w-3" /> {schoolDetails?.contact?.phone || schoolDetails?.mobile || '+91 98765 43210'}
-                    </span>
-                    <span className="flex items-center gap-1 hidden xl:flex hover:text-indigo-600 transition-colors cursor-default">
-                      <Mail className="h-3 w-3" /> {schoolDetails?.contact?.email || 'contact@school.edu'}
-                    </span>
-                  </div>
+                  {schoolLoading ? (
+                    <>
+                      <div className="h-4 w-32 rounded bg-slate-200 animate-pulse" />
+                      <div className="h-3 w-48 rounded bg-slate-100 animate-pulse mt-1.5 hidden md:block" />
+                    </>
+                  ) : (
+                    <>
+                      <h2 className="text-[15px] font-bold text-slate-800 leading-tight truncate group-hover:text-indigo-700 transition-colors duration-300 whitespace-nowrap">
+                        {schoolDetails?.name || user?.schoolName || 'Vidyaniketan High School'}
+                      </h2>
+                      <div className="flex items-center text-[11px] font-medium text-slate-500 gap-3 mt-0.5 truncate hidden md:flex whitespace-nowrap">
+                        {(schoolDetails?.address?.fullAddress || [schoolDetails?.address?.street, schoolDetails?.address?.area, schoolDetails?.address?.city].filter(Boolean).join(', ')) && (
+                          <span 
+                            className="flex items-center gap-1 hover:text-indigo-600 transition-colors cursor-default"
+                            title={schoolDetails?.address?.fullAddress || [schoolDetails?.address?.street, schoolDetails?.address?.area, schoolDetails?.address?.city].filter(Boolean).join(', ')}
+                          >
+                            <MapPin className="h-3 w-3" /> {schoolDetails?.address?.fullAddress || [schoolDetails?.address?.street, schoolDetails?.address?.area, schoolDetails?.address?.city].filter(Boolean).join(', ')}
+                          </span>
+                        )}
+                        {(schoolDetails?.contact?.phone || schoolDetails?.mobile) && (
+                          <span className="flex items-center gap-1 hidden lg:flex hover:text-indigo-600 transition-colors cursor-default">
+                            <Phone className="h-3 w-3" /> {schoolDetails?.contact?.phone || schoolDetails?.mobile}
+                          </span>
+                        )}
+                        {schoolDetails?.contact?.email && (
+                          <span className="flex items-center gap-1 hidden xl:flex hover:text-indigo-600 transition-colors cursor-default">
+                            <Mail className="h-3 w-3" /> {schoolDetails.contact.email}
+                          </span>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 

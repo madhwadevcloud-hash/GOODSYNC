@@ -3,7 +3,6 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
-  PartyPopper,
   Clock,
   MapPin,
   X,
@@ -137,45 +136,45 @@ export default function CalendarPage() {
   const getTypeColor = (type: EventType) => {
     switch (type) {
       case "holiday":
-        return "bg-red-50 text-red-700 border-red-200";
+        return "bg-red-100 text-red-700 border-red-200";
       case "exam":
-        return "bg-purple-50 text-purple-700 border-purple-200";
+        return "bg-purple-100 text-purple-700 border-purple-200";
       case "meeting":
-        return "bg-blue-50 text-blue-700 border-blue-200";
+        return "bg-blue-100 text-blue-700 border-blue-200";
       case "other":
-        return "bg-emerald-50 text-emerald-700 border-emerald-200";
+        return "bg-emerald-100 text-emerald-700 border-emerald-200";
       default:
-        return "bg-gray-50 text-gray-700 border-gray-200";
+        return "bg-gray-100 text-gray-700 border-gray-200";
     }
   };
 
   const getBadgeColor = (type: EventType) => {
     switch (type) {
       case "holiday":
-        return "bg-red-400";
+        return "bg-red-500";
       case "exam":
-        return "bg-purple-400";
+        return "bg-purple-500";
       case "meeting":
-        return "bg-blue-400";
+        return "bg-blue-500";
       case "other":
-        return "bg-emerald-400";
+        return "bg-emerald-500";
       default:
-        return "bg-gray-400";
+        return "bg-gray-500";
     }
   };
 
   const getBadgePill = (type: EventType) => {
     switch (type) {
       case "holiday":
-        return "bg-red-100 text-red-700";
+        return "bg-blue-100 text-blue-600";
       case "exam":
-        return "bg-purple-100 text-purple-700";
+        return "bg-purple-100 text-purple-600";
       case "meeting":
-        return "bg-blue-100 text-blue-700";
+        return "bg-emerald-100 text-emerald-600";
       case "other":
-        return "bg-emerald-100 text-emerald-700";
+        return "bg-gray-100 text-gray-600";
       default:
-        return "bg-gray-100 text-gray-700";
+        return "bg-gray-100 text-gray-600";
     }
   };
 
@@ -201,36 +200,38 @@ export default function CalendarPage() {
         <div
           key={day.toString()}
           onClick={() => onDateClick(cloneDay)}
-          className={`min-h-[90px] sm:min-h-[110px] p-1.5 sm:p-2 border-r border-b flex flex-col cursor-pointer transition ${
+          className={`relative min-h-[90px] sm:min-h-[110px] p-1 sm:p-2 border-r border-b border-slate-100 transition-all duration-200 cursor-pointer group flex flex-col ${
             !isCurrentMonth
-              ? "bg-gray-50/60 text-gray-400"
-              : "bg-white text-gray-700 hover:bg-blue-50/40"
-          } ${isSelected ? "ring-2 ring-blue-500 ring-inset bg-blue-50/40 z-10" : ""}`}
+              ? "bg-slate-50/50 text-slate-400"
+              : "bg-white text-slate-700"
+          } ${
+            isSelected
+              ? "ring-2 ring-blue-500 ring-inset bg-blue-50/10 z-10"
+              : "hover:bg-slate-50"
+          }`}
         >
-          <div className="flex items-center justify-between mb-1">
+          <div className="flex justify-between items-start mb-1">
             <span
-              className={`text-xs sm:text-sm font-medium h-6 w-6 sm:h-7 sm:w-7 flex items-center justify-center rounded-full ${
-                isTodayDate
-                  ? "bg-blue-600 text-white"
-                  : isSelected
-                  ? "bg-blue-100 text-blue-700"
-                  : ""
-              }`}
+              className={`
+                text-xs sm:text-sm font-semibold h-6 w-6 sm:h-7 sm:w-7 flex items-center justify-center rounded-full
+                ${isTodayDate ? "bg-blue-600 text-white shadow-sm" : ""}
+                ${!isTodayDate && isSelected ? "bg-blue-100 text-blue-700" : ""}
+              `}
             >
               {format(day, "d")}
             </span>
             {dayEvents.length > 0 && (
-              <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-md">
+              <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-md">
                 {dayEvents.length}
               </span>
             )}
           </div>
 
-          <div className="flex-1 space-y-1 overflow-hidden">
-            {dayEvents.slice(0, 2).map((event, idx) => (
+          <div className="flex-1 space-y-1.5 overflow-y-auto no-scrollbar mt-1">
+            {dayEvents.map((event, idx) => (
               <div
                 key={event._id || `${event.title}-${idx}`}
-                className={`text-[9px] sm:text-[11px] leading-tight px-1 sm:px-1.5 py-0.5 rounded border truncate font-medium flex items-center gap-1 ${getTypeColor(
+                className={`text-[12px] sm:text-[14px] leading-tight px-1.5 sm:px-2 py-1 sm:py-1.5 rounded-md border truncate font-bold flex items-center gap-1.5 sm:gap-2 shadow-sm ${getTypeColor(
                   event.type
                 )}`}
               >
@@ -242,11 +243,6 @@ export default function CalendarPage() {
                 <span className="truncate">{event.title}</span>
               </div>
             ))}
-            {dayEvents.length > 2 && (
-              <p className="text-[9px] sm:text-[10px] text-gray-400 font-medium pl-1">
-                +{dayEvents.length - 2} more
-              </p>
-            )}
           </div>
         </div>
       );
@@ -263,48 +259,51 @@ export default function CalendarPage() {
   const selectedDayEvents = selectedDate ? getEventsForDay(selectedDate) : [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative flex flex-col h-full min-h-[calc(100vh-120px)]">
       {/* Header */}
-      <div className="mb-2 rounded-2xl border border-gray-100 bg-white px-6 sm:px-8 py-6 shadow-sm">
-        <div className="flex items-center justify-between gap-4">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sm:p-8 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50 rounded-full blur-3xl opacity-60 -mr-20 -mt-20 pointer-events-none"></div>
+        <div className="absolute bottom-0 left-0 w-40 h-40 bg-blue-50 rounded-full blur-2xl opacity-60 -ml-10 -mb-10 pointer-events-none"></div>
+
+        <div className="flex items-center space-x-4 relative z-10">
+          <div className="bg-indigo-600 p-3 rounded-xl flex items-center justify-center shadow-sm">
+            <CalendarDays className="h-7 w-7 text-white" strokeWidth={2} />
+          </div>
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
               School Calendar
             </h1>
-
-            <p className="mt-2 text-sm text-gray-500">
+            <p className="text-sm font-medium text-slate-500 mt-1">
               View school holidays and important dates for the academic
               year.
             </p>
           </div>
-
-          <CalendarDays className="text-blue-600 flex-shrink-0" size={36} />
         </div>
       </div>
 
       {/* Month navigation */}
-      <div className="bg-white rounded-xl shadow-sm border p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
         <h2 className="text-lg sm:text-xl font-semibold text-gray-900 min-w-[160px] text-center sm:text-left">
           {format(currentDate, "MMMM yyyy")}
         </h2>
 
-        <div className="flex items-center bg-gray-50 rounded-lg p-1">
+        <div className="flex items-center bg-slate-100 rounded-lg p-1">
           <button
             onClick={prevMonth}
-            className="p-1.5 rounded-md text-gray-500 hover:bg-white hover:text-blue-600 hover:shadow-sm transition"
+            className="p-1.5 rounded-md hover:bg-white hover:shadow-sm text-slate-600 transition-all"
             aria-label="Previous month"
           >
             <ChevronLeft size={18} />
           </button>
           <button
             onClick={goToToday}
-            className="px-3 py-1.5 rounded-md text-sm font-semibold text-gray-700 hover:bg-white hover:text-blue-600 hover:shadow-sm transition"
+            className="px-3 py-1.5 rounded-md hover:bg-white hover:shadow-sm text-sm font-semibold text-slate-700 transition-all"
           >
             Today
           </button>
           <button
             onClick={nextMonth}
-            className="p-1.5 rounded-md text-gray-500 hover:bg-white hover:text-blue-600 hover:shadow-sm transition"
+            className="p-1.5 rounded-md hover:bg-white hover:shadow-sm text-slate-600 transition-all"
             aria-label="Next month"
           >
             <ChevronRight size={18} />
@@ -312,14 +311,14 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      <div className="flex flex-col xl:flex-row gap-6 flex-1">
         {/* Calendar Grid */}
-        <div className="xl:col-span-2 bg-white rounded-xl shadow-sm border overflow-hidden">
-          <div className="grid grid-cols-7 bg-gray-50 border-b">
+        <div className="flex-1 min-w-0 bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col">
+          <div className="grid grid-cols-7 bg-slate-50/80 border-b border-slate-100">
             {WEEKDAYS.map((d) => (
               <div
                 key={d}
-                className="py-3 text-center text-xs font-semibold text-gray-500 uppercase"
+                className="py-2 sm:py-3 text-center text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider"
               >
                 {d}
               </div>
@@ -327,46 +326,49 @@ export default function CalendarPage() {
           </div>
 
           {loading ? (
-            <div className="flex justify-center items-center h-80 text-gray-500 text-sm">
-              Loading calendar...
+            <div className="flex justify-center items-center h-80">
+              <div className="flex flex-col items-center gap-3 text-gray-400">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-blue-600" />
+                <p className="text-sm font-medium">Loading Calendar...</p>
+              </div>
             </div>
           ) : (
-            <div>{rows}</div>
+            <div className="border-t border-slate-100">{rows}</div>
           )}
         </div>
 
         {/* Upcoming Events */}
-        <div className="bg-white rounded-xl shadow-sm border">
-          <div className="px-6 py-4 border-b flex items-center gap-2">
-            <PartyPopper className="text-blue-600" size={20} />
-            <h2 className="text-xl font-semibold text-gray-900">
+        <div className="w-full xl:w-96 shrink-0 bg-white rounded-xl shadow-sm border border-slate-100 flex flex-col overflow-hidden">
+          <div className="p-4 border-b border-slate-100 flex items-center gap-2">
+            <span className="text-[18px]">🎉</span>
+            <h3 className="text-[16px] font-bold text-slate-800 tracking-wide">
               Upcoming Events
-            </h2>
+            </h3>
           </div>
 
           {upcomingEvents.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
-              No upcoming events scheduled yet.
+            <div className="flex flex-col items-center justify-center py-10 opacity-60">
+              <p className="text-slate-500 text-sm font-medium">No upcoming events.</p>
             </div>
           ) : (
-            <div className="divide-y">
+            <div className="flex-1 max-h-[600px] overflow-y-auto no-scrollbar flex flex-col divide-y divide-slate-100">
               {upcomingEvents.map((event, idx) => (
                 <div
                   key={`${event._id}-${idx}`}
                   onClick={() => onDateClick(new Date(event.date))}
-                  className="flex items-center justify-between px-6 py-4 cursor-pointer hover:bg-gray-50 transition"
+                  className="flex items-center justify-between p-4 cursor-pointer hover:bg-slate-50/50 transition-colors"
                 >
-                  <div className="min-w-0 pr-4">
-                    <p className="font-medium text-gray-900 truncate">
+                  <div className="flex flex-col min-w-0 pr-4">
+                    <h5 className="font-bold text-[14px] text-slate-700 truncate">
                       {event.title}
-                    </p>
-                    <p className="text-sm text-gray-500">
+                    </h5>
+                    <p className="text-[12px] text-slate-500 mt-1 truncate">
                       {format(new Date(event.date), "EEEE, MMMM d, yyyy")}
                     </p>
                   </div>
 
                   <span
-                    className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium capitalize ${getBadgePill(
+                    className={`shrink-0 inline-flex items-center justify-center px-3 py-1 rounded-full text-[11px] font-bold capitalize ${getBadgePill(
                       event.type
                     )}`}
                   >
@@ -388,19 +390,19 @@ export default function CalendarPage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsPanelOpen(false)}
-              className="fixed inset-0 bg-gray-900/20 backdrop-blur-sm z-[60]"
+              className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-[60]"
             />
             <motion.div
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed inset-y-0 right-0 w-full sm:w-[400px] bg-white shadow-2xl z-[70] border-l flex flex-col"
+              className="fixed inset-y-0 right-0 w-full sm:w-[400px] bg-white shadow-2xl z-[70] border-l border-slate-200 flex flex-col"
             >
               {/* Panel Header */}
-              <div className="px-6 py-5 border-b flex items-center justify-between bg-gray-50/60">
+              <div className="px-6 py-5 border-b flex items-center justify-between bg-slate-50/50">
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900">
+                  <h3 className="text-lg font-bold text-slate-800">
                     {format(selectedDate, "EEEE")}
                   </h3>
                   <p className="text-sm font-medium text-gray-500">
@@ -409,7 +411,7 @@ export default function CalendarPage() {
                 </div>
                 <button
                   onClick={() => setIsPanelOpen(false)}
-                  className="p-2 hover:bg-gray-200 rounded-full text-gray-500 transition"
+                  className="p-2 hover:bg-slate-200 rounded-full text-slate-500 transition-colors"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -417,19 +419,19 @@ export default function CalendarPage() {
 
               {/* Panel Body */}
               <div className="flex-1 overflow-y-auto p-6">
-                <h4 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-6">
+                <h4 className="text-sm font-bold text-slate-700 uppercase tracking-wider">
                   Events ({selectedDayEvents.length})
                 </h4>
 
                 {selectedDayEvents.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
-                      <CalendarDays className="h-8 w-8 text-gray-300" />
+                    <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+                      <CalendarDays className="h-8 w-8 text-slate-300" />
                     </div>
-                    <p className="text-gray-500 font-medium">
+                    <p className="text-slate-500 font-medium">
                       No events scheduled
                     </p>
-                    <p className="text-sm text-gray-400 mt-1">
+                    <p className="text-sm text-slate-400 mt-1">
                       Enjoy your free day!
                     </p>
                   </div>

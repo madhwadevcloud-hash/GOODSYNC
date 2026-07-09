@@ -83,7 +83,7 @@ export default function ResetPassword() {
             Reset Password
           </h2>
           <p className="text-sm text-slate-500 text-center mt-1">
-            {isStudent ? "Create a secure new password for your student portal." : "Create a secure new password for your admin account."}
+            {isStudent ? "Create a secure new password for your student portal." : "Create a secure new password for your account."}
           </p>
         </div>
 

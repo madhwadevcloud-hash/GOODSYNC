@@ -182,9 +182,16 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
         } transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 flex flex-col`}>
         <div className="flex items-center justify-between h-20 px-5 border-b border-gray-100 flex-shrink-0 bg-gradient-to-b from-violet-50/30 to-white relative overflow-hidden">
   <div className="absolute top-0 right-0 w-24 h-24 bg-violet-100 rounded-full blur-3xl opacity-50 -mr-10 -mt-10 pointer-events-none"></div>
-  <div className="flex items-center gap-2 min-w-0 relative z-10">
-    <UserCheck className="h-6 w-6 text-violet-600 mb-0.5 shrink-0" strokeWidth={2.5} />
-    <h2 className="text-lg font-bold text-gray-900 tracking-tight">Teacher Portal</h2>
+  <div className="flex items-center min-w-0 relative z-10">
+    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center mr-3 flex-shrink-0">
+      <span className="text-white font-bold text-sm">
+        {user?.name ? user.name.substring(0, 2).toUpperCase() : 'T'}
+      </span>
+    </div>
+    <div className="min-w-0">
+      <p className="text-sm font-medium text-gray-900 truncate">{user?.name || 'Teacher'}</p>
+      <p className="text-xs text-gray-500 truncate">{user?.userId || user?.email}</p>
+    </div>
   </div>
           <button
             onClick={() => setSidebarOpen(false)}
@@ -229,17 +236,6 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
                 <LogOut className="h-5 w-5 mr-3" />
                 Logout
               </button>
-              <div className="flex items-center min-w-0 rounded-xl bg-gray-50 px-2.5 py-2">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center mr-3 flex-shrink-0">
-                  <span className="text-white font-bold text-sm">
-                    {user?.name ? user.name.substring(0, 2).toUpperCase() : 'T'}
-                  </span>
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{user?.name || 'Teacher'}</p>
-                  <p className="text-xs text-gray-500 truncate">{user?.userId || user?.email}</p>
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -288,7 +284,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
                   <span className="block text-xl lg:text-2xl font-bold text-gray-900 truncate whitespace-nowrap">
                     {schoolInfo?.name || 'School'}
                   </span>
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-xs text-gray-500 whitespace-nowrap">
+                  <div className="hidden md:flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-xs text-gray-500 whitespace-nowrap">
                     {formattedAddress && (
                       <span className="flex items-center gap-1">
                         <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
@@ -296,13 +292,13 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
                       </span>
                     )}
                     {schoolInfo?.phone && (
-                      <span className="flex items-center gap-1">
+                      <span className="hidden lg:flex items-center gap-1">
                         <Phone className="h-3.5 w-3.5 flex-shrink-0" />
                         {schoolInfo.phone}
                       </span>
                     )}
                     {schoolInfo?.email && (
-                      <span className="flex items-center gap-1">
+                      <span className="hidden xl:flex items-center gap-1">
                         <Mail className="h-3.5 w-3.5 flex-shrink-0" />
                         {schoolInfo.email}
                       </span>

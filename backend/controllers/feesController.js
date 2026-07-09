@@ -100,18 +100,6 @@ exports.exportStudentFeeRecords = async (req, res) => {
 
     console.log('🔍 Fetching fee records...');
 
-    // First, check if there are any records matching the query
-    const count = await StudentFeeRecord.countDocuments(query);
-    console.log(`📊 Found ${count} matching records`);
-
-    if (count === 0) {
-      console.log('❌ No records found matching the criteria');
-      return res.status(200).json({
-        success: false,
-        message: 'No fee records found matching the criteria'
-      });
-    }
-
     // Fetch records with pagination if needed
     const records = await StudentFeeRecord.aggregate([
       { $match: query },
@@ -164,10 +152,10 @@ exports.exportStudentFeeRecords = async (req, res) => {
     console.log(`📝 Processed ${records.length} records for export`);
 
     if (!records || records.length === 0) {
-      console.log('❌ No records found after processing');
+      console.log('❌ No records found matching the criteria');
       return res.status(200).json({
         success: false,
-        message: 'No records found matching the criteria after processing'
+        message: 'No fee records found matching the criteria'
       });
     }
 
@@ -919,9 +907,7 @@ exports.getStudentFeeRecords = async (req, res) => {
     if (targetSection && targetSection !== 'ALL') {
       const sec = String(targetSection).trim();
       andFilters.push({
-        $or: [
-          { studentSection: { $regex: `^${sec}$`, $options: 'i' } }
-        ]
+        studentSection: sec.toUpperCase()
       });
     }
 
@@ -930,8 +916,7 @@ exports.getStudentFeeRecords = async (req, res) => {
     }
 
     if (status && status !== 'ALL') {
-      const normalizedStatus = String(status).trim().toLowerCase();
-      query.status = { $regex: `^${normalizedStatus}$`, $options: 'i' };
+      query.status = status.trim().toUpperCase();
     }
 
     if (search) {
