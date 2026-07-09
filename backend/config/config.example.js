@@ -47,5 +47,13 @@ module.exports = {
     maxFileSize: parseInt(process.env.MAX_FILE_SIZE) || 5242880, // 5MB
     uploadPath: process.env.UPLOAD_PATH || './uploads',
     allowedMimeTypes: ['image/jpeg', 'image/png', 'image/gif', 'application/pdf']
+  },
+
+  // Redis Configuration
+  redis: {
+    url: process.env.REDIS_URL || process.env.REDIS_URI || null,
+    host: process.env.REDIS_HOST || '127.0.0.1',
+    port: parseInt(process.env.REDIS_PORT) || 6379,
+    password: process.env.REDIS_PASSWORD || null
   }
 };
