@@ -1349,10 +1349,21 @@ const ManageUsers: React.FC = () => {
 
   // --- ADD TOGGLE FUNCTION ---
   const togglePasswordVisibility = (userId: string, userName: string) => {
-    setPasswordVisibility(prev => ({
-      ...prev,
-      [userId]: !prev[userId]
-    }));
+    const isCurrentlyVisible = passwordVisibility[userId];
+    if (isCurrentlyVisible) {
+      // Hide the password without verification
+      setPasswordVisibility(prev => ({
+        ...prev,
+        [userId]: false
+      }));
+    } else {
+      // Show/reveal requires admin password verification
+      setSelectedTeacherId(userId);
+      setSelectedTeacherName(userName);
+      setPasswordModalType('single');
+      setAdminPasswordInput('');
+      setShowPasswordModal(true);
+    }
   };
 
   // Handle showing/hiding all teacher passwords
@@ -6713,12 +6724,12 @@ const ManageUsers: React.FC = () => {
                               {/* Password Column - Access user.temporaryPassword directly */}
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                 <div className="flex items-center space-x-1">
-                                  {(user as any).temporaryPassword ? (
+                                  {((user as any).temporaryPassword || (user as any).hasTemporaryPassword) ? (
                                     <>
                                       {/* Display Password with Show/Hide */}
                                       <span className="flex-grow font-mono text-xs text-gray-700">
                                         {passwordVisibility[user.userId || user._id]
-                                          ? (user as any).temporaryPassword
+                                          ? (user as any).temporaryPassword || '********'
                                           : '********'
                                         }
                                       </span>

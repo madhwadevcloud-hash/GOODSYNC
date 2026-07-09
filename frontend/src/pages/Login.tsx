@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Shield, GraduationCap, Settings, Users } from "lucide-react";
-import { getDemoCredentialsApi } from "../api/auth";
+import { getDemoCredentialsApi, forgotPasswordApi } from "../api/auth";
 
 type RoleKey = "superadmin" | "admin" | "teacher" | "student";
 
@@ -51,6 +51,33 @@ export default function Login() {
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Forgot Password Modal States
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotSchoolCode, setForgotSchoolCode] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotMessage, setForgotMessage] = useState("");
+  const [forgotError, setForgotError] = useState("");
+
+  const handleForgotSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotEmail.trim()) {
+      setForgotError("Email address is required");
+      return;
+    }
+    setForgotLoading(true);
+    setForgotError("");
+    setForgotMessage("");
+    try {
+      const res = await forgotPasswordApi(forgotEmail.trim(), forgotSchoolCode.trim() || undefined);
+      setForgotMessage(res.message || "Password reset link sent successfully!");
+    } catch (err: any) {
+      setForgotError(err.message || "Failed to send reset link");
+    } finally {
+      setForgotLoading(false);
+    }
+  };
 
   const navigate = useNavigate();
   const location = useLocation() as any;
@@ -311,9 +338,15 @@ export default function Login() {
                   />
                   Remember me
                 </label>
-                <button
+                 <button
                   type="button"
-                  onClick={() => alert("Hook this to your /auth/forgot-password route")}
+                  onClick={() => {
+                    setForgotEmail("");
+                    setForgotSchoolCode("");
+                    setForgotMessage("");
+                    setForgotError("");
+                    setShowForgotModal(true);
+                  }}
                   className="text-xs sm:text-sm text-slate-600 hover:text-slate-900 text-left sm:text-right"
                 >
                   Forgot your password?
@@ -338,6 +371,74 @@ export default function Login() {
           </div>
         </div>
       </div>
+
+      {/* Forgot Password Modal */}
+      {showForgotModal && (
+        <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl relative border border-slate-100">
+            <h3 className="text-lg font-bold text-slate-800 mb-2">Forgot Password</h3>
+            <p className="text-sm text-slate-500 mb-4">
+              Enter your email address and school code to receive an admin password reset link.
+            </p>
+            
+            <form onSubmit={handleForgotSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  required
+                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-200 focus:border-violet-400 text-sm"
+                  placeholder="admin@school.com"
+                  value={forgotEmail}
+                  onChange={(e) => setForgotEmail(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">
+                  School Code
+                </label>
+                <input
+                  type="text"
+                  required
+                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-200 focus:border-violet-400 text-sm"
+                  placeholder="e.g. CCHS"
+                  value={forgotSchoolCode}
+                  onChange={(e) => setForgotSchoolCode(e.target.value)}
+                />
+              </div>
+
+              {forgotError && (
+                <p className="text-xs text-red-600 mt-1">{forgotError}</p>
+              )}
+
+              {forgotMessage && (
+                <p className="text-xs text-green-600 mt-1">{forgotMessage}</p>
+              )}
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowForgotModal(false)}
+                  className="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl text-sm font-medium hover:bg-slate-50"
+                  disabled={forgotLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white rounded-xl text-sm font-medium hover:opacity-95 disabled:opacity-60"
+                  disabled={forgotLoading}
+                >
+                  {forgotLoading ? "Sending..." : "Send Reset Link"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

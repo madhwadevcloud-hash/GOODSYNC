@@ -111,10 +111,20 @@ exports.getUsersByRole = async (req, res) => {
 
     const users = await UserGenerator.getUsersByRole(schoolCode, role, academicYear);
 
+    const sanitizedUsers = users.map(user => {
+      const sanitized = { ...user };
+      delete sanitized.password;
+      if (role === 'teacher') {
+        sanitized.hasTemporaryPassword = !!user.temporaryPassword;
+        delete sanitized.temporaryPassword;
+      }
+      return sanitized;
+    });
+
     res.json({
       success: true,
-      data: users,
-      count: users.length
+      data: sanitizedUsers,
+      count: sanitizedUsers.length
     });
 
   } catch (error) {
@@ -158,7 +168,15 @@ exports.getAllSchoolUsers = async (req, res) => {
         return {
           role,
           count,
-          users: users.map(user => ({ ...user, role }))
+          users: users.map(user => {
+            const sanitized = { ...user, role };
+            delete sanitized.password;
+            if (role === 'teacher') {
+              sanitized.hasTemporaryPassword = !!user.temporaryPassword;
+              delete sanitized.temporaryPassword;
+            }
+            return sanitized;
+          })
         };
       } catch (error) {
         console.error(`❌ Error getting ${role}s:`, error);

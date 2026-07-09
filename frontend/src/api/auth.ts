@@ -205,3 +205,33 @@ export async function logoutApi(): Promise<void> {
     console.error('[LOGOUT API ERROR]', err);
   }
 }
+
+export async function forgotPasswordApi(identifier: string, schoolCode?: string): Promise<{ success: boolean; message: string }> {
+  const endpoint = `${API_BASE}/auth/forgot-password`;
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ identifier, schoolCode })
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.message || 'Failed to send password reset request');
+  }
+  return data;
+}
+
+export async function resetPasswordApi(token: string, password: string, schoolCode: string): Promise<{ success: boolean; message: string }> {
+  const endpoint = `${API_BASE}/auth/reset-password/${token}`;
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password, schoolCode })
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.message || 'Failed to reset password');
+  }
+  return data;
+}
