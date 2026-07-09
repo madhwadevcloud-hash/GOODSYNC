@@ -99,7 +99,7 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     <div className="flex min-h-screen bg-slate-50">
       {/* Sidebar */}
       <div className="w-[280px] bg-white border-r border-slate-200 hidden lg:flex flex-col justify-between h-screen sticky top-0 overflow-hidden text-slate-700">
-        <div className="flex flex-col h-full overflow-y-auto overflow-x-hidden no-scrollbar">
+        <div className="flex flex-col h-full overflow-hidden">
           <div className="h-[72px] px-5 flex items-center border-b border-slate-100 shrink-0 bg-gradient-to-b from-indigo-50/30 to-white relative overflow-hidden">
             <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-100 rounded-full blur-3xl opacity-50 -mr-10 -mt-10 pointer-events-none"></div>
             <div className="flex items-center gap-3 min-w-0 relative z-10">
@@ -114,7 +114,7 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               </div>
             </div>
           </div>
-          <nav className="flex-1 px-4 pt-1 pb-6 space-y-1">
+          <nav className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden no-scrollbar px-4 pt-1 pb-6 space-y-1">
             {navigation.map((item) => {
               const active = isActive(item.href);
               return (
@@ -162,7 +162,7 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         className={`fixed inset-y-0 left-0 z-50 w-[280px] bg-white shadow-2xl transform transition-transform duration-300 ease-in-out lg:hidden flex flex-col justify-between h-full ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
       >
-        <div className="flex flex-col h-full overflow-y-auto overflow-x-hidden no-scrollbar">
+        <div className="flex flex-col h-full overflow-hidden">
           <div className="h-[72px] px-5 flex items-center justify-between border-b border-slate-100 shrink-0 bg-gradient-to-b from-indigo-50/30 to-white">
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center flex-shrink-0">
@@ -182,7 +182,7 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               <X className="h-5 w-5" />
             </button>
           </div>
-          <nav className="flex-1 px-4 pt-1 pb-6 space-y-1">
+          <nav className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden no-scrollbar px-4 pt-1 pb-6 space-y-1">
             {navigation.map((item) => {
               const active = isActive(item.href);
               return (
