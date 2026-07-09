@@ -22,8 +22,8 @@ const assignmentController = require('./assignmentController');
 const messagesController = require('./messagesController');
 const Submission = require('../models/Submission');
 const SchoolDatabaseManager = require('../utils/schoolDatabaseManager');
+const createRedisCache = require('../utils/redisCache');
 const { ObjectId } = require('mongodb');
-const NodeCache = require('node-cache');
 
 
 /**
@@ -351,7 +351,7 @@ exports.getMyProfileOverview = async (req, res) => {
 };
 
 // Cache instance for student portal (TTL: 120 seconds)
-const portalCache = new NodeCache({ stdTTL: 120, checkperiod: 60 });
+const portalCache = createRedisCache({ stdTTL: 120, checkperiod: 60 });
 // Allows other controllers (e.g. feesController's admin payment recording) to
 // invalidate a student's cached fee overview after they record a payment.
 exports.invalidateFeesCache = (schoolCode, studentId, academicYear) => {
@@ -407,8 +407,8 @@ exports.getMyFeesOverview = async (req, res) => {
 
     // 3. Cache lookup
     const cacheKey = `fees:${schoolCode}:${studentObjectId.toString()}:${academicYear}`;
-    const cached = portalCache.get(cacheKey);
-    if (cached) {
+    const cached = await portalCache.get(cacheKey);
+    if (cached !== undefined) {
       console.log(`[STUDENT PORTAL] Returning cached fees for student ${studentObjectId}`);
       return res.json(cached);
     }

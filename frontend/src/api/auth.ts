@@ -4,35 +4,7 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 type LoginResponse = { token: string; user: AuthUser };
 
-export interface ResetPasswordRequest {
-  token: string;
-  password: string;
-}
 
-export async function resetPasswordApi(
-  data: ResetPasswordRequest
-): Promise<{ success: boolean; message: string }> {
-
-  const endpoint = `${API_BASE}/auth/reset-password`;
-
-  const res = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(data)
-  });
-
-  const response = await res.json().catch(() => ({}));
-
-  if (!res.ok) {
-    throw new Error(
-      response.message || "Unable to reset password."
-    );
-  }
-
-  return response;
-}
 
 export async function loginApi(payload: LoginPayload): Promise<LoginResponse> {
   try {
@@ -250,4 +222,26 @@ export async function logoutApi(): Promise<void> {
   } catch (err) {
     console.error('[LOGOUT API ERROR]', err);
   }
+}
+
+export async function resetPasswordApi(token: string, password: string, schoolCode?: string): Promise<{ success: boolean; message: string }> {
+  const endpoint = schoolCode
+    ? `${API_BASE}/auth/reset-password/${token}`
+    : `${API_BASE}/auth/reset-password`;
+
+  const body = schoolCode
+    ? { password, schoolCode }
+    : { token, password };
+
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.message || 'Failed to reset password');
+  }
+  return data;
 }

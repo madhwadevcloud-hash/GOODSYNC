@@ -97,7 +97,7 @@ describe('School Controller - Classes Endpoint', () => {
 
     it('should return 404 for non-existent school', async () => {
       const fakeId = new mongoose.Types.ObjectId();
-      
+
       const response = await request(app)
         .get(`/api/schools/${fakeId}/classes`)
         .set('Authorization', `Bearer ${adminToken}`)
@@ -121,7 +121,7 @@ describe('School Controller - Classes Endpoint', () => {
       // This test would require setting up the school's dedicated database
       // and creating classes in the classes collection
       // For now, we'll test the basic structure
-      
+
       const response = await request(app)
         .get(`/api/schools/${testSchool._id}/classes`)
         .set('Authorization', `Bearer ${adminToken}`)

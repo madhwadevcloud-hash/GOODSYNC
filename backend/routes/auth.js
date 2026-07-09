@@ -9,10 +9,8 @@ router.post('/register', register);
 router.post('/login', loginLimiter, login);
 router.post('/school-login', loginLimiter, schoolLogin);
 router.post('/forgot-password', passwordResetLimiter, forgotPassword);
-router.post("/reset-password",passwordResetLimiter,resetPassword);
+router.post('/reset-password', passwordResetLimiter, resetPassword);
+router.post('/reset-password/:token', passwordResetLimiter, resetPassword);
 router.post('/logout', logout);
-
-router.post('/forgot-password', forgotPassword);
-router.post('/reset-password/:token', resetPassword);
 
 module.exports = router;

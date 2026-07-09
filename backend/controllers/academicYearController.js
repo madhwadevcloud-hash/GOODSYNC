@@ -10,8 +10,8 @@ exports.getAcademicYear = async (req, res) => {
     // Normalize school code to lowercase for consistency
     const normalizedSchoolCode = schoolCode.toLowerCase();
 
-    // Find school with case-insensitive search
-    const school = await School.findOne({ code: { $regex: new RegExp(`^${normalizedSchoolCode}$`, 'i') } });
+    // Find school with exact match on unique uppercase code index
+    const school = await School.findOne({ code: schoolCode.toUpperCase() }).lean();
     if (!school) {
       console.error(`📅 [ACADEMIC YEAR] ❌ School not found: ${schoolCode}`);
       return res.status(404).json({
@@ -83,8 +83,8 @@ exports.updateAcademicYear = async (req, res) => {
     const normalizedSchoolCode = schoolCode.toLowerCase();
     console.log(`📅 [ACADEMIC YEAR] Normalized school code: ${normalizedSchoolCode}`);
 
-    // Find school with case-insensitive search
-    const school = await School.findOne({ code: { $regex: new RegExp(`^${normalizedSchoolCode}$`, 'i') } });
+    // Find school with exact match on unique uppercase code index
+    const school = await School.findOne({ code: schoolCode.toUpperCase() });
     if (!school) {
       console.error(`📅 [ACADEMIC YEAR] ❌ School not found: ${schoolCode}`);
       return res.status(404).json({

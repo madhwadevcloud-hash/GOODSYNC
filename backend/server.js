@@ -28,7 +28,7 @@ const multer = require('multer'); // <-- Import multer
 const fs = require('fs'); // Import fs module for file operations
 const http = require('http'); // For Socket.IO
 const { Server } = require('socket.io'); // Socket.IO server
-
+const cache = require('./utils/redisCache'); // <-- Import Redis cache utility
 // Import your controller
 const exportImportController = require('./controllers/exportImportController'); // <-- Import exportImportController
 const schoolController = require('./controllers/schoolController'); // <-- Import schoolController

@@ -195,7 +195,7 @@ export function AdminApp() {
 
           {/* Teacher Subject Assignments */}
           <Route path="teacher-assignments" element={
-            <PermissionGuard permission="viewResults" permissionName="Teacher Assignments">
+            <PermissionGuard permission="viewResults" permissionName="Assign Teacher">
               <TeacherAssignments />
             </PermissionGuard>
           } />

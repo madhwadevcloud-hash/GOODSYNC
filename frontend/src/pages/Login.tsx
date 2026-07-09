@@ -351,7 +351,7 @@ export default function Login() {
                   />
                   Remember me
                 </label>
-                <button
+                 <button
                   type="button"
                   onClick={openForgotModal}
                   className="text-xs sm:text-sm text-slate-600 hover:text-slate-900 text-left sm:text-right"

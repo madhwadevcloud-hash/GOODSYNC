@@ -52,7 +52,8 @@ class UserGenerator {
       // Generate user ID and a DEFAULT random password
       // This will be overridden for students if DOB is available
       const userId = await this.generateUserId(schoolCode, userData.role);
-      let plainPassword = this.generateRandomPassword();
+      // Respect frontend-provided password if available, otherwise generate one
+      let plainPassword = userData.password || this.generateRandomPassword();
       let hashedPassword = await this.hashPassword(plainPassword);
 
       // Validate role and prevent escalation
@@ -1020,6 +1021,7 @@ class UserGenerator {
       const collections = ['admins', 'teachers', 'students', 'parents'];
 
       let userCollection = null;
+      let userRole = null;
       for (const collectionName of collections) {
         const collection = connection.collection(collectionName);
         // Try both _id and userId to cover different scenarios
@@ -1036,6 +1038,8 @@ class UserGenerator {
         const user = await collection.findOne(query);
         if (user) {
           userCollection = collection;
+          const roleMap = { 'admins': 'admin', 'teachers': 'teacher', 'students': 'student', 'parents': 'parent' };
+          userRole = user.role || roleMap[collectionName];
           break;
         }
       }
@@ -1083,13 +1087,14 @@ class UserGenerator {
         if (displayName) updateFields['name.displayName'] = displayName;
       }
 
-      // Update email
-      if (updateData.email) updateFields.email = updateData.email.trim().toLowerCase();
 
       // Update contact fields
-      if (updateData.primaryPhone !== undefined) updateFields['contact.primaryPhone'] = updateData.primaryPhone;
-      if (updateData.studentMobile !== undefined || updateData.phone !== undefined) updateFields['contact.primaryPhone'] = updateData.studentMobile || updateData.phone;
-      if (updateData.studentEmail !== undefined || updateData.email !== undefined) updateFields['email'] = updateData.studentEmail || updateData.email;
+      if (updateData.email !== undefined || updateData.studentEmail !== undefined) {
+        updateFields['email'] = (updateData.email || updateData.studentEmail || '').trim().toLowerCase();
+      }
+      if (updateData.phone !== undefined || updateData.primaryPhone !== undefined || updateData.studentMobile !== undefined) {
+        updateFields['contact.primaryPhone'] = updateData.phone || updateData.primaryPhone || updateData.studentMobile;
+      }
       if (updateData.secondaryPhone !== undefined) updateFields['contact.secondaryPhone'] = updateData.secondaryPhone;
       if (updateData.whatsappNumber !== undefined) updateFields['contact.whatsappNumber'] = updateData.whatsappNumber;
 
@@ -1145,9 +1150,8 @@ class UserGenerator {
         }
       }
 
-      // Update role-specific fields
-      const rolePrefix = `${user.role}Details`;
-      if (user.role === 'student') {
+      const rolePrefix = `${userRole}Details`;
+      if (userRole === 'student') {
         // Academic fields
         if (updateData.currentClass !== undefined || updateData.class !== undefined) updateFields[`${rolePrefix}.academic.currentClass`] = updateData.currentClass || updateData.class;
         if (updateData.currentSection !== undefined || updateData.section !== undefined) updateFields[`${rolePrefix}.academic.currentSection`] = updateData.currentSection || updateData.section;
@@ -1296,7 +1300,7 @@ class UserGenerator {
           updateFields.scholarshipDetails = updateData.scholarshipDetails; // Deprecated flat field
         }
         if (updateData.tcNumber !== undefined) updateFields[`${rolePrefix}.tcNumber`] = updateData.tcNumber;
-      } else if (user.role === 'teacher') {
+      } else if (userRole === 'teacher') {
         if (updateData.qualification !== undefined) updateFields[`${rolePrefix}.qualification`] = updateData.qualification;
         if (updateData.experience !== undefined) updateFields[`${rolePrefix}.experience`] = updateData.experience;
         if (updateData.subjects !== undefined && Array.isArray(updateData.subjects)) {
@@ -1310,13 +1314,19 @@ class UserGenerator {
       updateFields.updatedAt = new Date();
 
       console.log(`📝 Updating user ${userId} with fields:`, Object.keys(updateFields));
+      console.log(`📝 updateQuery used:`, JSON.stringify(updateQuery));
 
       const result = await userCollection.updateOne(
         updateQuery,
         { $set: updateFields }
       );
 
-      // <-- LINT FIX: Do not throw an error if no fields were changed.
+      console.log(`📝 updateOne result matchedCount: ${result.matchedCount}, modifiedCount: ${result.modifiedCount}`);
+
+      if (result.matchedCount === 0) {
+        throw new Error(`Failed to update user: document with ID ${userId} was not found in the collection`);
+      }
+
       if (result.modifiedCount === 0) {
         console.log(`📝 No fields were modified for user: ${userId}`);
         return { success: true, message: 'User updated successfully (no fields changed)' };

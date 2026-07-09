@@ -5,13 +5,13 @@ const { v4: uuidv4 } = require('uuid');
 const PromotionRequest = require('../models/PromotionRequest');
 const SystemNotification = require('../models/Notification');
 const { uploadPDFBufferToCloudinary } = require('../config/cloudinary');
-const NodeCache = require('node-cache');
+const createRedisCache = require('../utils/redisCache');
 const mongoose = require('mongoose');
 
 // ---------------------------------------------------------------------------
 // Cache setup
 // ---------------------------------------------------------------------------
-const cache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
+const cache = createRedisCache({ stdTTL: 300, checkperiod: 60 });
 
 const CACHE_KEYS = {
   students: (schoolCode) => `students:${schoolCode}`,
@@ -21,8 +21,8 @@ const CACHE_KEYS = {
 
 const getCachedStudents = async (schoolCode) => {
   const key = CACHE_KEYS.students(schoolCode);
-  const cached = cache.get(key);
-  if (cached) return cached;
+  const cached = await cache.get(key);
+  if (cached !== undefined) return cached;
 
   const students = await UserGenerator.getUsersByRole(schoolCode, 'student');
   cache.set(key, students, 120);
@@ -1479,7 +1479,7 @@ exports.getActivePromotionRequest = async (req, res) => {
     const schoolCode = req.params.schoolCode.trim().toUpperCase();
     const cacheKey = CACHE_KEYS.activeRequest(schoolCode);
 
-    const cached = cache.get(cacheKey);
+    const cached = await cache.get(cacheKey);
     if (cached !== undefined) {
       return res.status(200).json({ success: true, data: cached });
     }
@@ -1503,7 +1503,7 @@ exports.getNotifications = async (req, res) => {
     const userId = req.user.role === 'superadmin' ? 'superadmin' : req.user.userId;
     const cacheKey = CACHE_KEYS.notifications(userId);
 
-    const cached = cache.get(cacheKey);
+    const cached = await cache.get(cacheKey);
     if (cached !== undefined) {
       return res.status(200).json({ success: true, data: cached });
     }
