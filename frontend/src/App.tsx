@@ -37,7 +37,7 @@ export default function App() {
         {/* Public */}
         <Route path="/login" element={<Login />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
-
+        <Route path="/student/reset-password" element={<ResetPassword />} />
         {/* Private: must be logged in */}
         <Route element={<ProtectedRoute />}>
           <Route index element={<RootRedirect />} />

@@ -34,7 +34,7 @@ exports.getEvents = async (req, res) => {
 
 // @desc    Create a new calendar event
 // @route   POST /api/calendar-events
-// @access  Private (Admin/SuperAdmin)
+// @access  Private (Admin/SuperAdmin/Teacher)
 exports.createEvent = async (req, res) => {
   try {
     const schoolCode = req.schoolCode || req.headers['x-school-code'];
@@ -57,7 +57,8 @@ exports.createEvent = async (req, res) => {
       time,
       location,
       description,
-      createdBy: req.user ? req.user.id : undefined
+      createdBy: req.user ? req.user._id : undefined,
+      createdByRole: req.user ? req.user.role : undefined
     });
 
     res.status(201).json({
@@ -72,11 +73,11 @@ exports.createEvent = async (req, res) => {
 
 // @desc    Update a calendar event
 // @route   PUT /api/calendar-events/:id
-// @access  Private (Admin/SuperAdmin)
+// @access  Private (Admin/SuperAdmin, or Teacher for their own events)
 exports.updateEvent = async (req, res) => {
   try {
     const schoolCode = req.schoolCode || req.headers['x-school-code'];
-    
+
     if (!schoolCode) {
       return res.status(400).json({ success: false, message: 'School code is required' });
     }
@@ -90,6 +91,16 @@ exports.updateEvent = async (req, res) => {
     // Ensure the event belongs to the school
     if (event.schoolCode !== schoolCode.toUpperCase()) {
       return res.status(403).json({ success: false, message: 'Not authorized to update this event' });
+    }
+
+    // Teachers may only edit events they created themselves.
+    // Admins/superadmins can edit anything in their school.
+    const isElevatedRole = req.user && ['admin', 'superadmin'].includes(req.user.role);
+    if (!isElevatedRole) {
+      const isOwner = event.createdBy && req.user && event.createdBy.toString() === req.user._id.toString();
+      if (!isOwner) {
+        return res.status(403).json({ success: false, message: 'You can only edit events you created' });
+      }
     }
 
     event = await CalendarEvent.findByIdAndUpdate(
@@ -110,11 +121,11 @@ exports.updateEvent = async (req, res) => {
 
 // @desc    Delete a calendar event
 // @route   DELETE /api/calendar-events/:id
-// @access  Private (Admin/SuperAdmin)
+// @access  Private (Admin/SuperAdmin, or Teacher for their own events)
 exports.deleteEvent = async (req, res) => {
   try {
     const schoolCode = req.schoolCode || req.headers['x-school-code'];
-    
+
     if (!schoolCode) {
       return res.status(400).json({ success: false, message: 'School code is required' });
     }
@@ -128,6 +139,24 @@ exports.deleteEvent = async (req, res) => {
     // Ensure the event belongs to the school
     if (event.schoolCode !== schoolCode.toUpperCase()) {
       return res.status(403).json({ success: false, message: 'Not authorized to delete this event' });
+    }
+
+    // Teachers may only delete events they created themselves.
+    // Admins/superadmins can delete anything in their school (including
+    // imported holidays and other teachers' events).
+    console.log("========== DELETE DEBUG ==========");
+console.log("Event createdBy:", event.createdBy);
+console.log("Event createdByRole:", event.createdByRole);
+console.log("req.user:", req.user);
+console.log("req.user._id:", req.user?._id);
+console.log("req.user.userId:", req.user?.userId);
+console.log("==================================");
+    const isElevatedRole = req.user && ['admin', 'superadmin'].includes(req.user.role);
+    if (!isElevatedRole) {
+      const isOwner = event.createdBy && req.user && event.createdBy.toString() === req.user._id.toString();
+      if (!isOwner) {
+        return res.status(403).json({ success: false, message: 'You can only delete events you created' });
+      }
     }
 
     await event.deleteOne();
@@ -166,7 +195,7 @@ exports.importHolidays = async (req, res) => {
       { title: 'Independence Day', date: new Date(`${startYear}-08-15T00:00:00.000Z`) },
       { title: 'Gandhi Jayanti', date: new Date(`${startYear}-10-02T00:00:00.000Z`) },
       { title: 'Christmas Day', date: new Date(`${startYear}-12-25T00:00:00.000Z`) },
-      
+
       // Some generic placeholders for lunar/variable festivals (dates are approximate for generic purposes, user can edit)
       { title: 'Maha Shivaratri', date: new Date(`${startYear}-02-15T00:00:00.000Z`), description: 'Approximate date' },
       { title: 'Holi', date: new Date(`${startYear}-03-15T00:00:00.000Z`), description: 'Approximate date' },
@@ -194,7 +223,8 @@ exports.importHolidays = async (req, res) => {
           date: holiday.date,
           type: 'holiday',
           description: holiday.description || 'Public Holiday',
-          createdBy: req.user ? req.user.id : undefined
+          createdBy: req.user ? req.user._id : undefined,
+          createdByRole: req.user ? req.user.role : undefined
         });
         importedCount++;
       }

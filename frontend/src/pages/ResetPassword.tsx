@@ -1,11 +1,16 @@
 import React, { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { Eye, EyeOff, Shield } from "lucide-react";
 import { resetPasswordApi } from "../api/auth";
 
 export default function ResetPassword() {
-  const { token } = useParams<{ token: string }>();
+  const { token: pathToken } = useParams<{ token: string }>();
+  const [searchParams] = useSearchParams();
+  const location = useLocation();
   const navigate = useNavigate();
+
+  const token = pathToken || searchParams.get("token") || "";
+  const isStudent = location.pathname.includes("/student/reset-password") || !pathToken;
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -17,14 +22,27 @@ export default function ResetPassword() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
+  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?#&]).{8,}$/;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!password || !confirmPassword || !schoolCode) {
+    setError("");
+    setMessage("");
+
+    if (!password || !confirmPassword) {
       setError("All fields are required");
+      return;
+    }
+    if (!isStudent && !schoolCode) {
+      setError("School Code is required for admin accounts");
       return;
     }
     if (password !== confirmPassword) {
       setError("Passwords do not match");
+      return;
+    }
+    if (!passwordRegex.test(password)) {
+      setError("Password must contain at least 8 characters, one uppercase letter, one lowercase letter, one number and one special character.");
       return;
     }
     if (!token) {
@@ -33,13 +51,11 @@ export default function ResetPassword() {
     }
 
     setLoading(true);
-    setError("");
-    setMessage("");
 
     try {
-      const res = await resetPasswordApi(token, password, schoolCode.trim().toUpperCase());
+      // For student, we pass empty string for schoolCode, backend matches the token in collection
+      const res = await resetPasswordApi(token, password, isStudent ? "" : schoolCode.trim().toUpperCase());
       setMessage(res.message || "Password has been reset successfully!");
-      // Redirect to login after 3 seconds
       setTimeout(() => {
         navigate("/login");
       }, 3000);
@@ -67,25 +83,27 @@ export default function ResetPassword() {
             Reset Password
           </h2>
           <p className="text-sm text-slate-500 text-center mt-1">
-            Create a secure new password for your admin account.
+            {isStudent ? "Create a secure new password for your student portal." : "Create a secure new password for your admin account."}
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 uppercase mb-1.5">
-              School Code
-            </label>
-            <input
-              type="text"
-              required
-              className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-200 focus:border-violet-400 text-sm"
-              placeholder="e.g. CCHS"
-              value={schoolCode}
-              onChange={(e) => setSchoolCode(e.target.value)}
-              disabled={loading || !!message}
-            />
-          </div>
+          {!isStudent && (
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 uppercase mb-1.5">
+                School Code
+              </label>
+              <input
+                type="text"
+                required
+                className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-200 focus:border-violet-400 text-sm"
+                placeholder="e.g. CCHS"
+                value={schoolCode}
+                onChange={(e) => setSchoolCode(e.target.value)}
+                disabled={loading || !!message}
+              />
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-semibold text-slate-600 uppercase mb-1.5">
@@ -133,6 +151,19 @@ export default function ResetPassword() {
                 {showConfirmPass ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
+          </div>
+
+          <div className="text-xs text-slate-600 bg-slate-50 rounded-xl p-3 border border-slate-100">
+            <p className="font-semibold mb-2 text-slate-700">
+              Password Requirements
+            </p>
+            <ul className="list-disc list-inside space-y-1 text-slate-500">
+              <li>Minimum 8 characters</li>
+              <li>At least one uppercase letter</li>
+              <li>At least one lowercase letter</li>
+              <li>At least one number</li>
+              <li>At least one special character</li>
+            </ul>
           </div>
 
           {error && (

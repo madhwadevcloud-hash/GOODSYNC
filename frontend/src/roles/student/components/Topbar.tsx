@@ -129,13 +129,13 @@ export default function Topbar() {
     messages.length;
 
   return (
-    <div className="h-20 bg-white border-b px-8 flex items-center justify-between">
+    <div className="min-h-[5rem] bg-white border-b px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-3">
 
       {/* Left */}
 
-      <div>
+      <div className="min-w-0">
 
-        <h1 className="text-3xl font-bold text-gray-900">
+        <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 break-words">
 
           Welcome back,
 
@@ -143,11 +143,11 @@ export default function Topbar() {
 
           {user?.name ?? "Student"}
 
-          👋
+          {" "}👋
 
         </h1>
 
-        <p className="text-gray-500 mt-1">
+        <p className="text-sm sm:text-base text-gray-500 mt-1 truncate">
 
           {classSection !== "Student" ? classSection : "Here's your academic overview."}
 
@@ -157,7 +157,7 @@ export default function Topbar() {
 
       {/* Right */}
 
-      <div className="flex items-center gap-8">
+      <div className="flex items-center gap-4 sm:gap-8 flex-shrink-0">
 
         {/* Notifications */}
 
@@ -194,7 +194,7 @@ export default function Topbar() {
 
           {showNotifications && (
 
-            <div className="absolute right-0 mt-3 w-80 rounded-xl border bg-white shadow-xl z-50">
+            <div className="absolute right-0 mt-3 w-72 sm:w-80 max-w-[90vw] rounded-xl border bg-white shadow-xl z-50">
 
               <div className="px-4 py-3 border-b font-semibold">
 

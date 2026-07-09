@@ -204,7 +204,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
           <div className="absolute right-16 bottom-0 w-24 h-24 rounded-full bg-white/5" />
           <div className="flex items-center justify-between mb-5 relative">
             <div>
-              <h2 className="text-lg font-semibold">Your Classes</h2>
+              <h2 className="text-lg font-semibold">Classes</h2>
               <p className="text-sm text-white/70">{currentAcademicYear || 'Current academic year'}</p>
             </div>
             <button
