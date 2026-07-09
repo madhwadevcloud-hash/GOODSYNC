@@ -10509,7 +10509,13 @@ const ManageUsers: React.FC = () => {
         {/* Password Verification Modal */}
         {showPasswordModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] p-4">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md relative z-[71]">
+            <form 
+              onSubmit={(e) => {
+                e.preventDefault();
+                handlePasswordModalSubmit();
+              }}
+              className="bg-white rounded-xl shadow-2xl w-full max-w-md relative z-[71]"
+            >
               <div className="flex items-center justify-between p-6 border-b border-gray-200">
                 <h2 className="text-xl font-semibold text-gray-800">
                   {passwordModalType === 'single'
@@ -10517,6 +10523,7 @@ const ManageUsers: React.FC = () => {
                     : 'Show All Teacher Passwords'}
                 </h2>
                 <button
+                  type="button"
                   onClick={() => {
                     setShowPasswordModal(false);
                     setAdminPasswordInput('');
@@ -10561,11 +10568,6 @@ const ManageUsers: React.FC = () => {
                     type="password"
                     value={adminPasswordInput}
                     onChange={(e) => setAdminPasswordInput(e.target.value)}
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter') {
-                        handlePasswordModalSubmit();
-                      }
-                    }}
                     placeholder="Enter your admin password"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     autoFocus
@@ -10575,6 +10577,7 @@ const ManageUsers: React.FC = () => {
 
               <div className="flex justify-end space-x-3 p-6 bg-gray-50 border-t rounded-b-xl">
                 <button
+                  type="button"
                   onClick={() => {
                     setShowPasswordModal(false);
                     setAdminPasswordInput('');
@@ -10586,7 +10589,7 @@ const ManageUsers: React.FC = () => {
                   Cancel
                 </button>
                 <button
-                  onClick={handlePasswordModalSubmit}
+                  type="submit"
                   disabled={passwordModalLoading || !adminPasswordInput.trim()}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                 >
@@ -10603,18 +10606,25 @@ const ManageUsers: React.FC = () => {
                   )}
                 </button>
               </div>
-            </div>
+            </form>
           </div>
         )}
 
         {/* Change Password Modal */}
         {showChangePasswordModal && selectedUserForPasswordChange && (
           <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-[70]">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 relative z-[71]">
+            <form 
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleChangePassword();
+              }}
+              className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 relative z-[71]"
+            >
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-medium text-gray-900">Change Password</h3>
                   <button
+                    type="button"
                     onClick={() => {
                       setShowChangePasswordModal(false);
                       setSelectedUserForPasswordChange(null);
@@ -10679,6 +10689,7 @@ const ManageUsers: React.FC = () => {
 
                 <div className="mt-6 flex justify-end space-x-3">
                   <button
+                    type="button"
                     onClick={() => {
                       setShowChangePasswordModal(false);
                       setSelectedUserForPasswordChange(null);
@@ -10691,7 +10702,7 @@ const ManageUsers: React.FC = () => {
                     Cancel
                   </button>
                   <button
-                    onClick={handleChangePassword}
+                    type="submit"
                     disabled={changePasswordLoading || !newPassword || !confirmNewPassword || newPassword !== confirmNewPassword || newPassword.trim() === ''}
                     className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                   >
@@ -10709,7 +10720,7 @@ const ManageUsers: React.FC = () => {
                   </button>
                 </div>
               </div>
-            </div>
+            </form>
           </div>
         )}
       </motion.div>
