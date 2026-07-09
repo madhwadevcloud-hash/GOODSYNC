@@ -238,32 +238,35 @@ return event.createdBy === (user as any).id || event.createdBy === (user as any)
           key={day.toString()}
           onClick={() => onDateClick(cloneDay)}
           className={`
-            relative min-h-[100px] sm:min-h-[120px] p-1 sm:p-2 border-r border-b border-slate-100 transition-all duration-200 cursor-pointer group flex flex-col
+            relative min-h-[55px] sm:min-h-[72px] p-1 sm:p-1.5 border-r border-b border-slate-100 transition-all duration-200 cursor-pointer group flex flex-col
             ${!isCurrentMonth ? 'bg-slate-50/50 text-slate-400' : 'bg-white text-slate-700'}
             ${isSelected ? 'ring-2 ring-indigo-500 ring-inset bg-indigo-50/10 z-10' : 'hover:bg-slate-50'}
             ${i === 0 ? 'border-l' : ''}
           `}
         >
-          <div className="flex justify-between items-start mb-1">
+          <div className="flex justify-between items-start mb-0.5">
             <span className={`
-              text-xs sm:text-sm font-semibold h-6 w-6 sm:h-7 sm:w-7 flex items-center justify-center rounded-full
+              font-bold flex items-center justify-center rounded-full transition-all duration-300
+              ${dayEvents.length === 0 
+                ? 'text-xs sm:text-base md:text-lg h-6 w-6 sm:h-8 sm:w-8 text-slate-800' 
+                : 'text-[10px] sm:text-xs h-5 w-5 sm:h-6 sm:w-6'}
               ${isTodayDate ? 'bg-indigo-600 text-white shadow-sm' : ''}
               ${!isTodayDate && isSelected ? 'bg-indigo-100 text-indigo-700' : ''}
             `}>
               {formattedDate}
             </span>
             {dayEvents.length > 0 && (
-              <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-md">
+              <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-1 py-0.5 rounded-md">
                 {dayEvents.length}
               </span>
             )}
           </div>
           
-          <div className="flex-1 space-y-1.5 overflow-y-auto no-scrollbar mt-1">
+          <div className="flex-1 space-y-1 overflow-y-auto no-scrollbar mt-0.5">
             {dayEvents.map(event => (
               <div 
                 key={event._id || event.title}
-                className={`text-[9px] sm:text-[11px] leading-tight px-1 sm:px-1.5 py-0.5 sm:py-1 rounded border truncate font-medium flex items-center gap-1 sm:gap-1.5 ${getTypeColor(event.type)}`}
+                className={`text-[9px] sm:text-[10px] leading-tight px-1 sm:px-1.5 py-0.5 rounded border truncate font-bold flex items-center gap-1 sm:gap-1.5 shadow-sm ${getTypeColor(event.type)}`}
               >
                 <span className={`w-1.5 h-1.5 rounded-full hidden sm:block ${getBadgeColor(event.type)} shrink-0`}></span>
                 <span className="truncate">{event.title}</span>
@@ -285,21 +288,21 @@ return event.createdBy === (user as any).id || event.createdBy === (user as any)
   const selectedDayEvents = selectedDate ? getEventsForDay(selectedDate) : [];
 
   return (
-    <div className="space-y-6 relative flex flex-col h-full min-h-[calc(100vh-120px)]">
+    <div className="space-y-3 relative flex flex-col h-full">
       {/* Non-sticky Header that scrolls away */}
-      <div className="flex flex-col gap-6 pt-4 pb-2 -mt-4 bg-[#f8fafc] shrink-0">
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sm:p-8 relative overflow-hidden mx-2 sm:mx-0">
+      <div className="flex flex-col gap-3 pt-2 pb-1 -mt-2 bg-[#f8fafc] shrink-0">
+        <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-3 sm:p-4 relative overflow-hidden mx-2 sm:mx-0">
           <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50 rounded-full blur-3xl opacity-60 -mr-20 -mt-20 pointer-events-none"></div>
           <div className="absolute bottom-0 left-0 w-40 h-40 bg-blue-50 rounded-full blur-2xl opacity-60 -ml-10 -mb-10 pointer-events-none"></div>
           
-          <div className="flex flex-col md:flex-row md:items-center justify-between relative z-10 gap-4">
-            <div className="flex items-center space-x-4">
-              <div className="bg-indigo-600 p-3 rounded-xl flex items-center justify-center shadow-sm">
-                <CalendarDays className="h-7 w-7 text-white" strokeWidth={2} />
+          <div className="flex flex-col md:flex-row md:items-center justify-between relative z-10 gap-3">
+            <div className="flex items-center space-x-3">
+              <div className="bg-indigo-600 p-2 rounded-lg flex items-center justify-center shadow-sm">
+                <CalendarDays className="h-5 w-5 text-white" strokeWidth={2} />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Academic Calendar</h1>
-                <p className="text-sm font-medium text-slate-500 mt-1">View school events and holidays, and add your own class events</p>
+                <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">Academic Calendar</h1>
+                <p className="text-xs font-medium text-slate-500 mt-0.5">View school events and holidays, and add your own class events</p>
               </div>
             </div>
             
@@ -309,9 +312,9 @@ return event.createdBy === (user as any).id || event.createdBy === (user as any)
                   setSelectedDate(new Date());
                   setIsSidebarOpen(true);
                 }}
-                className="px-5 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 transition-all shadow-sm hover:shadow flex items-center justify-center gap-2"
+                className="px-4 py-2 bg-indigo-600 text-white text-xs sm:text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-all shadow-sm hover:shadow flex items-center justify-center gap-2"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-3.5 w-3.5" />
                 Add Event
               </button>
             </div>
@@ -320,48 +323,48 @@ return event.createdBy === (user as any).id || event.createdBy === (user as any)
       </div>
 
       {/* Sticky Calendar Controls */}
-      <div className="sticky top-[72px] z-[30] pt-2 pb-2 -mt-2 bg-[#f8fafc]">
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 mx-2 sm:mx-0 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <h2 className="text-xl font-bold text-slate-800 min-w-[160px]">
+      <div className="sticky top-[72px] z-[30] pt-1 pb-1 -mt-1 bg-[#f8fafc]">
+        <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-2.5 mx-2 sm:mx-0 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <h2 className="text-base font-bold text-slate-800 min-w-[120px]">
               {format(currentDate, 'MMMM yyyy')}
             </h2>
             <div className="flex items-center bg-slate-100 rounded-lg p-1">
-              <button onClick={prevMonth} className="p-1.5 rounded-md hover:bg-white hover:shadow-sm text-slate-600 transition-all">
-                <ChevronLeft className="h-4 w-4" />
+              <button onClick={prevMonth} className="p-1 rounded-md hover:bg-white hover:shadow-sm text-slate-600 transition-all">
+                <ChevronLeft className="h-3.5 w-3.5" />
               </button>
-              <button onClick={goToToday} className="px-3 py-1.5 rounded-md hover:bg-white hover:shadow-sm text-sm font-semibold text-slate-700 transition-all">
+              <button onClick={goToToday} className="px-2.5 py-1 rounded-md hover:bg-white hover:shadow-sm text-xs font-semibold text-slate-700 transition-all">
                 Today
               </button>
-              <button onClick={nextMonth} className="p-1.5 rounded-md hover:bg-white hover:shadow-sm text-slate-600 transition-all">
-                <ChevronRight className="h-4 w-4" />
+              <button onClick={nextMonth} className="p-1 rounded-md hover:bg-white hover:shadow-sm text-slate-600 transition-all">
+                <ChevronRight className="h-3.5 w-3.5" />
               </button>
             </div>
           </div>
           
           <div className="flex items-center gap-3 w-full sm:w-auto">
-            <div className="relative w-full sm:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <div className="relative w-full sm:w-56">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
               <input 
                 type="text" 
                 placeholder="Search events..." 
-                className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
               />
             </div>
-            <button className="p-2 border border-slate-200 rounded-xl hover:bg-slate-50 text-slate-600 transition-colors">
-              <MoreVertical className="h-4 w-4" />
+            <button className="p-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-600 transition-colors">
+              <MoreVertical className="h-3.5 w-3.5" />
             </button>
           </div>
         </div>
       </div>
 
       {/* Main Calendar Grid & Upcoming Events */}
-      <div className="flex flex-col xl:flex-row gap-6 flex-1 mx-2 sm:mx-0">
+      <div className="flex flex-col xl:flex-row gap-3 flex-1 mx-2 sm:mx-0">
         <div className="flex-1 bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col min-w-0">
           {/* Days Header */}
           <div className="grid grid-cols-7 bg-slate-50/80 border-b border-slate-100">
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-              <div key={day} className="py-2 sm:py-3 text-center text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider">
+              <div key={day} className="py-1 sm:py-1.5 text-center text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                 {day.substring(0, 3)}
               </div>
             ))}
