@@ -175,6 +175,124 @@ router.get('/my-profile', authMiddleware.auth, async (req, res) => {
   }
 });
 
+// Self-service password change - lets a logged-in school user (teacher,
+// student, parent, admin) update their own password after verifying their
+// current one. Kept separate from the admin-driven change/reset endpoints in
+// schoolUserController, which don't verify the caller's current password.
+router.post('/change-password', async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Current password and new password are required'
+      });
+    }
+
+    const { validatePasswordStrength } = require('../utils/passwordGenerator');
+    const strengthCheck = validatePasswordStrength(newPassword);
+    if (!strengthCheck.valid) {
+      return res.status(400).json({
+        success: false,
+        message: strengthCheck.errors[0],
+        errors: strengthCheck.errors
+      });
+    }
+
+    if (currentPassword === newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'New password must be different from the current password'
+      });
+    }
+
+    const schoolCode = req.user.schoolCode;
+    const userId = req.user.userId || req.user._id;
+
+    if (!schoolCode) {
+      return res.status(400).json({
+        success: false,
+        message: 'School code not found'
+      });
+    }
+
+    const collectionMap = {
+      admin: 'admins',
+      teacher: 'teachers',
+      student: 'students',
+      parent: 'parents'
+    };
+    const collectionName = req.user.collection || collectionMap[req.user.role];
+
+    if (!collectionName) {
+      return res.status(400).json({
+        success: false,
+        message: 'Unable to determine account type'
+      });
+    }
+
+    const SchoolDatabaseManager = require('../utils/schoolDatabaseManager');
+    const schoolConnection = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
+
+    if (!schoolConnection) {
+      return res.status(404).json({
+        success: false,
+        message: 'School database not found'
+      });
+    }
+
+    const db = schoolConnection.db;
+    const { ObjectId } = require('mongodb');
+    const bcrypt = require('bcryptjs');
+
+    const query = ObjectId.isValid(userId)
+      ? { $or: [{ userId }, { _id: new ObjectId(userId) }] }
+      : { userId };
+
+    const collection = db.collection(collectionName);
+    const userDoc = await collection.findOne(query);
+
+    if (!userDoc || !userDoc.password) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, userDoc.password);
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: 'Current password is incorrect'
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await collection.updateOne(query, {
+      $set: {
+        password: hashedPassword,
+        passwordChangeRequired: false,
+        updatedAt: new Date()
+      },
+      $unset: { temporaryPassword: '' }
+    });
+
+    return res.json({
+      success: true,
+      message: 'Password changed successfully'
+    });
+  } catch (error) {
+    console.error('Error changing password:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error changing password',
+      error: error.message
+    });
+  }
+});
+
 // User creation routes - require explicit school context for super admin operations
 router.post('/', requireSchoolContext, validateSchoolAccess(['admin', 'superadmin']), userController.createUserSimple);
 router.post('/teachers', requireSchoolContext, validateSchoolAccess(['admin', 'superadmin']), userController.addTeacher);

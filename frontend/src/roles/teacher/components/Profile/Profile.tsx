@@ -8,9 +8,11 @@ import {
   CalendarDays,
   MapPin,
   Hash,
+  KeyRound,
 } from "lucide-react";
 import { useAuth } from "../../../../auth/AuthContext";
 import api from "../../../../services/api";
+import ChangePasswordModal from "./ChangePasswordModal";
 
 interface TeacherProfile {
   teacherName: string | null;
@@ -107,6 +109,7 @@ export default function TeacherProfile() {
   const [profile, setProfile] = useState<TeacherProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
 
   useEffect(() => {
     if (!user?.userId) {
@@ -204,7 +207,7 @@ export default function TeacherProfile() {
   return (
     <div className="space-y-8">
       <div className="mb-6 rounded-2xl border border-gray-100 bg-white px-8 py-6 shadow-sm">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <div className="flex items-center justify-center w-10 h-10 bg-blue-100 rounded-lg flex-shrink-0">
               <User className="h-6 w-6 text-blue-600" />
@@ -214,6 +217,14 @@ export default function TeacherProfile() {
               <p className="text-gray-500 text-sm">View your personal and professional information</p>
             </div>
           </div>
+
+          <button
+            onClick={() => setShowPasswordModal(true)}
+            className="inline-flex items-center justify-center gap-2 self-start rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700 sm:self-auto"
+          >
+            <KeyRound size={16} />
+            Change Password
+          </button>
         </div>
       </div>
 
@@ -290,6 +301,11 @@ export default function TeacherProfile() {
         <Info icon={<MapPin size={18} />} label="Address" value={fallback(profile.address)} />
         <Info icon={<Hash size={18} />} label="Pin Code" value={fallback(profile.pinCode)} />
       </div>
+
+      <ChangePasswordModal
+        isOpen={showPasswordModal}
+        onClose={() => setShowPasswordModal(false)}
+      />
     </div>
   );
 }
