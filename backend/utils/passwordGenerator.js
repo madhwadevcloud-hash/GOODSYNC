@@ -173,6 +173,36 @@ function generateTemporaryPassword() {
   return generateRandomPassword(10);
 }
 
+/**
+ * Validate a password against the app's strength requirements:
+ * min 8 characters, at least one uppercase, one lowercase, one number,
+ * and one special character.
+ * @param {string} password
+ * @returns {{ valid: boolean, errors: string[] }}
+ */
+function validatePasswordStrength(password) {
+  const errors = [];
+  const pwd = password || '';
+
+  if (pwd.length < 8) {
+    errors.push('Password must be at least 8 characters long');
+  }
+  if (!/[A-Z]/.test(pwd)) {
+    errors.push('Password must contain at least one uppercase letter');
+  }
+  if (!/[a-z]/.test(pwd)) {
+    errors.push('Password must contain at least one lowercase letter');
+  }
+  if (!/[0-9]/.test(pwd)) {
+    errors.push('Password must contain at least one number');
+  }
+  if (!/[^A-Za-z0-9]/.test(pwd)) {
+    errors.push('Password must contain at least one special character');
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
 module.exports = {
   generateRandomPassword,
   generateStudentPassword,
@@ -181,5 +211,6 @@ module.exports = {
   generateParentPassword,
   hashPassword,
   verifyPassword,
-  generateTemporaryPassword
+  generateTemporaryPassword,
+  validatePasswordStrength
 };

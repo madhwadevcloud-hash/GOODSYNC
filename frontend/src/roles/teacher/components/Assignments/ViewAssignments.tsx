@@ -18,6 +18,8 @@ interface Assignment {
   instructions?: string;
   description?: string;
   teacher?: any;
+  teacherName?: string;
+  createdByName?: string;
   status?: string;
 }
 
@@ -383,6 +385,9 @@ const getDueStatus = (dueDate: string) => {
                 Subject
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Assigned By
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Due Date
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -393,13 +398,13 @@ const getDueStatus = (dueDate: string) => {
           <tbody className="bg-white divide-y divide-gray-200">
             {loading ? (
               <tr>
-                <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
                   Loading assignments...
                 </td>
               </tr>
             ) : filteredAssignments.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
                   No assignments found
                 </td>
               </tr>
@@ -420,6 +425,11 @@ const getDueStatus = (dueDate: string) => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">{assignment.subject}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">
+                      {assignment.teacherName || assignment.createdByName || 'N/A'}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center text-sm text-gray-900">

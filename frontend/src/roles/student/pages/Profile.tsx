@@ -11,8 +11,10 @@ import {
   Globe,
   Bus,
   Hash,
+  KeyRound,
 } from "lucide-react";
 import api from "../../../services/api";
+import ChangePasswordModal from "../components/ChangePasswordModal";
 
 interface StudentProfile {
   studentName: string | null;
@@ -53,6 +55,7 @@ export default function Profile() {
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -123,13 +126,25 @@ export default function Profile() {
       {/* Header */}
 
       <div className="rounded-2xl border border-gray-100 bg-white px-6 py-6 sm:px-8 shadow-sm">
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
-          Profile
-        </h1>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
+              Profile
+            </h1>
 
-        <p className="mt-1.5 text-sm text-gray-500">
-          View your personal, academic, and contact information.
-        </p>
+            <p className="mt-1.5 text-sm text-gray-500">
+              View your personal, academic, and contact information.
+            </p>
+          </div>
+
+          <button
+            onClick={() => setShowPasswordModal(true)}
+            className="inline-flex items-center justify-center gap-2 self-start rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700 sm:self-auto"
+          >
+            <KeyRound size={16} />
+            Change Password
+          </button>
+        </div>
       </div>
 
       {/* Summary Card */}
@@ -228,6 +243,11 @@ export default function Profile() {
           <Info icon={<Bus size={18} />} label="Bus Route" value={fallback(profile.busRoute)} />
         </div>
       </section>
+
+      <ChangePasswordModal
+        isOpen={showPasswordModal}
+        onClose={() => setShowPasswordModal(false)}
+      />
 
     </div>
   );
