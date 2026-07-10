@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import {
   Calendar,
   CalendarDays,
+  CalendarClock,
   Users,
-  FileText,
+  BookOpen,
   BarChart3,
   MessageSquare,
   Menu,
@@ -13,7 +14,6 @@ import {
   Home,
   UserCheck,
   User,
-  Search,
   Bell,
   MapPin,
   Phone,
@@ -85,8 +85,6 @@ const pickEmail = (data: any): string | undefined =>
 const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLogout }) => {
   const { user } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
   const [schoolInfo, setSchoolInfo] = useState<SchoolInfo | null>(null);
   const { hasPermission, showPermissionDenied, setShowPermissionDenied, deniedPermissionName, checkAndNavigate } = usePermissions();
@@ -145,11 +143,11 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
     { name: 'Dashboard', icon: Home, page: 'dashboard', permission: null },
     { name: 'Student Details', icon: Users, page: 'student-details', permission: null },
     { name: 'Attendance', icon: UserCheck, page: 'attendance', permission: 'viewAttendance' as PermissionKey },
-    { name: 'Assignments', icon: FileText, page: 'assignments', permission: 'viewAssignments' as PermissionKey },
+    { name: 'Assignments', icon: BookOpen, page: 'assignments', permission: 'viewAssignments' as PermissionKey },
     { name: 'Results', icon: BarChart3, page: 'view-results', permission: 'viewResults' as PermissionKey },
     { name: 'Messages', icon: MessageSquare, page: 'messages', permission: 'messageStudentsParents' as PermissionKey },
     { name: 'Calendar', icon: CalendarDays, page: 'calendar', permission: null },
-    { name: 'Leave Request', icon: Calendar, page: 'leave-request', permission: 'viewLeaves' as PermissionKey },
+    { name: 'Leave Request', icon: CalendarClock, page: 'leave-request', permission: 'viewLeaves' as PermissionKey },
     { name: 'Profile', icon: User, page: 'profile', permission: null },
   ];
 
@@ -262,12 +260,8 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
             </h2>
 
             <div className="flex-1 flex items-center justify-between overflow-hidden">
-              {/* Left: School Details — collapses out of view while the search is focused */}
-              <div
-                className={`hidden sm:flex items-center gap-3 transition-all duration-500 ease-in-out overflow-hidden ${
-                  isSearchFocused ? 'max-w-0 opacity-0 invisible -translate-x-8' : 'max-w-2xl opacity-100 visible translate-x-0'
-                }`}
-              >
+              {/* Left: School Details */}
+              <div className="hidden sm:flex items-center gap-3 max-w-2xl overflow-hidden">
                 {schoolLogoUrl ? (
                   <img
                     src={schoolLogoUrl}
@@ -307,29 +301,8 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
                 </div>
               </div>
 
-              {/* Right: Search — grows to fill the space the school block just vacated */}
-              <div
-                className={`flex items-center gap-3 transition-all duration-500 ease-in-out ${
-                  isSearchFocused ? 'w-full flex-1' : 'ml-auto'
-                }`}
-              >
-                <div
-                  className={`relative transition-all duration-500 ease-in-out ${
-                    isSearchFocused ? 'w-full max-w-full' : 'w-full max-w-[180px] sm:max-w-[220px] lg:max-w-xs'
-                  }`}
-                >
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-gray-400 pointer-events-none" />
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    onFocus={() => setIsSearchFocused(true)}
-                    onBlur={() => setIsSearchFocused(false)}
-                    placeholder="Search anything..."
-                    className="w-full pl-11 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 focus:bg-white transition-all duration-300"
-                  />
-                </div>
-
+              {/* Right: Actions */}
+              <div className="flex items-center gap-3 ml-auto">
                 <button
                   onClick={() => handleMenuClick(menuItems.find(m => m.page === 'messages')!)}
                   className="relative p-2.5 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors flex-shrink-0"
@@ -347,7 +320,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
                   className="p-2.5 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors hidden sm:block flex-shrink-0"
                   title="Leave Request"
                 >
-                  <Calendar className="h-5 w-5" />
+                  <CalendarClock className="h-5 w-5" />
                 </button>
               </div>
             </div>

@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   Eye,
   AlertCircle,
+  MessageSquare,
 } from 'lucide-react';
 import { useAuth } from '../../../../auth/AuthContext';
 import { useAcademicYear } from '../../../../contexts/AcademicYearContext';
@@ -226,9 +227,14 @@ const Messages: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-1">Messages</h1>
-          <p className="text-gray-500 text-sm">Read what admins send you, and message students or admins yourself</p>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center w-10 h-10 bg-violet-100 rounded-lg flex-shrink-0">
+            <MessageSquare className="h-6 w-6 text-violet-600" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-1">Messages</h1>
+            <p className="text-gray-500 text-sm">Read what admins send you, and message students or admins yourself</p>
+          </div>
         </div>
 
         {/* Academic Year Badge */}

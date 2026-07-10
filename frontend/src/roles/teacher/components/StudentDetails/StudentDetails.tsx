@@ -66,9 +66,14 @@ const StudentDetails: React.FC = () => {
     <div className="space-y-8 animate-in fade-in duration-500">
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Student Details</h1>
-          <p className="text-gray-500 mt-1 text-sm">Overview of students across all classes and sections</p>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center w-10 h-10 bg-violet-100 rounded-lg flex-shrink-0">
+            <Users className="h-6 w-6 text-violet-600" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Student Details</h1>
+            <p className="text-gray-500 mt-1 text-sm">Overview of students across all classes and sections</p>
+          </div>
         </div>
         
         <div className="relative group w-full md:w-80">

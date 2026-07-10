@@ -14,7 +14,6 @@ import {
   MessageSquare,
   CreditCard,
   LogOut,
-  Search,
   ChevronDown,
   MapPin,
   Phone,
@@ -32,7 +31,6 @@ import api from '../../../services/api';
 
 const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -244,7 +242,7 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
             <div className="flex-1 flex items-center justify-between overflow-hidden">
               {/* Left: School Details */}
-              <div className={`flex items-center gap-3 group cursor-pointer rounded-xl hover:bg-slate-50/80 transition-all duration-500 ease-in-out overflow-hidden ${isSearchFocused ? 'max-w-0 opacity-0 invisible -translate-x-8 p-0 m-0' : 'max-w-2xl opacity-100 visible translate-x-0 p-1.5 -ml-1.5'}`}>
+              <div className="flex items-center gap-3 group cursor-pointer rounded-xl hover:bg-slate-50/80 transition-all duration-300 overflow-hidden max-w-2xl p-1.5 -ml-1.5">
                 <div className="h-10 w-10 bg-white border border-indigo-100/80 rounded-xl hidden sm:flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:-rotate-3 group-hover:shadow-md group-hover:border-indigo-200 transition-all duration-300 ease-out overflow-hidden">
                   {schoolLoading ? (
                     <div className="h-5 w-5 rounded bg-slate-200 animate-pulse" />
@@ -294,23 +292,8 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 </div>
               </div>
 
-              {/* Right: Search + User Profile */}
-              <div className={`flex items-center gap-3 sm:gap-4 shrink-0 transition-all duration-500 ease-in-out ${isSearchFocused ? 'w-full flex-1 ml-0' : 'ml-4'}`}>
-                <div className={`relative text-slate-400 focus-within:text-indigo-600 hidden md:block group/search transition-all duration-500 ease-in-out ${isSearchFocused ? 'w-full max-w-full' : 'w-full max-w-[150px] lg:max-w-[200px] xl:max-w-xs'}`}>
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Search className="h-4 w-4 text-slate-400 group-focus-within/search:text-indigo-500 transition-colors duration-300" aria-hidden="true" />
-                  </div>
-                  <input
-                    id="search"
-                    className="block w-full pl-9 pr-3 py-2 border border-slate-200 rounded-full leading-5 bg-slate-50/50 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 focus:bg-white text-[13px] transition-all duration-300 hover:bg-slate-50 hover:border-slate-300"
-                    placeholder="Search anything..."
-                    type="search"
-                    name="search"
-                    onFocus={() => setIsSearchFocused(true)}
-                    onBlur={() => setIsSearchFocused(false)}
-                  />
-                </div>
-
+              {/* Right: User Profile */}
+              <div className="flex items-center gap-3 sm:gap-4 shrink-0 ml-4">
                 <div className="h-8 w-px bg-slate-200 hidden md:block mx-1"></div>
 
                 <div className="flex items-center gap-1 sm:gap-2 mx-1">
