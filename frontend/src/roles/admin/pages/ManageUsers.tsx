@@ -2120,6 +2120,8 @@ const ManageUsers: React.FC = () => {
               temporaryPassword: userData.temporaryPassword || userData.tempPassword || null,
               hasTemporaryPassword: userData.hasTemporaryPassword || !!userData.temporaryPassword || false,
               address: userData.address,
+              personal: userData.personal || {},
+              contact: userData.contact || {},
               isActive: userData.isActive !== false,
               createdAt: userData.createdAt || new Date().toISOString(),
               profileImage: userData.profileImage || userData.profilePicture || null,
@@ -2202,6 +2204,8 @@ const ManageUsers: React.FC = () => {
                   temporaryPassword: userData.temporaryPassword || userData.tempPassword || null,
                   hasTemporaryPassword: userData.hasTemporaryPassword || !!userData.temporaryPassword || false,
                   address: userData.address?.permanent?.street || userData.address?.street || userData.address,
+                  personal: userData.personal || {},
+                  contact: userData.contact || {},
                   profileImage: userData.profileImage || userData.profilePicture || null, // 💡 FIX 2b: Map profileImage here (grouped response)
                   isActive: userData.isActive !== false,
                   createdAt: userData.createdAt || new Date().toISOString()
@@ -3441,7 +3445,7 @@ const ManageUsers: React.FC = () => {
       rollNumber: userData.academicInfo?.rollNumber || userData.rollNumber || '',
       admissionNumber: userData.academicInfo?.admissionNumber || userData.admissionNumber || '',
       admissionDate: userData.academicInfo?.admissionDate ?
-        new Date(userData.academicInfo.admissionDate).toISOString().split('T')[0] :
+        formatDateForInput(userData.academicInfo.admissionDate) :
         userData.admissionDate || '',
       previousSchool: userData.previousSchool || '',
       previousClass: userData.previousClass || '',

@@ -31,6 +31,7 @@ interface TeacherProfile {
   state: string | null;
   pinCode: string | null;
   profileImage?: string | null;
+  subjects: string[];
 }
 
 const mapTeacherProfile = (raw: any): TeacherProfile => {
@@ -91,6 +92,13 @@ const mapTeacherProfile = (raw: any): TeacherProfile => {
     state: permanentAddress.state || addressInfo?.state || raw?.state || null,
     pinCode: permanentAddress.pincode || addressInfo?.pincode || raw?.pinCode || null,
     profileImage: raw?.profileImage || raw?.profilePicture || null,
+    subjects: Array.isArray(teacherDetails?.subjects)
+      ? teacherDetails.subjects
+          .map((s: any) => (typeof s === 'string' ? s : s?.subjectName))
+          .filter(Boolean)
+      : (typeof teacherDetails?.subjects === 'string'
+          ? teacherDetails.subjects.split(',').map((s: string) => s.trim()).filter(Boolean)
+          : []),
   };
 };
 
@@ -117,8 +125,25 @@ export default function TeacherProfile() {
           .catch(() => null);
         const payload = response?.data?.data ?? response?.data ?? null;
 
+        // Subjects assigned via the formal class/section Subject-Teacher
+        // Assignment workflow (if the school uses it). This is merged with
+        // whatever is in the "Subjects Taught" field on the teacher's own
+        // profile record, since schools may use either or both.
+        const assignedSubjects = await api
+          .get('/teacher-assignments/my-assignments')
+          .then((res) => {
+            const raw = res?.data?.data?.rawAssignments ?? [];
+            return raw.map((a: any) => a?.subjectName).filter(Boolean);
+          })
+          .catch(() => [] as string[]);
+
+        const mergeSubjects = (base: TeacherProfile) => ({
+          ...base,
+          subjects: Array.from(new Set([...base.subjects, ...assignedSubjects])),
+        });
+
         if (payload) {
-          setProfile(mapTeacherProfile(payload));
+          setProfile(mergeSubjects(mapTeacherProfile(payload)));
           return;
         }
 
@@ -126,7 +151,7 @@ export default function TeacherProfile() {
           params: { _t: Date.now() },
         });
         const fallbackPayload = fallbackResponse.data?.data ?? fallbackResponse.data ?? null;
-        setProfile(fallbackPayload ? mapTeacherProfile(fallbackPayload) : null);
+        setProfile(fallbackPayload ? mergeSubjects(mapTeacherProfile(fallbackPayload)) : null);
       } catch {
         setError("Unable to load profile");
       } finally {
@@ -228,6 +253,28 @@ export default function TeacherProfile() {
         <Info icon={<Briefcase size={18} />} label="Designation" value={fallback(profile.designation)} />
         <Info icon={<GraduationCap size={18} />} label="Qualification" value={fallback(profile.qualification)} />
         <Info icon={<Briefcase size={18} />} label="Experience" value={fallback(profile.experience)} />
+        <div className="flex items-start gap-4 md:col-span-2">
+          <div className="p-3 rounded-lg bg-blue-100 text-blue-600">
+            <GraduationCap size={18} />
+          </div>
+          <div>
+            <p className="text-sm text-gray-500">My Subjects</p>
+            {profile.subjects.length > 0 ? (
+              <div className="mt-1 flex flex-wrap gap-2">
+                {profile.subjects.map((subject) => (
+                  <span
+                    key={subject}
+                    className="px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-sm font-medium border border-blue-100"
+                  >
+                    {subject}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-lg font-semibold text-gray-900">--</p>
+            )}
+          </div>
+        </div>
       </div>
 
       <SectionTitle icon={<Phone />} title="Contact Information" />
