@@ -518,7 +518,7 @@ export default function Dashboard() {
       link: "/student/results",
     },
     {
-      title: "Messages",
+      title: "Announcements",
       value: dashboardData.unreadMessages,
       caption: "Recent",
       icon: MessageSquare,
