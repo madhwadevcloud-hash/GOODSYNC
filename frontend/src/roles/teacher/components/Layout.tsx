@@ -145,7 +145,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
     { name: 'Attendance', icon: UserCheck, page: 'attendance', permission: 'viewAttendance' as PermissionKey },
     { name: 'Assignments', icon: BookOpen, page: 'assignments', permission: 'viewAssignments' as PermissionKey },
     { name: 'Results', icon: BarChart3, page: 'view-results', permission: 'viewResults' as PermissionKey },
-    { name: 'Messages', icon: MessageSquare, page: 'messages', permission: 'messageStudentsParents' as PermissionKey },
+    { name: 'Announcement', icon: MessageSquare, page: 'messages', permission: 'messageStudentsParents' as PermissionKey },
     { name: 'Calendar', icon: CalendarDays, page: 'calendar', permission: null },
     { name: 'Leave Request', icon: CalendarClock, page: 'leave-request', permission: 'viewLeaves' as PermissionKey },
     { name: 'Profile', icon: User, page: 'profile', permission: null },
@@ -306,7 +306,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
                 <button
                   onClick={() => handleMenuClick(menuItems.find(m => m.page === 'messages')!)}
                   className="relative p-2.5 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors flex-shrink-0"
-                  title="Messages"
+                  title="Announcement"
                 >
                   <Bell className="h-5 w-5" />
                   {notificationCount > 0 && (
