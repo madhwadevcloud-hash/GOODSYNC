@@ -37,7 +37,7 @@ export default function Message() {
 
         setMessages(response.data?.data ?? []);
       } catch (err) {
-        setError("Unable to load messages");
+        setError("Unable to load announcements");
       } finally {
         setLoading(false);
       }
@@ -51,7 +51,7 @@ export default function Message() {
       <div className="flex justify-center items-center h-80">
         <div className="flex flex-col items-center gap-3 text-gray-400">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-blue-600" />
-          <p className="text-sm font-medium">Loading Messages...</p>
+          <p className="text-sm font-medium">Loading Announcements...</p>
         </div>
       </div>
     );
@@ -73,11 +73,11 @@ export default function Message() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">
-                Messages
+                Announcements
               </h1>
 
               <p className="mt-2 text-sm text-gray-500">
-                Stay updated with announcements and messages from your school.
+                Stay updated with announcements from your school.
               </p>
             </div>
           </div>
@@ -95,7 +95,7 @@ export default function Message() {
             />
 
             <h3 className="text-lg font-medium">
-              No messages available
+              No announcements available
             </h3>
 
             <p className="mt-2 text-sm">

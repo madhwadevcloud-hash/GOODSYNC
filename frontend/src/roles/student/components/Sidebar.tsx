@@ -52,7 +52,7 @@ const menu = [
     path: "/student/fees",
   },
   {
-    title: "Messages",
+    title: "Announcements",
     icon: MessageSquare,
     path: "/student/messages",
   },
@@ -201,7 +201,7 @@ export default function Sidebar({ isOpen, onClose }: Props) {
                     <span>{item.title}</span>
                   </div>
 
-                  {item.title === "Messages" && unreadMessages > 0 && (
+                  {item.title === "Announcements" && unreadMessages > 0 && (
                     <span className="flex items-center justify-center bg-blue-600 text-white text-xs rounded-full w-6 h-6 font-semibold">
                       {unreadMessages}
                     </span>
