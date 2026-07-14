@@ -687,7 +687,7 @@ const MessagesPage: React.FC = () => {
                 <MessageSquare className="h-7 w-7 text-white" strokeWidth={2} />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Messages</h1>
+                <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Announcements</h1>
                 <p className="text-sm font-medium text-slate-500 mt-1">Send announcements and stay in the loop with your staff</p>
               </div>
             </div>
@@ -716,7 +716,7 @@ const MessagesPage: React.FC = () => {
             }`}
           >
             <Inbox className="h-4 w-4" strokeWidth={2.5} />
-            Staff Messages
+            Staff Announcements
           </button>
         </div>
       </div>
@@ -739,7 +739,7 @@ const MessagesPage: React.FC = () => {
         <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-100 mb-6 mx-2 sm:mx-0">
           <h2 className="text-lg font-bold text-slate-800 mb-1 flex items-center">
             <GraduationCap className="h-5 w-5 mr-2 text-indigo-500" strokeWidth={2.5} />
-            Messages sent by teachers
+            Announcements sent by teachers
           </h2>
           <p className="text-sm text-slate-500 mb-6">
             Everything teachers have sent — to admins, to other teachers, or to a class — shows up here.
@@ -756,12 +756,12 @@ const MessagesPage: React.FC = () => {
           {staffLoading ? (
             <div className="flex justify-center items-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-              <span className="ml-3 text-slate-500 font-medium">Loading staff messages...</span>
+              <span className="ml-3 text-slate-500 font-medium">Loading staff announcements...</span>
             </div>
           ) : staffMessages.length === 0 ? (
             <div className="text-center py-16">
               <Inbox className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-              <h3 className="text-base font-semibold text-slate-700">No messages from teachers yet</h3>
+              <h3 className="text-base font-semibold text-slate-700">No announcements from teachers yet</h3>
               <p className="text-sm text-slate-400 mt-1">Anything teachers send will appear here.</p>
             </div>
           ) : (
@@ -812,7 +812,7 @@ const MessagesPage: React.FC = () => {
       <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-100 mb-6 mx-2 sm:mx-0">
         <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center">
           <Send className="h-5 w-5 mr-2 text-indigo-500" strokeWidth={2.5} />
-          Compose New Message
+          Compose New Announcement
         </h2>
 
         {/* Class and Section Selection */}
@@ -831,7 +831,7 @@ const MessagesPage: React.FC = () => {
               className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 focus:bg-white transition-all text-sm font-medium text-slate-700 placeholder:text-slate-400"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Enter message title"
+              placeholder="Enter announcement title"
               disabled={!hasClasses() || classList.length === 0}
             />
           </div>
@@ -845,13 +845,13 @@ const MessagesPage: React.FC = () => {
               className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 focus:bg-white transition-all text-sm font-medium text-slate-700 placeholder:text-slate-400"
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
-              placeholder="Enter message subject"
+              placeholder="Enter announcement subject"
               disabled={!hasClasses() || classList.length === 0}
             />
           </div>
           <div>
             <label htmlFor="message" className="block text-sm font-semibold text-slate-700 mb-1.5">
-              Message Body <span className="text-rose-500">*</span>
+              Announcement Body <span className="text-rose-500">*</span>
             </label>
             <textarea
               id="message"
@@ -859,7 +859,7 @@ const MessagesPage: React.FC = () => {
               className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 focus:bg-white transition-all text-sm font-medium text-slate-700 placeholder:text-slate-400 resize-y"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Type your message here..."
+              placeholder="Type your announcement here..."
               disabled={!hasClasses() || classList.length === 0}
             ></textarea>
           </div>
@@ -882,7 +882,7 @@ const MessagesPage: React.FC = () => {
                 : 'bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-md hover:shadow-indigo-200/50 hover:-translate-y-0.5'
             }`}
           >
-            {loading ? 'Sending...' : <><Send className="h-4 w-4 mr-2" strokeWidth={2.5} />Send Message</>}
+            {loading ? 'Sending...' : <><Send className="h-4 w-4 mr-2" strokeWidth={2.5} />Send Announcement</>}
           </button>
         </div>
       </div>
@@ -891,7 +891,7 @@ const MessagesPage: React.FC = () => {
       {showPreviewModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-75 overflow-y-auto h-full w-full z-50 flex justify-center items-center">
           <div className="relative p-8 border w-full max-w-md md:max-w-lg lg:max-w-xl shadow-lg rounded-md bg-white">
-            <h3 className="text-xl font-bold text-gray-900 mb-4">Message Preview</h3>
+            <h3 className="text-xl font-bold text-gray-900 mb-4">Announcement Preview</h3>
             <div className="mb-4">
               <p className="text-sm font-medium text-gray-700">Title:</p>
               <p className="text-gray-900 font-semibold">{title}</p>
@@ -901,7 +901,7 @@ const MessagesPage: React.FC = () => {
               <p className="text-gray-900 font-semibold">{subject}</p>
             </div>
             <div className="mb-4">
-              <p className="text-sm font-medium text-gray-700">Message Body:</p>
+              <p className="text-sm font-medium text-gray-700">Announcement Body:</p>
               <p className="text-gray-800 whitespace-pre-wrap">{message}</p>
             </div>
             <div className="mb-4">
@@ -936,7 +936,7 @@ const MessagesPage: React.FC = () => {
       {/* Sent Messages List */}
       <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-100 mx-2 sm:mx-0">
         <h2 className="text-lg font-bold text-slate-800 mb-1 flex items-center">
-          <Mail className="h-5 w-5 mr-2 text-indigo-500" strokeWidth={2.5} /> Sent Messages
+          <Mail className="h-5 w-5 mr-2 text-indigo-500" strokeWidth={2.5} /> Sent Announcements
         </h2>
         <p className="text-sm text-slate-500 mb-5">Everything you've sent to students and teachers.</p>
 
@@ -954,12 +954,12 @@ const MessagesPage: React.FC = () => {
         {messagesLoading ? (
           <div className="flex justify-center items-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-            <span className="ml-3 text-slate-500 font-medium">Loading messages...</span>
+            <span className="ml-3 text-slate-500 font-medium">Loading announcements...</span>
           </div>
         ) : messages.length === 0 ? (
           <div className="text-center py-16">
             <Mail className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-            <h3 className="text-base font-semibold text-slate-700">No sent messages found</h3>
+            <h3 className="text-base font-semibold text-slate-700">No sent announcements found</h3>
             <p className="text-sm text-slate-400 mt-1">Try adjusting the filters above.</p>
           </div>
         ) : (
@@ -1012,7 +1012,7 @@ const MessagesPage: React.FC = () => {
                       <button
                         onClick={() => previewMessageDetails(message)}
                         className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 transition-colors"
-                        title="Preview message"
+                        title="Preview announcement"
                       >
                         <Eye className="h-3.5 w-3.5" /> Preview
                       </button>
@@ -1020,7 +1020,7 @@ const MessagesPage: React.FC = () => {
                         onClick={() => confirmDelete(message)}
                         disabled={deleteLoading === message.id}
                         className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-red-600 bg-white border border-red-100 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        title="Delete message"
+                        title="Delete announcement"
                       >
                         {deleteLoading === message.id ? (
                           <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-red-600"></div>
@@ -1070,12 +1070,12 @@ const MessagesPage: React.FC = () => {
             <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-4 rounded">
               <div className="flex items-center">
                 <AlertCircle className="h-5 w-5 text-red-400 mr-2" />
-                <h3 className="text-lg font-bold text-red-800">Confirm Delete</h3>
+                <h3 className="text-lg font-bold text-red-800">Confirm Delete Announcement</h3>
               </div>
             </div>
             <div className="mb-4">
               <p className="text-sm text-gray-700">
-                Are you sure you want to delete this message?
+                Are you sure you want to delete this announcement?
               </p>
               <div className="mt-2 p-3 bg-red-50 rounded-md border border-red-200">
                 <p className="font-semibold text-gray-900 break-words">{messageToDelete.title}</p>
@@ -1117,7 +1117,7 @@ const MessagesPage: React.FC = () => {
             <div className="bg-green-50 border-l-4 border-green-400 p-4 mb-4 rounded">
               <div className="flex items-center">
                 <Eye className="h-5 w-5 text-green-400 mr-2" />
-                <h3 className="text-xl font-bold text-green-800">Message Details</h3>
+                <h3 className="text-xl font-bold text-green-800">Announcement Details</h3>
               </div>
             </div>
             <div className="space-y-4 max-h-[70vh] overflow-y-auto">
@@ -1138,7 +1138,7 @@ const MessagesPage: React.FC = () => {
                 <p className="text-gray-800">{formatDateTime(messageToPreview.createdAt)}</p>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-700 mb-1">Message Body:</p>
+                <p className="text-sm font-medium text-gray-700 mb-1">Announcement Body:</p>
                 <div className="mt-1 p-3 bg-green-50 rounded-md border border-green-200">
                   <p className="text-gray-800 whitespace-pre-wrap break-words">{messageToPreview.message}</p>
                 </div>

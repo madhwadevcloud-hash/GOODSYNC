@@ -86,7 +86,7 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     { name: 'Results', href: '/admin/results', icon: BarChart3 },
     { name: 'Assign Teacher', href: '/admin/teacher-assignments', icon: UserCheck }, { name: 'Academic Calendar', href: '/admin/calendar', icon: CalendarDays },
     { name: 'Leave Management', href: '/admin/leave-management', icon: CalendarClock },
-    { name: 'Messages', href: '/admin/messages', icon: MessageSquare },
+    { name: 'Announcements', href: '/admin/messages', icon: MessageSquare },
     { name: 'Fees', href: '/admin/fees/structure', icon: CreditCard },
     { name: 'Reports', href: '/admin/reports', icon: FileText },
   ];
@@ -300,7 +300,7 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                   <Link to="/admin/calendar" className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all duration-300 relative group/icon" title="Calendar">
                     <Calendar className="h-[22px] w-[22px] group-hover/icon:scale-110 transition-transform" />
                   </Link>
-                  <Link to="/admin/messages" className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all duration-300 relative group/icon" title="Messages">
+                  <Link to="/admin/messages" className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all duration-300 relative group/icon" title="Announcements">
                     <Bell className="h-[22px] w-[22px] group-hover/icon:scale-110 transition-transform" />
                     <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white"></span>
                   </Link>
