@@ -29,5 +29,9 @@ export interface LoginPayload {
 
 export interface AuthContextValue extends AuthState {
   login: (payload: LoginPayload) => Promise<void>;
+  // Used by the dedicated Super Admin login page, which authenticates
+  // against its own backend endpoint and just needs the resulting
+  // token/user persisted into the same session storage as normal login.
+  loginWithSession: (token: string, user: AuthUser) => void;
   logout: () => void;
 }
