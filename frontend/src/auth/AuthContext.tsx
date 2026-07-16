@@ -108,6 +108,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [persist]);
 
+  const loginWithSession = useCallback((token: string, user: AuthUser) => {
+    const normalized = normalizeState({ user, token, loading: false });
+    setState(normalized);
+    persist(normalized);
+  }, [persist]);
+
   const logout = useCallback(async () => {
     console.log('[AUTH] Logging out');
     try {
@@ -121,7 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('erp.schoolCode');
   }, []);
 
-  const value = useMemo<AuthContextValue>(() => ({ ...state, login, logout }), [state, login, logout]);
+  const value = useMemo<AuthContextValue>(() => ({ ...state, login, loginWithSession, logout }), [state, login, loginWithSession, logout]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
@@ -139,6 +145,7 @@ export function useAuth(): AuthContextValue {
           ...fallbackData,
           loading: false,
           login: async () => { throw new Error('Cannot login outside AuthProvider'); },
+          loginWithSession: () => { throw new Error('Cannot login outside AuthProvider'); },
           logout: () => { localStorage.removeItem(STORAGE_KEY); }
         };
       } catch (err) {

@@ -43,37 +43,68 @@ exports.logout = async (req, res) => {
   }
 };
 
-exports.getDemoCredentials = async (req, res) => {
+// NOTE: The old public "demo credentials" endpoint has been removed.
+// It leaked real user emails to anyone who called it, unauthenticated.
+// Never expose any endpoint that reveals account identifiers/credentials
+// without authentication.
+
+// Dedicated Super Admin login. Only ever checks the SuperAdmin collection —
+// it will never authenticate an admin/teacher/student, even if the same
+// email exists in the regular Users collection. Meant to be mounted behind
+// its own strict rate limiter and a non-public URL.
+exports.superAdminLogin = async (req, res) => {
   try {
-    // SECURITY: Return demo credentials from database (not environment variables)
-    // This provides access to admin credentials created by super admin
-    const User = require('../models/User');
-    
-    // Look for admin user created by super admin (not super admin itself)
-    const adminUser = await User.findOne({ 
-      role: 'admin',
-      isActive: true 
-    }).select('email name role');
-    
-    if (!adminUser) {
-      return res.status(404).json({
-        success: false,
-        message: 'No admin credentials available'
-      });
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email and password are required' });
     }
-    
+
+    // Sanitize email to prevent NoSQL/Regex injection
+    const sanitizedEmail = String(email || '').trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    const user = await SuperAdmin.findOne({ email: { $regex: new RegExp(`^${sanitizedEmail}$`, 'i') } });
+
+    // Use one generic error message and always compare against a bcrypt hash
+    // (even a dummy one) so response timing doesn't reveal whether the email exists.
+    const dummyHash = '$2a$10$C6UzMDM.H6dfI/f/IKcEeO7t7iA9O/9r6t6lqW2y1ZQ2i9d1e1a1O';
+    const isMatch = await bcrypt.compare(password, user ? user.password : dummyHash);
+
+    if (!user || !isMatch) {
+      console.log('[SUPERADMIN LOGIN FAIL] Invalid credentials');
+      return res.status(401).json({ message: 'Invalid email or password' });
+    }
+
+    if (!user.isActive) {
+      console.log('[SUPERADMIN LOGIN FAIL] Account deactivated: [EMAIL_HIDDEN]');
+      return res.status(403).json({ message: 'Account has been deactivated. Contact system administrator.' });
+    }
+
+    user.lastLogin = new Date();
+    await user.save();
+
+    const token = jwt.sign(
+      { userId: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '12h' } // shorter session for the most sensitive account
+    );
+
+    console.log('[SUPERADMIN LOGIN SUCCESS]');
     return res.status(200).json({
       success: true,
-      data: {
-        email: adminUser.email,
-        name: adminUser.name,
-        role: adminUser.role,
-        note: 'Admin credentials created by super admin'
+      message: 'Login successful',
+      token,
+      user: {
+        _id: user._id,
+        email: user.email,
+        role: user.role,
+        permissions: user.permissions,
+        lastLogin: user.lastLogin
       }
     });
   } catch (error) {
-    console.error('Demo credentials error:', error.message);
-    res.status(500).json({ success: false, message: 'Request failed' });
+    console.error('[SUPERADMIN LOGIN ERROR]', error);
+    res.status(500).json({ message: 'Login failed. Please try again.' });
   }
 };
 
@@ -101,56 +132,17 @@ exports.login = async (req, res) => {
     // Sanitize email to prevent NoSQL/Regex injection
     const sanitizedEmail = String(email || '').trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-    // First try to find in SuperAdmin collection
-    user = await SuperAdmin.findOne({ email: { $regex: new RegExp(`^${sanitizedEmail}$`, 'i') } });
-
-    if (user) {
-      console.log(`🔍 Found in SuperAdmin collection: [EMAIL_HIDDEN]`);
-      console.log(`👤 User role: ${user.role}`);
-
-      const isMatch = await bcrypt.compare(password, user.password);
-      if (!isMatch) {
-        console.log(`[LOGIN FAIL] Wrong password for superadmin: [EMAIL_HIDDEN]`);
-        return res.status(401).json({ message: 'Invalid email or password' });
-      }
-
-      if (!user.isActive) {
-        console.log(`[LOGIN FAIL] SuperAdmin is deactivated: [EMAIL_HIDDEN]`);
-        return res.status(403).json({ message: 'Account has been deactivated. Contact system administrator.' });
-      }
-
-      // Validate that selected role matches user's actual role for SuperAdmin
-      if (selectedRole && selectedRole !== user.role) {
-        console.log(`[LOGIN FAIL] Role mismatch - Selected: ${selectedRole}, Actual: ${user.role} for superadmin: [EMAIL_HIDDEN]`);
-        return res.status(401).json({ message: 'Invalid email or password' });
-      }
-
-      // Update last login
-      user.lastLogin = new Date();
-      await user.save();
-
-      const token = jwt.sign(
-        { userId: user._id, role: user.role },
-        process.env.JWT_SECRET,
-        { expiresIn: '24h' }
-      );
-
-      console.log(`[LOGIN SUCCESS] Super Admin: ${email}`);
-      return res.status(200).json({
-        success: true,
-        message: 'Login successful',
-        token,
-        user: {
-          _id: user._id,
-          email: user.email,
-          role: user.role,
-          permissions: user.permissions,
-          lastLogin: user.lastLogin
-        }
-      });
+    // SECURITY: Super Admin accounts can NEVER authenticate through this
+    // general-purpose endpoint, even with a correct password. Super Admin
+    // login only happens through the dedicated /auth/superadmin-login
+    // endpoint, reachable exclusively via a separate, non-public URL.
+    const superAdminExists = await SuperAdmin.findOne({ email: { $regex: new RegExp(`^${sanitizedEmail}$`, 'i') } }).select('_id');
+    if (superAdminExists) {
+      console.log(`[LOGIN BLOCKED] SuperAdmin email attempted general login: [EMAIL_HIDDEN]`);
+      return res.status(401).json({ message: 'Invalid email or password' });
     }
 
-    // If not found in SuperAdmin, try regular Users collection
+    // Try regular Users collection
     user = await User.findOne({ email: { $regex: new RegExp(`^${sanitizedEmail}$`, 'i') } }).read('primaryPreferred');
     console.log(`🔍 Querying users database for user: [EMAIL_HIDDEN]`);
 

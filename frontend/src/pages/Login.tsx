@@ -1,22 +1,15 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Eye, EyeOff, Shield, GraduationCap, Settings, Users, X, CheckCircle, AlertCircle } from "lucide-react";
-import { getDemoCredentialsApi, forgotPasswordApi } from "../api/auth";
+import { Eye, EyeOff, GraduationCap, Settings, Users, X, CheckCircle, AlertCircle } from "lucide-react";
+import { forgotPasswordApi } from "../api/auth";
 
-type RoleKey = "superadmin" | "admin" | "teacher" | "student";
+type RoleKey = "admin" | "teacher" | "student";
 
 const initialRoleMeta: Record<
   RoleKey,
   { title: string; subtitle: string; icon: React.ReactNode; demoEmail: string; demoPass: string }
 > = {
-  superadmin: {
-    title: "Super Admin",
-    subtitle: "All-powerful ruler",
-    icon: <Shield className="w-5 h-5" />,
-    demoEmail: "",
-    demoPass: "",
-  },
   admin: {
     title: "Admin",
     subtitle: "System wizard",
@@ -42,8 +35,8 @@ const initialRoleMeta: Record<
 
 export default function Login() {
   const { login } = useAuth();
-  const [roleMeta, setRoleMeta] = useState(initialRoleMeta);
-  const [selectedRole, setSelectedRole] = useState<RoleKey>("superadmin");
+  const roleMeta = initialRoleMeta;
+  const [selectedRole, setSelectedRole] = useState<RoleKey>("admin");
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [schoolCode, setSchoolCode] = useState(""); // Start empty, will be set based on role
@@ -62,40 +55,7 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation() as any;
 
-  // Fetch demo credentials on mount
-  useEffect(() => {
-    const fetchDemoCreds = async () => {
-      const data = await getDemoCredentialsApi();
-      if (data.success && data.superadmin) {
-        setRoleMeta(prev => ({
-          ...prev,
-          superadmin: {
-            ...prev.superadmin,
-            demoEmail: data.superadmin.email,
-            demoPass: data.superadmin.password
-          }
-        }));
-
-        // If superadmin is currently selected, update the fields
-        if (selectedRole === 'superadmin') {
-          setIdentifier(data.superadmin.email);
-          setPassword(data.superadmin.password);
-        }
-      }
-    };
-    fetchDemoCreds();
-  }, []);
-
-  // Set initial school code based on selected role
-  useEffect(() => {
-    if (selectedRole === 'superadmin') {
-      setSchoolCode('');
-    } else {
-      setSchoolCode(''); // Keep blank for admin/teacher
-    }
-  }, [selectedRole]);
-
-  // Auto-fill demo creds when role changes
+  // Auto-fill demo creds when role changes (none configured by default)
   const onPickRole = (role: RoleKey) => {
     setSelectedRole(role);
     setIdentifier(roleMeta[role].demoEmail);
@@ -131,7 +91,6 @@ export default function Login() {
             </div>
             <div className="text-sm sm:font-medium text-slate-800 flex items-center gap-2">
               {m.title}
-              {rk === "superadmin" && <span></span>}
               {rk === "admin" && <span></span>}
               {rk === "teacher" && <span></span>}
               {rk === "student" && <span></span>}
@@ -226,7 +185,6 @@ export default function Login() {
           navigate("/admin", { replace: true });
           break;
 
-        case "superadmin":
         default:
           navigate("/", { replace: true });
           break;
@@ -324,22 +282,19 @@ export default function Login() {
                 </div>
               </div>
 
-              {/* School Code field - only for admin and teacher */}
-              {selectedRole !== 'superadmin' && (
-                <div className="space-y-1">
-                  <label className="text-sm text-slate-600">
-                    School Code
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full border border-slate-200 rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 focus:outline-none focus:ring-2 focus:ring-violet-200 focus:border-violet-400 text-sm sm:text-base"
-                    placeholder="Enter school code (e.g., 'p')"
-                    value={schoolCode}
-                    onChange={(e) => setSchoolCode(e.target.value)}
-                    required
-                  />
-                </div>
-              )}
+              <div className="space-y-1">
+                <label className="text-sm text-slate-600">
+                  School Code
+                </label>
+                <input
+                  type="text"
+                  className="w-full border border-slate-200 rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 focus:outline-none focus:ring-2 focus:ring-violet-200 focus:border-violet-400 text-sm sm:text-base"
+                  placeholder="Enter school code (e.g., 'p')"
+                  value={schoolCode}
+                  onChange={(e) => setSchoolCode(e.target.value)}
+                  required
+                />
+              </div>
 
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">
                 <label className="flex items-center gap-2 text-xs sm:text-sm text-slate-600">
@@ -372,7 +327,7 @@ export default function Login() {
 
               {/* hint for testers */}
               <p className="text-xs text-slate-500 text-center sm:text-left">
-                Tip: Only SuperAdmin has auto-filled demo credentials. Admin and Teacher require manual entry.
+                Enter your account email/ID, password, and school code to sign in.
               </p>
             </form>
           </div>

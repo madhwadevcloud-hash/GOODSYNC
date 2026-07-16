@@ -69,8 +69,35 @@ const passwordResetLimiter = rateLimit({
   }
 });
 
+/**
+ * Extra-strict rate limiter for the Super Admin login endpoint.
+ * Limits to 5 attempts per hour per IP (regardless of success),
+ * since this is the most sensitive account in the system.
+ */
+const superAdminLoginLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { default: false },
+  message: {
+    success: false,
+    message: 'Too many Super Admin login attempts. Please try again after 1 hour.',
+    retryAfterMinutes: 60
+  },
+  keyGenerator: (req) => {
+    const ip = req.ip || req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown-ip';
+    return `superadmin:${ip}`;
+  },
+  handler: (req, res, next, options) => {
+    console.warn(`🚫 [RATE LIMIT] Super Admin login blocked for IP: ${req.ip}`);
+    res.status(429).json(options.message);
+  }
+});
+
 module.exports = {
   loginLimiter,
   apiLimiter,
-  passwordResetLimiter
+  passwordResetLimiter,
+  superAdminLoginLimiter
 };

@@ -200,16 +200,33 @@ export async function forgotPasswordApi(identifier: string, schoolCode: string):
   }
 }
 
-export async function getDemoCredentialsApi(): Promise<any> {
-  const endpoint = `${API_BASE}/auth/demo-credentials`;
-  try {
-    const res = await fetch(endpoint);
-    if (!res.ok) throw new Error('Failed to fetch demo credentials');
-    return await res.json();
-  } catch (err) {
-    console.error('[DEMO CREDS ERROR]', err);
-    return { success: false };
+// Dedicated Super Admin login. Hits its own backend endpoint (stricter rate
+// limiting) and never touches the regular admin/teacher/student login path.
+export async function superAdminLoginApi(email: string, password: string): Promise<LoginResponse> {
+  const endpoint = `${API_BASE}/auth/superadmin-login`;
+
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ email, password })
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(data.message || 'Login failed');
   }
+
+  const mappedUser: AuthUser = {
+    id: data.user._id || data.user.id || '',
+    name: data.user.email,
+    email: data.user.email,
+    role: 'superadmin',
+    lastLogin: data.user.lastLogin
+  };
+
+  return { token: data.token, user: mappedUser };
 }
 export async function logoutApi(): Promise<void> {
   const endpoint = `${API_BASE}/auth/logout`;
