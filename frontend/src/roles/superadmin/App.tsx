@@ -12,7 +12,7 @@ import { SchoolLogin } from '../../pages/SchoolLogin';
 import { ChangePasswordDialog } from './components/ChangePasswordDialog';
 import { useAuth } from '../../auth/AuthContext';
 import { SuperAdminPromotionTab } from './components/PromotionTab';
-import { TrendingUp } from 'lucide-react';
+import { TrendingUp, Menu, X } from 'lucide-react';
 
 function AppContent() {
   console.log('[AppContent] Rendering AppContent');
@@ -20,6 +20,7 @@ function AppContent() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Check if password change is required
   useEffect(() => {
@@ -28,6 +29,11 @@ function AppContent() {
       setShowPasswordDialog(true);
     }
   }, [user]);
+
+  // Close sidebar on view change (mobile)
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [currentView]);
 
   const renderCurrentView = () => {
     switch (currentView) {
@@ -66,9 +72,8 @@ function AppContent() {
         );
       case 'school-login':
         return (
-          <SchoolLogin 
+          <SchoolLogin
             onLoginSuccess={(userInfo) => {
-              // Navigate to the appropriate dashboard based on role
               console.log('[SuperAdmin] School login successful, navigating to school dashboard');
               if (userInfo.role === 'admin') {
                 navigate('/admin', { replace: true });
@@ -91,11 +96,10 @@ function AppContent() {
     setShowPasswordDialog(false);
     alert('Password changed successfully! Please login again.');
     logout();
-    navigate('/login', { replace: true });
+    navigate('/super-admin', { replace: true });
   };
 
   const handlePasswordDialogClose = () => {
-    // Don't allow closing if password change is required
     if (user && (user as any).passwordChangeRequired) {
       alert('You must change your password to continue using the system.');
       return;
@@ -104,16 +108,58 @@ function AppContent() {
   };
 
   return (
-    <div className="h-screen bg-gray-50 flex flex-col lg:flex-row overflow-hidden">
-      {currentView !== 'school-login' && <Navigation />}
-      <main
-        className={`flex-1 h-full overflow-y-auto ${
-          currentView === 'school-login' ? 'w-full' : ''
-        }`}
+    <div className="flex h-[100dvh] bg-gray-50 overflow-hidden">
+      {/* ── Mobile overlay backdrop ── */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-20 bg-black/40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* ── Sidebar (always visible on lg+, drawer on mobile) ── */}
+      <aside
+        className={`
+          fixed top-0 left-0 z-30 h-full w-64 flex-shrink-0
+          transform transition-transform duration-300 ease-in-out
+          lg:relative lg:translate-x-0 lg:z-auto
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+          ${currentView === 'school-login' ? 'hidden' : ''}
+        `}
       >
-        {renderCurrentView()}
-      </main>
-      
+        <Navigation onClose={() => setSidebarOpen(false)} />
+      </aside>
+
+      {/* ── Main content area ── */}
+      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+        {/* Mobile top bar */}
+        {currentView !== 'school-login' && (
+          <header className="lg:hidden flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-200 flex-shrink-0">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
+              aria-label="Open menu"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+            <div className="flex items-center gap-2">
+              <div className="bg-gradient-to-br from-indigo-600 to-purple-600 p-1.5 rounded-lg">
+                <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+              </div>
+              <span className="text-sm font-bold text-gray-900">GoodSynk ERP</span>
+              <span className="text-xs text-gray-400">· Super Admin</span>
+            </div>
+          </header>
+        )}
+
+        {/* Scrollable page content */}
+        <main className="flex-1 overflow-y-auto">
+          {renderCurrentView()}
+        </main>
+      </div>
+
       {/* Password Change Dialog */}
       {showPasswordDialog && (
         <ChangePasswordDialog
