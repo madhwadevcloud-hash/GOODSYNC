@@ -7,14 +7,66 @@ const { setSchoolContext, requireSchoolContext, validateSchoolAccess } = require
 // Apply authentication middleware to all routes
 router.use(authMiddleware.auth);
 
-// Student-specific route - must come before role checks
+// Teacher-specific route - must come before role checks
 router.get('/my-profile', authMiddleware.auth, async (req, res) => {
   try {
-    // Only students can access this endpoint
+    // Teachers get their own handling below so their profile always reflects
+    // the live data in the 'teachers' collection (same fields captured when
+    // the teacher was added/imported in the admin portal).
+    if (req.user.role === 'teacher') {
+      const teacherId = req.user.userId || req.user._id;
+      const schoolCode = req.user.schoolCode;
+
+      if (!schoolCode) {
+        return res.status(400).json({
+          success: false,
+          message: 'School code not found'
+        });
+      }
+
+      const SchoolDatabaseManager = require('../utils/schoolDatabaseManager');
+      const schoolConnection = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
+
+      if (!schoolConnection) {
+        return res.status(404).json({
+          success: false,
+          message: 'School database not found'
+        });
+      }
+
+      const db = schoolConnection.db;
+      const { ObjectId } = require('mongodb');
+
+      const query = ObjectId.isValid(teacherId)
+        ? { $or: [{ userId: teacherId }, { _id: new ObjectId(teacherId) }] }
+        : { userId: teacherId };
+
+      const teacher = await db.collection('teachers').findOne(query);
+
+      if (!teacher) {
+        return res.status(404).json({
+          success: false,
+          message: 'Teacher not found',
+          data: null
+        });
+      }
+
+      // Return the live document as-is (minus sensitive fields) - same shape as
+      // GET /users/:userId - so the teacher portal always reflects whatever was
+      // actually entered/updated in the admin portal (import or edit).
+      const { password, temporaryPassword, passwordHistory, ...teacherWithoutSensitiveData } = teacher;
+
+      return res.json({
+        success: true,
+        data: teacherWithoutSensitiveData
+      });
+    }
+
+    // Only students can access the rest of this endpoint
     if (req.user.role !== 'student') {
       return res.status(403).json({ 
         success: false,
-        message: 'This endpoint is only for students' 
+        message: 'This endpoint is only for students and teachers' 
       });
     }
 
@@ -118,6 +170,124 @@ router.get('/my-profile', authMiddleware.auth, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error fetching student profile',
+      error: error.message
+    });
+  }
+});
+
+// Self-service password change - lets a logged-in school user (teacher,
+// student, parent, admin) update their own password after verifying their
+// current one. Kept separate from the admin-driven change/reset endpoints in
+// schoolUserController, which don't verify the caller's current password.
+router.post('/change-password', async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Current password and new password are required'
+      });
+    }
+
+    const { validatePasswordStrength } = require('../utils/passwordGenerator');
+    const strengthCheck = validatePasswordStrength(newPassword);
+    if (!strengthCheck.valid) {
+      return res.status(400).json({
+        success: false,
+        message: strengthCheck.errors[0],
+        errors: strengthCheck.errors
+      });
+    }
+
+    if (currentPassword === newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'New password must be different from the current password'
+      });
+    }
+
+    const schoolCode = req.user.schoolCode;
+    const userId = req.user.userId || req.user._id;
+
+    if (!schoolCode) {
+      return res.status(400).json({
+        success: false,
+        message: 'School code not found'
+      });
+    }
+
+    const collectionMap = {
+      admin: 'admins',
+      teacher: 'teachers',
+      student: 'students',
+      parent: 'parents'
+    };
+    const collectionName = req.user.collection || collectionMap[req.user.role];
+
+    if (!collectionName) {
+      return res.status(400).json({
+        success: false,
+        message: 'Unable to determine account type'
+      });
+    }
+
+    const SchoolDatabaseManager = require('../utils/schoolDatabaseManager');
+    const schoolConnection = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
+
+    if (!schoolConnection) {
+      return res.status(404).json({
+        success: false,
+        message: 'School database not found'
+      });
+    }
+
+    const db = schoolConnection.db;
+    const { ObjectId } = require('mongodb');
+    const bcrypt = require('bcryptjs');
+
+    const query = ObjectId.isValid(userId)
+      ? { $or: [{ userId }, { _id: new ObjectId(userId) }] }
+      : { userId };
+
+    const collection = db.collection(collectionName);
+    const userDoc = await collection.findOne(query);
+
+    if (!userDoc || !userDoc.password) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, userDoc.password);
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: 'Current password is incorrect'
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await collection.updateOne(query, {
+      $set: {
+        password: hashedPassword,
+        passwordChangeRequired: false,
+        updatedAt: new Date()
+      },
+      $unset: { temporaryPassword: '' }
+    });
+
+    return res.json({
+      success: true,
+      message: 'Password changed successfully'
+    });
+  } catch (error) {
+    console.error('Error changing password:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error changing password',
       error: error.message
     });
   }

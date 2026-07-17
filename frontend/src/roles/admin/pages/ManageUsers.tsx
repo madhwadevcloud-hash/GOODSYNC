@@ -32,6 +32,7 @@ interface School {
 
 interface DisplayUser extends ApiUser {
   temporaryPassword?: string | null;
+  hasTemporaryPassword?: boolean;
   // Class/section should be provided top-level by the updated backend controller
   class?: string | null;
   section?: string | null;
@@ -1349,10 +1350,21 @@ const ManageUsers: React.FC = () => {
 
   // --- ADD TOGGLE FUNCTION ---
   const togglePasswordVisibility = (userId: string, userName: string) => {
-    setPasswordVisibility(prev => ({
-      ...prev,
-      [userId]: !prev[userId]
-    }));
+    const isCurrentlyVisible = passwordVisibility[userId];
+    if (isCurrentlyVisible) {
+      // Hide the password without verification
+      setPasswordVisibility(prev => ({
+        ...prev,
+        [userId]: false
+      }));
+    } else {
+      // Show/reveal requires admin password verification
+      setSelectedTeacherId(userId);
+      setSelectedTeacherName(userName);
+      setPasswordModalType('single');
+      setAdminPasswordInput('');
+      setShowPasswordModal(true);
+    }
   };
 
   // Handle showing/hiding all teacher passwords
@@ -1449,7 +1461,10 @@ const ManageUsers: React.FC = () => {
 
         // Update the users list with all fetched passwords
         setUsers(prevUsers => prevUsers.map(u => {
-          const fetchedTeacher = teachersWithPasswords.find((t: any) => t.userId === u.userId || t._id === u._id);
+          const fetchedTeacher = teachersWithPasswords.find((t: any) => 
+            (t.userId && u.userId && t.userId === u.userId) || 
+            (t._id && u._id && String(t._id) === String(u._id))
+          );
           if (fetchedTeacher) {
             return { ...u, temporaryPassword: fetchedTeacher.temporaryPassword };
           }
@@ -2103,7 +2118,10 @@ const ManageUsers: React.FC = () => {
               role: userData.role,
               phone: userData.contact?.primaryPhone || userData.contact?.phone || userData.phone,
               temporaryPassword: userData.temporaryPassword || userData.tempPassword || null,
+              hasTemporaryPassword: userData.hasTemporaryPassword || !!userData.temporaryPassword || false,
               address: userData.address,
+              personal: userData.personal || {},
+              contact: userData.contact || {},
               isActive: userData.isActive !== false,
               createdAt: userData.createdAt || new Date().toISOString(),
               profileImage: userData.profileImage || userData.profilePicture || null,
@@ -2184,7 +2202,10 @@ const ManageUsers: React.FC = () => {
                   role: role,
                   phone: userData.contact?.primaryPhone || userData.contact?.phone || userData.phone,
                   temporaryPassword: userData.temporaryPassword || userData.tempPassword || null,
+                  hasTemporaryPassword: userData.hasTemporaryPassword || !!userData.temporaryPassword || false,
                   address: userData.address?.permanent?.street || userData.address?.street || userData.address,
+                  personal: userData.personal || {},
+                  contact: userData.contact || {},
                   profileImage: userData.profileImage || userData.profilePicture || null, // 💡 FIX 2b: Map profileImage here (grouped response)
                   isActive: userData.isActive !== false,
                   createdAt: userData.createdAt || new Date().toISOString()
@@ -3424,7 +3445,7 @@ const ManageUsers: React.FC = () => {
       rollNumber: userData.academicInfo?.rollNumber || userData.rollNumber || '',
       admissionNumber: userData.academicInfo?.admissionNumber || userData.admissionNumber || '',
       admissionDate: userData.academicInfo?.admissionDate ?
-        new Date(userData.academicInfo.admissionDate).toISOString().split('T')[0] :
+        formatDateForInput(userData.academicInfo.admissionDate) :
         userData.admissionDate || '',
       previousSchool: userData.previousSchool || '',
       previousClass: userData.previousClass || '',
@@ -6713,12 +6734,12 @@ const ManageUsers: React.FC = () => {
                               {/* Password Column - Access user.temporaryPassword directly */}
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                 <div className="flex items-center space-x-1">
-                                  {(user as any).temporaryPassword ? (
+                                  {((user as any).temporaryPassword || (user as any).hasTemporaryPassword) ? (
                                     <>
                                       {/* Display Password with Show/Hide */}
                                       <span className="flex-grow font-mono text-xs text-gray-700">
                                         {passwordVisibility[user.userId || user._id]
-                                          ? (user as any).temporaryPassword
+                                          ? (user as any).temporaryPassword || '********'
                                           : '********'
                                         }
                                       </span>
@@ -8455,6 +8476,19 @@ const ManageUsers: React.FC = () => {
                     <h4 className="text-lg font-semibold text-gray-800 mb-4">Professional Information</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
+                        <input
+                          type="tel"
+                          required
+                          value={formData.phone}
+                          onChange={(e) => setFormData({ ...formData, phone: e.target.value, primaryPhone: e.target.value })}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                          placeholder="Enter phone number (10 digits)"
+                          pattern="[0-9]{10}"
+                          maxLength={10}
+                        />
+                      </div>
+                      <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Qualification *</label>
                         <input
                           type="text"
@@ -9807,6 +9841,19 @@ const ManageUsers: React.FC = () => {
                     <h4 className="text-lg font-semibold text-gray-800 mb-4">Professional Information</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
+                        <input
+                          type="tel"
+                          required
+                          value={formData.phone}
+                          onChange={(e) => setFormData({ ...formData, phone: e.target.value, primaryPhone: e.target.value })}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                          placeholder="Enter phone number (10 digits)"
+                          pattern="[0-9]{10}"
+                          maxLength={10}
+                        />
+                      </div>
+                      <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
                         <input
                           type="date"
@@ -10466,7 +10513,13 @@ const ManageUsers: React.FC = () => {
         {/* Password Verification Modal */}
         {showPasswordModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] p-4">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md relative z-[71]">
+            <form 
+              onSubmit={(e) => {
+                e.preventDefault();
+                handlePasswordModalSubmit();
+              }}
+              className="bg-white rounded-xl shadow-2xl w-full max-w-md relative z-[71]"
+            >
               <div className="flex items-center justify-between p-6 border-b border-gray-200">
                 <h2 className="text-xl font-semibold text-gray-800">
                   {passwordModalType === 'single'
@@ -10474,6 +10527,7 @@ const ManageUsers: React.FC = () => {
                     : 'Show All Teacher Passwords'}
                 </h2>
                 <button
+                  type="button"
                   onClick={() => {
                     setShowPasswordModal(false);
                     setAdminPasswordInput('');
@@ -10518,11 +10572,6 @@ const ManageUsers: React.FC = () => {
                     type="password"
                     value={adminPasswordInput}
                     onChange={(e) => setAdminPasswordInput(e.target.value)}
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter') {
-                        handlePasswordModalSubmit();
-                      }
-                    }}
                     placeholder="Enter your admin password"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     autoFocus
@@ -10532,6 +10581,7 @@ const ManageUsers: React.FC = () => {
 
               <div className="flex justify-end space-x-3 p-6 bg-gray-50 border-t rounded-b-xl">
                 <button
+                  type="button"
                   onClick={() => {
                     setShowPasswordModal(false);
                     setAdminPasswordInput('');
@@ -10543,7 +10593,7 @@ const ManageUsers: React.FC = () => {
                   Cancel
                 </button>
                 <button
-                  onClick={handlePasswordModalSubmit}
+                  type="submit"
                   disabled={passwordModalLoading || !adminPasswordInput.trim()}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                 >
@@ -10560,18 +10610,25 @@ const ManageUsers: React.FC = () => {
                   )}
                 </button>
               </div>
-            </div>
+            </form>
           </div>
         )}
 
         {/* Change Password Modal */}
         {showChangePasswordModal && selectedUserForPasswordChange && (
           <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-[70]">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 relative z-[71]">
+            <form 
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleChangePassword();
+              }}
+              className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 relative z-[71]"
+            >
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-medium text-gray-900">Change Password</h3>
                   <button
+                    type="button"
                     onClick={() => {
                       setShowChangePasswordModal(false);
                       setSelectedUserForPasswordChange(null);
@@ -10636,6 +10693,7 @@ const ManageUsers: React.FC = () => {
 
                 <div className="mt-6 flex justify-end space-x-3">
                   <button
+                    type="button"
                     onClick={() => {
                       setShowChangePasswordModal(false);
                       setSelectedUserForPasswordChange(null);
@@ -10648,7 +10706,7 @@ const ManageUsers: React.FC = () => {
                     Cancel
                   </button>
                   <button
-                    onClick={handleChangePassword}
+                    type="submit"
                     disabled={changePasswordLoading || !newPassword || !confirmNewPassword || newPassword !== confirmNewPassword || newPassword.trim() === ''}
                     className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                   >
@@ -10666,7 +10724,7 @@ const ManageUsers: React.FC = () => {
                   </button>
                 </div>
               </div>
-            </div>
+            </form>
           </div>
         )}
       </motion.div>
@@ -10682,4 +10740,3 @@ const ManageUsers: React.FC = () => {
 };
 
 export default ManageUsers;
-

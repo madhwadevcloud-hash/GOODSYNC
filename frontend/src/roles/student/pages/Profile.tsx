@@ -11,8 +11,10 @@ import {
   Globe,
   Bus,
   Hash,
+  KeyRound,
 } from "lucide-react";
 import api from "../../../services/api";
+import ChangePasswordModal from "../components/ChangePasswordModal";
 
 interface StudentProfile {
   studentName: string | null;
@@ -53,6 +55,7 @@ export default function Profile() {
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -123,18 +126,30 @@ export default function Profile() {
       {/* Header */}
 
       <div className="rounded-2xl border border-gray-100 bg-white px-6 py-6 sm:px-8 shadow-sm">
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
-          Profile
-        </h1>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
+              Profile
+            </h1>
 
-        <p className="mt-1.5 text-sm text-gray-500">
-          View your personal, academic, and contact information.
-        </p>
+            <p className="mt-1.5 text-sm text-gray-500">
+              View your personal, academic, and contact information.
+            </p>
+          </div>
+
+          <button
+            onClick={() => setShowPasswordModal(true)}
+            className="inline-flex items-center justify-center gap-2 self-start rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700 sm:self-auto"
+          >
+            <KeyRound size={16} />
+            Change Password
+          </button>
+        </div>
       </div>
 
       {/* Summary Card */}
 
-      <div className="bg-white rounded-xl border shadow-sm p-6 sm:p-8 transition-all duration-300 hover:shadow-md">
+      <div className="bg-white rounded-xl border shadow-sm p-6 sm:p-8 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
 
         <div className="flex flex-col items-center gap-5 text-center sm:flex-row sm:items-center sm:gap-6 sm:text-left">
 
@@ -177,7 +192,7 @@ export default function Profile() {
       <section className="space-y-4">
         <SectionTitle icon={<User size={20} />} title="Personal Information" />
 
-        <div className="bg-white rounded-xl shadow-sm border p-6 sm:p-7 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5 transition-shadow duration-300 hover:shadow-md">
+        <div className="bg-white rounded-xl shadow-sm border p-6 sm:p-7 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
           <Info icon={<CalendarDays size={18} />} label="Date of Birth" value={formatDate(profile.dob)} />
           <Info icon={<User size={18} />} label="Gender" value={fallback(profile.gender)} />
           <Info icon={<Droplets size={18} />} label="Blood Group" value={fallback(profile.bloodGroup)} />
@@ -192,7 +207,7 @@ export default function Profile() {
       <section className="space-y-4">
         <SectionTitle icon={<GraduationCap size={20} />} title="Academic Information" />
 
-        <div className="bg-white rounded-xl shadow-sm border p-6 sm:p-7 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5 transition-shadow duration-300 hover:shadow-md">
+        <div className="bg-white rounded-xl shadow-sm border p-6 sm:p-7 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
           <Info icon={<Hash size={18} />} label="Enrollment No" value={fallback(profile.enrollmentNo)} />
           <Info icon={<GraduationCap size={18} />} label="Academic Year" value={fallback(profile.academicYear)} />
           <Info icon={<GraduationCap size={18} />} label="Class" value={`${fallback(profile.class)}-${fallback(profile.section)}`} />
@@ -206,7 +221,7 @@ export default function Profile() {
       <section className="space-y-4">
         <SectionTitle icon={<Users size={20} />} title="Parent Information" />
 
-        <div className="bg-white rounded-xl shadow-sm border p-6 sm:p-7 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5 transition-shadow duration-300 hover:shadow-md">
+        <div className="bg-white rounded-xl shadow-sm border p-6 sm:p-7 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
           <Info icon={<Users size={18} />} label="Father Name" value={fallback(profile.fatherName)} />
           <Info icon={<Users size={18} />} label="Mother Name" value={fallback(profile.motherName)} />
           <Info icon={<Users size={18} />} label="Guardian" value={fallback(profile.guardianName)} />
@@ -219,7 +234,7 @@ export default function Profile() {
       <section className="space-y-4">
         <SectionTitle icon={<MapPin size={20} />} title="Address & Transport" />
 
-        <div className="bg-white rounded-xl shadow-sm border p-6 sm:p-7 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5 transition-shadow duration-300 hover:shadow-md">
+        <div className="bg-white rounded-xl shadow-sm border p-6 sm:p-7 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
           <Info icon={<MapPin size={18} />} label="Address" value={fallback(profile.address)} />
           <Info icon={<MapPin size={18} />} label="City" value={fallback(profile.city)} />
           <Info icon={<MapPin size={18} />} label="State" value={fallback(profile.state)} />
@@ -228,6 +243,11 @@ export default function Profile() {
           <Info icon={<Bus size={18} />} label="Bus Route" value={fallback(profile.busRoute)} />
         </div>
       </section>
+
+      <ChangePasswordModal
+        isOpen={showPasswordModal}
+        onClose={() => setShowPasswordModal(false)}
+      />
 
     </div>
   );

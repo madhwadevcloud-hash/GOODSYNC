@@ -200,25 +200,119 @@ class DatabaseManager {
       
       // Create indexes based on collection type
       const indexMappings = {
+        admins: [
+          { key: { userId: 1 }, options: { unique: true } },
+          { key: { email: 1 }, options: { unique: true, sparse: true } },
+          { key: { secureId: 1 }, options: { unique: true, sparse: true } },
+          { key: { schoolCode: 1 }, options: {} }
+        ],
+        teachers: [
+          { key: { userId: 1 }, options: { unique: true } },
+          { key: { email: 1 }, options: { unique: true, sparse: true } },
+          { key: { secureId: 1 }, options: { unique: true, sparse: true } },
+          { key: { schoolCode: 1 }, options: {} }
+        ],
+        students: [
+          { key: { userId: 1 }, options: { unique: true } },
+          { key: { email: 1 }, options: { unique: true, sparse: true } },
+          { key: { secureId: 1 }, options: { unique: true, sparse: true } },
+          { key: { schoolCode: 1 }, options: {} },
+          { key: { class: 1, section: 1, academicYear: 1 }, options: {} },
+          { key: { academicYear: 1 }, options: {} },
+          { key: { "studentDetails.academic.academicYear": 1 }, options: {} },
+          { key: { "academicInfo.academicYear": 1 }, options: {} },
+          { key: { "studentDetails.academicYear": 1 }, options: {} },
+          { key: { parentId: 1 }, options: {} },
+          { key: { class: 1, section: 1 }, options: {} },
+          { key: { "studentDetails.currentClass": 1, "studentDetails.currentSection": 1 }, options: {} }
+        ],
+        parents: [
+          { key: { userId: 1 }, options: { unique: true } },
+          { key: { email: 1 }, options: { unique: true, sparse: true } },
+          { key: { secureId: 1 }, options: { unique: true, sparse: true } },
+          { key: { schoolCode: 1 }, options: {} }
+        ],
+        classes: [
+          { key: { classId: 1 }, options: { unique: true } },
+          { key: { schoolCode: 1, grade: 1, section: 1, academicYear: 1 }, options: { unique: true } },
+          { key: { className: 1 }, options: {} },
+          { key: { academicYear: 1 }, options: {} },
+          { key: { "classTeacher.teacherId": 1 }, options: {} },
+          { key: { schoolCode: 1, academicYear: 1, isActive: 1 }, options: {} },
+          { key: { schoolId: 1, academicYear: 1, isActive: 1 }, options: {} }
+        ],
+        subjects: [
+          { key: { subjectId: 1 }, options: { unique: true } },
+          { key: { subjectCode: 1 }, options: {} },
+          { key: { schoolCode: 1, subjectCode: 1, academicYear: 1 }, options: { unique: true } },
+          { key: { "applicableGrades.grade": 1 }, options: {} }
+        ],
+        attendances: [
+          { key: { attendanceId: 1 }, options: { unique: true } },
+          { key: { studentId: 1, date: 1 }, options: { unique: true } },
+          { key: { class: 1, section: 1, date: 1 }, options: {} },
+          { key: { date: 1 }, options: {} },
+          { key: { academicYear: 1 }, options: {} }
+        ],
+        results: [
+          { key: { student: 1, academicYear: 1, term: 1 }, options: { unique: true } },
+          { key: { studentId: 1, academicYear: 1, term: 1 }, options: { unique: true } },
+          { key: { class: 1, section: 1 }, options: {} },
+          { key: { className: 1, section: 1 }, options: {} },
+          { key: { studentId: 1, academicYear: 1 }, options: {} }
+        ],
+        timetables: [
+          { key: { timetableId: 1 }, options: { unique: true } },
+          { key: { class: 1, section: 1, status: 1 }, options: {} },
+          { key: { classSection: 1, status: 1 }, options: {} },
+          { key: { schoolCode: 1, academicYear: 1 }, options: {} }
+        ],
+        assignments: [
+          { key: { class: 1, section: 1 }, options: {} },
+          { key: { teacher: 1 }, options: {} },
+          { key: { subject: 1 }, options: {} },
+          { key: { dueDate: 1 }, options: {} },
+          { key: { academicYear: 1, term: 1 }, options: {} }
+        ],
+        leaverequests: [
+          { key: { teacherId: 1, createdAt: -1 }, options: {} },
+          { key: { schoolCode: 1, status: 1, createdAt: -1 }, options: {} }
+        ],
+        studentfeerecords: [
+          { key: { studentId: 1 }, options: {} },
+          { key: { studentClass: 1, studentSection: 1 }, options: {} },
+          { key: { status: 1 }, options: {} }
+        ],
+        chalans: [
+          { key: { chalanNumber: 1 }, options: { unique: true } },
+          { key: { studentId: 1, status: 1 }, options: {} },
+          { key: { schoolId: 1, academicYear: 1 }, options: {} }
+        ],
+        admissions: [
+          { key: { admissionNumber: 1 }, options: { unique: true } },
+          { key: { studentId: 1 }, options: {} },
+          { key: { parentId: 1 }, options: {} },
+          { key: { academicYear: 1, class: 1, section: 1 }, options: {} }
+        ],
         testdetails: [
-          { testType: 1 },
-          { classes: 1 },
-          { createdAt: -1 },
-          { updatedAt: -1 },
-          { status: 1 }
+          { key: { testType: 1 }, options: {} },
+          { key: { classes: 1 }, options: {} },
+          { key: { createdAt: -1 }, options: {} },
+          { key: { updatedAt: -1 }, options: {} },
+          { key: { status: 1 }, options: {} }
         ]
       };
     
-    const indexes = indexMappings[collectionName] || [{ createdAt: -1 }];
-    
-    for (const index of indexes) {
-      try {
-        await collection.createIndex(index, { background: true });
-      } catch (error) {
-        // Index might already exist, continue
-        console.log(`Index creation skipped for ${collectionName}:`, error.message);
+      const indexes = indexMappings[collectionName] || [{ key: { createdAt: -1 }, options: {} }];
+      
+      for (const index of indexes) {
+        try {
+          await collection.createIndex(index.key, { ...index.options, background: true });
+        } catch (error) {
+          // Index might already exist, continue
+          console.log(`Index creation skipped for ${collectionName}:`, error.message);
+        }
       }
-    }
     } catch (error) {
       console.error(`Error creating collection ${collectionName}:`, error);
       throw error;

@@ -136,7 +136,7 @@ const ViewAssignmentModal: React.FC<ViewAssignmentModalProps> = ({
                 <div>
                   <p className="text-[10px] text-blue-600 font-medium uppercase tracking-wider">Assigned By</p>
                   <p className="text-sm font-semibold text-gray-900">
-                    {typeof assignment.teacher === 'object' ? assignment.teacher.name : assignment.teacher || 'School Admin'}
+                    {assignment.teacherName || (typeof assignment.teacher === 'object' ? assignment.teacher.name : null) || 'School Admin'}
                   </p>
                 </div>
               </div>

@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import {
   Calendar,
   CalendarDays,
+  CalendarClock,
   Users,
-  FileText,
+  BookOpen,
   BarChart3,
   MessageSquare,
   Menu,
@@ -13,7 +14,6 @@ import {
   Home,
   UserCheck,
   User,
-  Search,
   Bell,
   MapPin,
   Phone,
@@ -85,8 +85,6 @@ const pickEmail = (data: any): string | undefined =>
 const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLogout }) => {
   const { user } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
   const [schoolInfo, setSchoolInfo] = useState<SchoolInfo | null>(null);
   const { hasPermission, showPermissionDenied, setShowPermissionDenied, deniedPermissionName, checkAndNavigate } = usePermissions();
@@ -145,11 +143,11 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
     { name: 'Dashboard', icon: Home, page: 'dashboard', permission: null },
     { name: 'Student Details', icon: Users, page: 'student-details', permission: null },
     { name: 'Attendance', icon: UserCheck, page: 'attendance', permission: 'viewAttendance' as PermissionKey },
-    { name: 'Assignments', icon: FileText, page: 'assignments', permission: 'viewAssignments' as PermissionKey },
+    { name: 'Assignments', icon: BookOpen, page: 'assignments', permission: 'viewAssignments' as PermissionKey },
     { name: 'Results', icon: BarChart3, page: 'view-results', permission: 'viewResults' as PermissionKey },
-    { name: 'Messages', icon: MessageSquare, page: 'messages', permission: 'messageStudentsParents' as PermissionKey },
+    { name: 'Announcement', icon: MessageSquare, page: 'messages', permission: 'messageStudentsParents' as PermissionKey },
     { name: 'Calendar', icon: CalendarDays, page: 'calendar', permission: null },
-    { name: 'Leave Request', icon: Calendar, page: 'leave-request', permission: 'viewLeaves' as PermissionKey },
+    { name: 'Leave Request', icon: CalendarClock, page: 'leave-request', permission: 'viewLeaves' as PermissionKey },
     { name: 'Profile', icon: User, page: 'profile', permission: null },
   ];
 
@@ -180,11 +178,18 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
       {/* Sidebar */}
       <div className={`fixed inset-y-0 left-0 z-30 w-64 bg-white border-r border-gray-100 transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         } transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 flex flex-col`}>
-        <div className="flex items-center justify-between h-20 px-5 border-b border-gray-100 flex-shrink-0 bg-gradient-to-b from-violet-50/30 to-white relative overflow-hidden">
+        <div className="flex items-center justify-between h-[72px] px-5 border-b border-gray-100 flex-shrink-0 bg-gradient-to-b from-violet-50/30 to-white relative overflow-hidden">
   <div className="absolute top-0 right-0 w-24 h-24 bg-violet-100 rounded-full blur-3xl opacity-50 -mr-10 -mt-10 pointer-events-none"></div>
-  <div className="flex items-center gap-2 min-w-0 relative z-10">
-    <UserCheck className="h-6 w-6 text-violet-600 mb-0.5 shrink-0" strokeWidth={2.5} />
-    <h2 className="text-lg font-bold text-gray-900 tracking-tight">Teacher Portal</h2>
+  <div className="flex items-center min-w-0 relative z-10">
+    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center mr-3 flex-shrink-0">
+      <span className="text-white font-bold text-sm">
+        {user?.name ? user.name.substring(0, 2).toUpperCase() : 'T'}
+      </span>
+    </div>
+    <div className="min-w-0">
+      <p className="text-sm font-medium text-gray-900 truncate">{user?.name || 'Teacher'}</p>
+      <p className="text-xs text-gray-500 truncate">{user?.userId || user?.email}</p>
+    </div>
   </div>
           <button
             onClick={() => setSidebarOpen(false)}
@@ -229,17 +234,6 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
                 <LogOut className="h-5 w-5 mr-3" />
                 Logout
               </button>
-              <div className="flex items-center min-w-0 rounded-xl bg-gray-50 px-2.5 py-2">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center mr-3 flex-shrink-0">
-                  <span className="text-white font-bold text-sm">
-                    {user?.name ? user.name.substring(0, 2).toUpperCase() : 'T'}
-                  </span>
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{user?.name || 'Teacher'}</p>
-                  <p className="text-xs text-gray-500 truncate">{user?.userId || user?.email}</p>
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -266,12 +260,8 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
             </h2>
 
             <div className="flex-1 flex items-center justify-between overflow-hidden">
-              {/* Left: School Details — collapses out of view while the search is focused */}
-              <div
-                className={`hidden sm:flex items-center gap-3 transition-all duration-500 ease-in-out overflow-hidden ${
-                  isSearchFocused ? 'max-w-0 opacity-0 invisible -translate-x-8' : 'max-w-2xl opacity-100 visible translate-x-0'
-                }`}
-              >
+              {/* Left: School Details */}
+              <div className="hidden sm:flex items-center gap-3 max-w-2xl overflow-hidden">
                 {schoolLogoUrl ? (
                   <img
                     src={schoolLogoUrl}
@@ -288,7 +278,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
                   <span className="block text-xl lg:text-2xl font-bold text-gray-900 truncate whitespace-nowrap">
                     {schoolInfo?.name || 'School'}
                   </span>
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-xs text-gray-500 whitespace-nowrap">
+                  <div className="hidden md:flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-xs text-gray-500 whitespace-nowrap">
                     {formattedAddress && (
                       <span className="flex items-center gap-1">
                         <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
@@ -296,13 +286,13 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
                       </span>
                     )}
                     {schoolInfo?.phone && (
-                      <span className="flex items-center gap-1">
+                      <span className="hidden lg:flex items-center gap-1">
                         <Phone className="h-3.5 w-3.5 flex-shrink-0" />
                         {schoolInfo.phone}
                       </span>
                     )}
                     {schoolInfo?.email && (
-                      <span className="flex items-center gap-1">
+                      <span className="hidden xl:flex items-center gap-1">
                         <Mail className="h-3.5 w-3.5 flex-shrink-0" />
                         {schoolInfo.email}
                       </span>
@@ -311,33 +301,12 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
                 </div>
               </div>
 
-              {/* Right: Search — grows to fill the space the school block just vacated */}
-              <div
-                className={`flex items-center gap-3 transition-all duration-500 ease-in-out ${
-                  isSearchFocused ? 'w-full flex-1' : 'ml-auto'
-                }`}
-              >
-                <div
-                  className={`relative transition-all duration-500 ease-in-out ${
-                    isSearchFocused ? 'w-full max-w-full' : 'w-full max-w-[180px] sm:max-w-[220px] lg:max-w-xs'
-                  }`}
-                >
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-gray-400 pointer-events-none" />
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    onFocus={() => setIsSearchFocused(true)}
-                    onBlur={() => setIsSearchFocused(false)}
-                    placeholder="Search anything..."
-                    className="w-full pl-11 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 focus:bg-white transition-all duration-300"
-                  />
-                </div>
-
+              {/* Right: Actions */}
+              <div className="flex items-center gap-3 ml-auto">
                 <button
                   onClick={() => handleMenuClick(menuItems.find(m => m.page === 'messages')!)}
                   className="relative p-2.5 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors flex-shrink-0"
-                  title="Messages"
+                  title="Announcement"
                 >
                   <Bell className="h-5 w-5" />
                   {notificationCount > 0 && (
@@ -351,7 +320,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLo
                   className="p-2.5 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors hidden sm:block flex-shrink-0"
                   title="Leave Request"
                 >
-                  <Calendar className="h-5 w-5" />
+                  <CalendarClock className="h-5 w-5" />
                 </button>
               </div>
             </div>

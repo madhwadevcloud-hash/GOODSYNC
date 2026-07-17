@@ -1,4 +1,4 @@
-//
+///
 // File: jayeshsardesai/erp/ERP-7a5c138ae65bf53237b3e294be93792d26fb324a/frontend/src/api/schoolUsers.ts
 //
 import api from './axios'; // Use the same axios instance
@@ -266,6 +266,25 @@ export const schoolUserAPI = {
       } else {
         throw new Error('Import failed: An unknown error occurred');
       }
+    }
+  },
+
+  // Download CSV import template
+  downloadTemplate: async (schoolCode: string, role: 'student' | 'teacher' | 'admin', token: string) => {
+    try {
+      const response = await api.get(
+        `/school-users/${schoolCode}/import/template`,
+        {
+          params: { role },
+          responseType: 'blob',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Failed to download template');
     }
   },
 

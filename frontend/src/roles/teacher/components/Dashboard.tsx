@@ -11,7 +11,8 @@ import {
   Send,
   BarChart3,
   GraduationCap,
-  UserPlus
+  UserPlus,
+  Home
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { useAuth } from '../../../auth/AuthContext';
@@ -184,11 +185,16 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
     <div className="space-y-6">
       {/* Welcome Section */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
-            Welcome back, {user?.name || 'Teacher'}! 👋
-          </h1>
-          <p className="text-gray-500 mt-1">Here's your class overview and tasks.</p>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center justify-center w-10 h-10 bg-violet-100 rounded-lg flex-shrink-0">
+            <Home className="h-6 w-6 text-violet-600" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Welcome back, {user?.name || 'Teacher'}! 👋
+            </h1>
+            <p className="text-gray-500 mt-1">Here's your class overview and tasks.</p>
+          </div>
         </div>
         <div className="flex items-center bg-white border border-gray-100 shadow-sm rounded-xl px-4 py-2.5">
           <Clock className="h-4 w-4 mr-2 text-violet-600" />

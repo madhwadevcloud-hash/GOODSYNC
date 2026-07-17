@@ -111,10 +111,20 @@ exports.getUsersByRole = async (req, res) => {
 
     const users = await UserGenerator.getUsersByRole(schoolCode, role, academicYear);
 
+    const sanitizedUsers = users.map(user => {
+      const sanitized = { ...user };
+      delete sanitized.password;
+      if (role === 'teacher') {
+        sanitized.hasTemporaryPassword = !!user.temporaryPassword;
+        delete sanitized.temporaryPassword;
+      }
+      return sanitized;
+    });
+
     res.json({
       success: true,
-      data: users,
-      count: users.length
+      data: sanitizedUsers,
+      count: sanitizedUsers.length
     });
 
   } catch (error) {
@@ -158,7 +168,15 @@ exports.getAllSchoolUsers = async (req, res) => {
         return {
           role,
           count,
-          users: users.map(user => ({ ...user, role }))
+          users: users.map(user => {
+            const sanitized = { ...user, role };
+            delete sanitized.password;
+            if (role === 'teacher') {
+              sanitized.hasTemporaryPassword = !!user.temporaryPassword;
+              delete sanitized.temporaryPassword;
+            }
+            return sanitized;
+          })
         };
       } catch (error) {
         console.error(`❌ Error getting ${role}s:`, error);
@@ -1066,6 +1084,7 @@ exports.verifyAdminAndGetPasswords = async (req, res) => {
       return res.json({
         success: true,
         data: {
+          _id: teacher._id?.toString?.() || teacher._id,
           userId: teacher.userId,
           email: teacher.email,
           name: teacher.name?.displayName || `${teacher.name?.firstName} ${teacher.name?.lastName}`,
@@ -1078,6 +1097,7 @@ exports.verifyAdminAndGetPasswords = async (req, res) => {
     const teachers = await UserGenerator.getUsersByRole(schoolCode, 'teacher');
 
     const teacherPasswords = teachers.map(teacher => ({
+      _id: teacher._id?.toString?.() || teacher._id,
       userId: teacher.userId,
       email: teacher.email,
       name: teacher.name?.displayName || `${teacher.name?.firstName} ${teacher.name?.lastName}`,

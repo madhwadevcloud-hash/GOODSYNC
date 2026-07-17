@@ -6,9 +6,9 @@ import { useAuth } from './auth/AuthContext';
 import { AdminApp } from './roles/admin/AdminApp';
 import { TeacherApp } from './roles/teacher/TeacherApp';
 import { StudentApp } from './roles/student/StudentApp';
-import { SuperAdminApp } from './roles/superadmin/SuperAdminApp';
 import Login from './pages/Login';
-import ResetPassword from "./pages/ResetPassword";
+import SuperAdminGate from './pages/SuperAdminGate';
+import ResetPassword from './pages/ResetPassword';
 
 function RootRedirect() {
   const { user } = useAuth();
@@ -36,16 +36,15 @@ export default function App() {
       <Routes>
         {/* Public */}
         <Route path="/login" element={<Login />} />
+        {/* SuperAdminGate itself decides: show the login form if nobody
+            (or a non-superadmin) is signed in, or the Super Admin app if a
+            valid superadmin session exists. Both live at this one URL. */}
+        <Route path="/super-admin/*" element={<SuperAdminGate />} />
+        <Route path="/reset-password/:token" element={<ResetPassword />} />
         <Route path="/student/reset-password" element={<ResetPassword />} />
-        
         {/* Private: must be logged in */}
         <Route element={<ProtectedRoute />}>
           <Route index element={<RootRedirect />} />
-
-          {/* Super Admin portal */}
-          <Route element={<RoleGuard allow={['superadmin']} />}>
-            <Route path="/super-admin/*" element={<SuperAdminApp />} />
-          </Route>
 
           {/* Admin portal */}
           <Route element={<RoleGuard allow={['admin']} />}>

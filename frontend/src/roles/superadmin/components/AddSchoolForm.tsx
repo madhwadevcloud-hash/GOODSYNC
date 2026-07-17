@@ -336,10 +336,10 @@ export function AddSchoolForm() {
   };
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <div className="max-w-4xl mx-auto">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Add New School</h1>
+        <div className="mb-4 sm:mb-6">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Add New School</h1>
         </div>
 
         {success && <div className="mb-4 p-3 bg-green-100 text-green-800 rounded-lg">{success}</div>}
@@ -695,25 +695,25 @@ export function AddSchoolForm() {
           </div>
 
           {/* Form Actions */}
-          <div className="flex justify-end space-x-4">
+          <div className="flex flex-wrap justify-end gap-3">
             <button
               type="button"
               onClick={() => setCurrentView('dashboard')}
-              className="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors duration-200 font-medium"
+              className="flex-1 sm:flex-none px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors duration-200 font-medium"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={handleClear}
-              className="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors duration-200 font-medium"
+              className="flex-1 sm:flex-none px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors duration-200 font-medium"
             >
               Clear
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 font-medium disabled:bg-blue-400 disabled:cursor-not-allowed flex items-center space-x-2"
+              className="flex-1 sm:flex-none px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 font-medium disabled:bg-blue-400 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
             >
               {isSubmitting && <Loader2 className="h-5 w-5 animate-spin" />}
               <span>{isSubmitting ? 'Creating School...' : 'Submit'}</span>

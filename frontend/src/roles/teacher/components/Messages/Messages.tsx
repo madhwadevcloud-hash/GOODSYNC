@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   Eye,
   AlertCircle,
+  MessageSquare,
 } from 'lucide-react';
 import { useAuth } from '../../../../auth/AuthContext';
 import { useAcademicYear } from '../../../../contexts/AcademicYearContext';
@@ -66,11 +67,11 @@ const Messages: React.FC = () => {
         const fetchedMessages = data.messages || data.data?.messages || [];
         setMessages(fetchedMessages);
       } else {
-        toast.error(data?.message || 'Failed to fetch messages');
+        toast.error(data?.message || 'Failed to fetch announcements');
       }
     } catch (error) {
-      console.error('Error fetching messages:', error);
-      toast.error('Failed to load messages');
+      console.error('Error fetching announcements:', error);
+      toast.error('Failed to load announcements');
     } finally {
       setLoading(false);
     }
@@ -226,9 +227,14 @@ const Messages: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-1">Messages</h1>
-          <p className="text-gray-500 text-sm">Read what admins send you, and message students or admins yourself</p>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center w-10 h-10 bg-violet-100 rounded-lg flex-shrink-0">
+            <MessageSquare className="h-6 w-6 text-violet-600" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-1">Announcement</h1>
+            <p className="text-gray-500 text-sm">Read what admins send you, and message students or admins yourself</p>
+          </div>
         </div>
 
         {/* Academic Year Badge */}
@@ -273,14 +279,14 @@ const Messages: React.FC = () => {
             <div className="p-6 border-b border-gray-200">
               <h2 className="text-lg font-semibold text-gray-900">Your Inbox</h2>
               <p className="text-sm text-gray-500 mt-1">
-                Messages addressed to teachers, for academic year: <span className="font-semibold text-indigo-600">{currentAcademicYear}</span>
+                Announcements addressed to teachers, for academic year: <span className="font-semibold text-indigo-600">{currentAcademicYear}</span>
               </p>
             </div>
 
             {loading ? (
               <div className="p-12 text-center">
                 <div className="animate-spin h-12 w-12 border-4 border-violet-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-                <p className="text-gray-600">Loading messages...</p>
+                <p className="text-gray-600">Loading announcements...</p>
               </div>
             ) : messages.length > 0 ? (
               <div className="p-6 space-y-4">
@@ -339,8 +345,8 @@ const Messages: React.FC = () => {
             ) : (
               <div className="p-12 text-center">
                 <MessageCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No messages yet</h3>
-                <p className="text-gray-600">Messages addressed to teachers will appear here</p>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No announcements yet</h3>
+                <p className="text-gray-600">Announcements addressed to teachers will appear here</p>
               </div>
             )}
           </div>

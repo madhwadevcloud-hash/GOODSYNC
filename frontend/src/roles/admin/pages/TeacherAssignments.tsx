@@ -250,98 +250,108 @@ const TeacherAssignments: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-indigo-100 rounded-lg">
-            <UserCheck className="h-6 w-6 text-indigo-600" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Teacher Subject Assignments</h1>
-            <p className="text-sm text-gray-500">Assign teachers to subjects for each class and section</p>
+    <div className="space-y-6 relative">
+      <div className="sticky top-[72px] z-20 flex flex-col gap-6 pt-4 pb-2 -mt-4 bg-[#f8fafc]">
+        {/* Header */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sm:p-8 relative overflow-hidden mx-2 sm:mx-0">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50 rounded-full blur-3xl opacity-60 -mr-20 -mt-20 pointer-events-none"></div>
+          <div className="flex items-center space-x-4 relative z-10">
+            <div className="bg-indigo-600 p-3 rounded-xl flex items-center justify-center shadow-sm">
+              <UserCheck className="h-7 w-7 text-white" strokeWidth={2} />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Assign Teacher</h1>
+              <p className="text-sm font-medium text-slate-500 mt-1">Assign teachers to subjects for each class and section</p>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Filters */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-        <div className="flex flex-wrap gap-4 items-end">
-          {/* Academic Year */}
-          <div className="flex flex-col">
-            <label className="text-sm font-medium text-gray-700 mb-1">Academic Year</label>
-            <select
-              value={viewingAcademicYear}
-              onChange={(e) => setViewingYear(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent min-w-[150px]"
-            >
-              {[...new Set(availableYears)].map((year) => (
-                <option key={year} value={year}>
-                  {year} {year === currentAcademicYear && '(Current)'}
-                </option>
-              ))}
-            </select>
+        {/* Filters */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 mx-2 sm:mx-0">
+          <div className="flex flex-wrap gap-4 items-end">
+            {/* Academic Year */}
+            <div className="flex flex-col">
+              <label className="text-xs sm:text-sm font-semibold text-slate-700 mb-1.5">Academic Year</label>
+              <select
+                value={viewingAcademicYear}
+                onChange={(e) => setViewingYear(e.target.value)}
+                disabled={user?.role !== "superadmin"}
+                className={`px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 focus:bg-white transition-all text-sm font-medium text-slate-700 min-w-[150px] ${
+                  user?.role !== "superadmin"
+                    ? "opacity-60 cursor-not-allowed"
+                    : ""
+                }`}
+              >
+                {[...new Set(availableYears)].map((year) => (
+                  <option key={year} value={year}>
+                    {year} {year === currentAcademicYear && '(Current)'}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Class */}
+            <div className="flex flex-col">
+              <label className="text-xs sm:text-sm font-semibold text-slate-700 mb-1.5">Class</label>
+              <select
+                value={selectedClass}
+                onChange={(e) => setSelectedClass(e.target.value)}
+                className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 focus:bg-white transition-all text-sm font-medium text-slate-700 min-w-[150px]"
+                disabled={classesLoading || !hasClasses()}
+              >
+                <option value="">{classesLoading ? 'Loading...' : 'Select Class'}</option>
+                {classList.map((cls: any) => (
+                  <option key={cls} value={cls}>Class {cls}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Section */}
+            <div className="flex flex-col">
+              <label className="text-xs sm:text-sm font-semibold text-slate-700 mb-1.5">Section</label>
+              <select
+                value={selectedSection}
+                onChange={(e) => setSelectedSection(e.target.value)}
+                className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 focus:bg-white transition-all text-sm font-medium text-slate-700 min-w-[150px]"
+                disabled={!selectedClass || availableSections.length === 0}
+              >
+                <option value="">{!selectedClass ? 'Select Class First' : 'Select Section'}</option>
+                {availableSections.map((section: any) => (
+                  <option key={section.value} value={section.value}>Section {section.section}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Refresh */}
+            <div className="flex flex-col justify-end">
+              <button
+                onClick={fetchData}
+                disabled={loading || !selectedClass || !selectedSection}
+                className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-5 py-2.5 rounded-xl flex items-center gap-2 transition-all font-semibold disabled:opacity-50"
+              >
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
+            </div>
           </div>
-
-          {/* Class */}
-          <div className="flex flex-col">
-            <label className="text-sm font-medium text-gray-700 mb-1">Class</label>
-            <select
-              value={selectedClass}
-              onChange={(e) => setSelectedClass(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent min-w-[150px]"
-              disabled={classesLoading || !hasClasses()}
-            >
-              <option value="">{classesLoading ? 'Loading...' : 'Select Class'}</option>
-              {classList.map((cls: any) => (
-                <option key={cls} value={cls}>Class {cls}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Section */}
-          <div className="flex flex-col">
-            <label className="text-sm font-medium text-gray-700 mb-1">Section</label>
-            <select
-              value={selectedSection}
-              onChange={(e) => setSelectedSection(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent min-w-[150px]"
-              disabled={!selectedClass || availableSections.length === 0}
-            >
-              <option value="">{!selectedClass ? 'Select Class First' : 'Select Section'}</option>
-              {availableSections.map((section: any) => (
-                <option key={section.value} value={section.value}>Section {section.section}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Refresh */}
-          <button
-            onClick={fetchData}
-            disabled={loading || !selectedClass || !selectedSection}
-            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
         </div>
       </div>
 
       {/* Assignment Table */}
       {selectedClass && selectedSection && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mx-2 sm:mx-0">
+          <div className="px-6 py-4 bg-slate-50/50 backdrop-blur-md border-b border-slate-100 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <BookOpen className="h-5 w-5 text-indigo-600" />
-              <h2 className="text-lg font-semibold text-gray-900">
+              <h2 className="text-[15px] font-bold text-slate-800">
                 Class {selectedClass} - Section {selectedSection}
               </h2>
-              <span className="text-sm text-gray-500">({viewingAcademicYear})</span>
+              <span className="text-xs font-medium text-slate-400">({viewingAcademicYear})</span>
             </div>
             <button
               onClick={handleSave}
               disabled={saving || loading || subjects.length === 0}
-              className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white px-5 py-2 rounded-lg flex items-center gap-2 transition-colors font-medium shadow-sm"
+              className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl hover:bg-indigo-700 disabled:bg-slate-300 flex items-center gap-2 font-semibold shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5"
             >
               {saving ? (
                 <RefreshCw className="h-4 w-4 animate-spin" />
@@ -353,46 +363,46 @@ const TeacherAssignments: React.FC = () => {
           </div>
 
           {loading ? (
-            <div className="p-8 text-center text-gray-500">
-              <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-2 text-indigo-500" />
-              Loading subjects and assignments...
+            <div className="p-10 text-center text-slate-500">
+              <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-3 text-indigo-500" />
+              <p className="font-medium text-sm">Loading subjects and assignments...</p>
             </div>
           ) : subjects.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
-              <AlertCircle className="h-8 w-8 mx-auto mb-2 text-yellow-500" />
-              <p className="font-medium">No subjects configured</p>
-              <p className="text-sm mt-1">Configure subjects for this class and section in Academic Details first.</p>
+            <div className="p-10 text-center text-slate-500">
+              <AlertCircle className="h-8 w-8 mx-auto mb-3 text-amber-500" />
+              <p className="font-bold text-slate-700">No subjects configured</p>
+              <p className="text-sm mt-1 text-slate-500">Configure subjects for this class and section in Academic Details first.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
-                <thead className="bg-gray-50">
-                  <tr className="border-b border-gray-200">
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-1/3">
+            <div className="overflow-x-auto custom-scrollbar">
+              <table className="min-w-full divide-y divide-slate-100">
+                <thead className="bg-slate-50/50 backdrop-blur-md border-b border-slate-100">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider w-1/3">
                       Subject
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-1/2">
+                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider w-1/2">
                       Assigned Teacher
                     </th>
-                    <th className="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-1/6">
+                    <th className="px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-wider w-1/6">
                       Status
                     </th>
-                    <th className="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-16">
+                    <th className="px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-wider w-16">
                       Action
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
+                <tbody className="bg-white divide-y divide-slate-50">
                   {subjects.map((subjectName) => {
                     const existingAssignment = assignments.find(a => a.subjectName === subjectName);
                     const selectedTeacherId = assignmentMap[subjectName] || '';
 
                     return (
-                      <tr key={subjectName} className="hover:bg-gray-50">
+                      <tr key={subjectName} className="hover:bg-slate-50/80 transition-colors duration-150">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center gap-2">
                             <BookOpen className="h-4 w-4 text-indigo-400" />
-                            <span className="text-sm font-medium text-gray-900">{subjectName}</span>
+                            <span className="text-sm font-bold text-slate-800">{subjectName}</span>
                           </div>
                         </td>
                         <td className="px-6 py-4">
@@ -404,7 +414,7 @@ const TeacherAssignments: React.FC = () => {
                                 [subjectName]: e.target.value
                               }));
                             }}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 focus:bg-white transition-all text-sm font-medium text-slate-700"
                           >
                             <option value="">-- Select Teacher --</option>
                             {teachers.map((teacher) => {
@@ -421,16 +431,16 @@ const TeacherAssignments: React.FC = () => {
                         </td>
                         <td className="px-6 py-4 text-center">
                           {existingAssignment ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-bold shadow-sm border bg-emerald-50 text-emerald-700 border-emerald-100">
                               <CheckCircle className="h-3 w-3" />
                               Assigned
                             </span>
                           ) : selectedTeacherId ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
+                            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-bold shadow-sm border bg-amber-50 text-amber-700 border-amber-100">
                               Unsaved
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
+                            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-bold shadow-sm border bg-slate-50 text-slate-500 border-slate-100">
                               Not Assigned
                             </span>
                           )}
@@ -439,7 +449,7 @@ const TeacherAssignments: React.FC = () => {
                           {existingAssignment && (
                             <button
                               onClick={() => handleRemove(existingAssignment._id, subjectName)}
-                              className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition-colors"
+                              className="text-rose-500 hover:text-rose-700 p-2 rounded-xl hover:bg-rose-50 transition-colors"
                               title="Remove assignment"
                             >
                               <Trash2 className="h-4 w-4" />
@@ -458,28 +468,28 @@ const TeacherAssignments: React.FC = () => {
 
       {/* Summary Card */}
       {assignments.length > 0 && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Assignment Summary</h3>
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mx-2 sm:mx-0">
+          <h3 className="text-lg font-bold text-slate-800 mb-4">Assignment Summary</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-indigo-50 rounded-lg p-4">
+            <div className="bg-indigo-50 rounded-xl p-4 border border-indigo-100">
               <div className="text-2xl font-bold text-indigo-700">{subjects.length}</div>
-              <div className="text-sm text-indigo-600">Total Subjects</div>
+              <div className="text-sm font-medium text-indigo-600">Total Subjects</div>
             </div>
-            <div className="bg-green-50 rounded-lg p-4">
-              <div className="text-2xl font-bold text-green-700">{assignments.length}</div>
-              <div className="text-sm text-green-600">Assigned</div>
+            <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-100">
+              <div className="text-2xl font-bold text-emerald-700">{assignments.length}</div>
+              <div className="text-sm font-medium text-emerald-600">Assigned</div>
             </div>
-            <div className="bg-yellow-50 rounded-lg p-4">
-              <div className="text-2xl font-bold text-yellow-700">
+            <div className="bg-amber-50 rounded-xl p-4 border border-amber-100">
+              <div className="text-2xl font-bold text-amber-700">
                 {subjects.length - assignments.length}
               </div>
-              <div className="text-sm text-yellow-600">Unassigned</div>
+              <div className="text-sm font-medium text-amber-600">Unassigned</div>
             </div>
           </div>
 
           {/* Teacher workload */}
-          <div className="mt-4 pt-4 border-t border-gray-200">
-            <h4 className="text-sm font-medium text-gray-700 mb-2">Teacher Workload (this class-section)</h4>
+          <div className="mt-4 pt-4 border-t border-slate-100">
+            <h4 className="text-sm font-bold text-slate-700 mb-2">Teacher Workload (this class-section)</h4>
             <div className="flex flex-wrap gap-2">
               {(() => {
                 const teacherCounts: Record<string, { name: string; count: number }> = {};
@@ -490,7 +500,7 @@ const TeacherAssignments: React.FC = () => {
                   teacherCounts[a.teacherId].count++;
                 });
                 return Object.entries(teacherCounts).map(([tid, info]) => (
-                  <span key={tid} className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                  <span key={tid} className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">
                     <Users className="h-3 w-3" />
                     {info.name}: {info.count} subject{info.count > 1 ? 's' : ''}
                   </span>

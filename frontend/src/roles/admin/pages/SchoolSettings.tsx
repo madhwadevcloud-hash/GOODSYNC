@@ -429,7 +429,11 @@ const SchoolSettings: React.FC = () => {
       return;
     }
 
-    // Validate total weight percent is exactly 100% for each class that has configurations
+    // Work out which classes have their weightage fully configured (sums to
+    // exactly 100%). This is now purely informational — it no longer blocks
+    // saving. Every test the admin has entered a value for (or that already
+    // has a saved value) is sent to the server, so edits are never silently
+    // dropped just because a *different* test/class isn't finished yet.
     const testsByClass: Record<string, TestData[]> = {};
     tests.forEach(test => {
       if (!testsByClass[test.className]) {
@@ -460,14 +464,20 @@ const SchoolSettings: React.FC = () => {
       }
     }
 
-    // Get tests scoring data only for configured classes (where total weight is exactly 100%)
-    const configuredTests = tests.filter(test =>
-      configuredClasses.includes(test.className)
-    );
+    // Save every test that has a max marks and/or weightage value, whether it
+    // was just edited or was already saved previously. We no longer restrict
+    // this to classes whose weightage sums to exactly 100% — that would
+    // silently discard valid edits (e.g. a Max Marks change) just because a
+    // sibling test in the same class hasn't been fully configured yet.
+    const testsToSave = tests.filter(test => {
+      const currentScoring = testScoring[test._id];
+      const hasMaxMarks = (currentScoring && currentScoring.maxMarks !== undefined) || !!test.maxMarks;
+      const hasWeightage = (currentScoring && currentScoring.weightage !== undefined) || !!test.weightage;
+      return hasMaxMarks || hasWeightage;
+    });
 
-    // Validate that at least one class is fully configured (weightage sum = 100%) before saving
-    if (configuredTests.length === 0) {
-      toast.error('Please configure at least one class (total weight must equal exactly 100%) before saving.');
+    if (testsToSave.length === 0) {
+      toast.error('Please enter Max Marks and/or Weightage for at least one test before saving.');
       return;
     }
 
@@ -493,7 +503,7 @@ const SchoolSettings: React.FC = () => {
       console.log('Saving grading scale:', gradingSystem);
 
       // Prepare data for API - send both newly edited and unchanged existing configurations
-      const scoringData = configuredTests.map(test => {
+      const scoringData = testsToSave.map(test => {
         const currentScoring = testScoring[test._id];
         const maxMarks = currentScoring && currentScoring.maxMarks !== undefined
           ? currentScoring.maxMarks
@@ -518,16 +528,23 @@ const SchoolSettings: React.FC = () => {
       });
 
       if (response.data.success) {
-        let message = 'All configurations saved successfully!';
-        if (configuredClasses.length > 0 && unconfiguredClasses.length > 0) {
-          const classListStr = configuredClasses.map(c => `${c}`).join(', ');
-          if (configuredClasses.length === 1) {
-            message = `Only class ${classListStr} percent is configured, rest all class are needed to be configured.`;
-          } else {
-            message = `Only classes ${classListStr} percent are configured, rest all classes need to be configured.`;
-          }
+        const failedTests = response.data.data?.failedTests || [];
+        toast.success(response.data.message || 'Scoring configuration saved successfully!');
+
+        // Let the admin know if any individual test values couldn't be saved
+        // (e.g. bad data), without hiding the fact that everything else went through.
+        if (failedTests.length > 0) {
+          toast.error(`${failedTests.length} test(s) could not be saved. Please check their values and try again.`);
         }
-        toast.success(message);
+
+        // Informational nudge (does not block saving): classes whose test
+        // weightages don't yet add up to 100% won't be used for grade
+        // calculation until they do.
+        if (unconfiguredClasses.length > 0) {
+          const classListStr = unconfiguredClasses.join(', ');
+          toast(`Note: weightage for class ${classListStr} doesn't total 100% yet — grades for ${unconfiguredClasses.length === 1 ? 'that class' : 'those classes'} won't be calculated until it does. Your Max Marks/Weightage values are saved either way.`, { icon: 'ℹ️' });
+        }
+
         console.log('✅ Saved configurations:', response.data);
         // Refresh tests to get updated data
         await fetchTests();
@@ -678,19 +695,6 @@ const SchoolSettings: React.FC = () => {
                 <p className="text-sm font-medium text-slate-500 mt-1">Configure academic years, promotion rules, and templates</p>
               </div>
             </div>
-            {activeTab === 'scoring' && (
-              <button
-                onClick={handleSaveScoring}
-                disabled={isWeightageInvalid}
-                className={`px-5 py-2.5 rounded-xl flex items-center font-semibold text-sm transition-all ${isWeightageInvalid
-                  ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                  : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-md hover:shadow-lg hover:-translate-y-0.5'
-                  }`}
-              >
-                <Save className="h-4 w-4 mr-2" />
-                Save Scoring
-              </button>
-            )}
           </div>
         </div>
       </div>
@@ -698,7 +702,7 @@ const SchoolSettings: React.FC = () => {
       {/* Tabs */}
       <div className="sticky top-[72px] z-[40] pt-2 pb-2 -mt-2 bg-[#f8fafc]">
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mx-2 sm:mx-0">
-          <div className="p-6">
+          <div className="p-6 flex items-center justify-between gap-4">
           <nav className="inline-flex bg-slate-100/80 p-1.5 rounded-2xl w-full sm:w-auto overflow-x-auto custom-scrollbar">
             {tabs.map((tab) => (
               <button
@@ -719,6 +723,20 @@ const SchoolSettings: React.FC = () => {
               </button>
             ))}
           </nav>
+          {activeTab === 'scoring' && (
+            <button
+              onClick={handleSaveScoring}
+              disabled={tests.length === 0}
+              title={isWeightageInvalid ? 'Some classes have weightage that doesn\'t total 100% yet — you can still save, but their grades won\'t calculate until it does.' : undefined}
+              className={`flex-shrink-0 px-5 py-2.5 rounded-xl flex items-center font-semibold text-sm transition-all ${tests.length === 0
+                ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-md hover:shadow-lg hover:-translate-y-0.5'
+                }`}
+            >
+              <Save className="h-4 w-4 mr-2" />
+              Save Scoring
+            </button>
+          )}
           </div>
         </div>
       </div>

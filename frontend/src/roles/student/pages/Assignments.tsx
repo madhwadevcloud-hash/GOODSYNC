@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, FileText, Download, Upload, CheckCircle, AlertTriangle, BookOpen } from 'lucide-react';
+import { Calendar, Clock, FileText, Download, Upload, CheckCircle, AlertTriangle, BookOpen, User } from 'lucide-react';
 import * as assignmentAPI from '../../../api/assignment';
 import api from '../../../api/axios';
 
@@ -10,6 +10,8 @@ interface Assignment {
   class: string;
   section: string;
   teacher: string;
+  teacherName?: string;
+  createdByName?: string;
   dueDate: string;
   priority: 'high' | 'medium' | 'low';
   instructions: string;
@@ -243,7 +245,10 @@ const StudentAssignments: React.FC = () => {
   if (loading && assignments.length === 0) {
     return (
       <div className="flex justify-center items-center h-80">
-        Loading assignments...
+        <div className="flex flex-col items-center gap-3 text-gray-400">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-blue-600" />
+          <p className="text-sm font-medium">Loading Assignments...</p>
+        </div>
       </div>
     );
   }
@@ -328,6 +333,10 @@ const StudentAssignments: React.FC = () => {
                     {assignment.class || 'Unknown Class'} •{' '}
                     Section {assignment.section || 'A'}
                   </p>
+                  <p className="mt-1 flex items-center text-sm text-gray-500">
+                    <User className="w-3.5 h-3.5 mr-1.5 text-gray-400" />
+                    {assignment.teacherName || assignment.createdByName || 'Teacher'}
+                  </p>
                 </div>
                 <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full border ${getPriorityColor(assignment.priority || 'medium')}`}>
                   {assignment.priority || 'medium'}
@@ -386,6 +395,10 @@ const StudentAssignments: React.FC = () => {
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900">{selectedAssignment.subject}</h2>
                   <p className="text-gray-500">{selectedAssignment.class} • Section {selectedAssignment.section}</p>
+                  <p className="mt-1 flex items-center text-sm text-gray-500">
+                    <User className="w-4 h-4 mr-1.5 text-gray-400" />
+                    Assigned by {selectedAssignment.teacherName || selectedAssignment.createdByName || 'Teacher'}
+                  </p>
                 </div>
                 <button 
                   onClick={() => setShowSubmissionModal(false)}

@@ -115,7 +115,7 @@ export function AdminApp() {
 
             {/* Messages - Requires messageStudentsParents permission */}
             <Route path="messages" element={
-              <PermissionGuard permission="messageStudentsParents" permissionName="Messages">
+              <PermissionGuard permission="messageStudentsParents" permissionName="Announcements">
                 <MessagesPage />
               </PermissionGuard>
             } />
@@ -195,14 +195,14 @@ export function AdminApp() {
 
           {/* Teacher Subject Assignments */}
           <Route path="teacher-assignments" element={
-            <PermissionGuard permission="viewResults" permissionName="Teacher Assignments">
+            <PermissionGuard permission="viewResults" permissionName="Assign Teacher">
               <TeacherAssignments />
             </PermissionGuard>
           } />
 
           {/* Messages - Requires messageStudentsParents permission */}
           <Route path="messages" element={
-            <PermissionGuard permission="messageStudentsParents" permissionName="Messages">
+            <PermissionGuard permission="messageStudentsParents" permissionName="Announcements">
               <MessagesPage />
             </PermissionGuard>
 

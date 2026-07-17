@@ -64,9 +64,9 @@ export default function Layout({ children }: Props) {
       <div className="lg:ml-64">
 
         {/* School Header */}
-        <div className="bg-white border-b shadow-sm">
+        <div className="sticky top-0 z-20 bg-white border-b shadow-sm">
 
-          <div className="min-h-16 px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-3">
+          <div className="h-20 px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3">
 
             {/* Left Side */}
             <div className="flex items-center gap-3 min-w-0">

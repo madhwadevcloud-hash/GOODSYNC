@@ -45,6 +45,8 @@ export function ImportUsersDialog({ schoolCode, onClose, onSuccess }: ImportUser
   const [selectedRole, setSelectedRole] = useState<'student' | 'teacher'>('student');
   // -----------------------
 
+  const [isDownloadingTemplate, setIsDownloadingTemplate] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Helper to get auth token
@@ -122,6 +124,39 @@ export function ImportUsersDialog({ schoolCode, onClose, onSuccess }: ImportUser
       }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Download a blank CSV template for the selected role
+  const handleDownloadTemplate = async () => {
+    if (!schoolCode) {
+      setError('School code is missing. Cannot download template.');
+      return;
+    }
+    const token = getAuthToken();
+    if (!token) {
+      setError('Authentication token not found. Please log in again.');
+      return;
+    }
+
+    setIsDownloadingTemplate(true);
+    setError(null);
+    try {
+      const blobData = await schoolUserAPI.downloadTemplate(schoolCode, selectedRole, token);
+      const blob = new Blob([blobData], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `${selectedRole}_import_template.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      setError(err.message || 'Failed to download template.');
+    } finally {
+      setIsDownloadingTemplate(false);
     }
   };
 
@@ -269,15 +304,33 @@ export function ImportUsersDialog({ schoolCode, onClose, onSuccess }: ImportUser
                 <li>Ensure your CSV has headers (e.g., `firstname`, `lastname`, `email`, `class`, `section`).</li>
                 <li>Required fields: `firstname`, `lastname`, `email`, `primaryphone`, `dateofbirth`, `gender`, `currentclass`, `currentsection`, `fathername`, `mothername`.</li>
                 <li>Date format should be `DD-MM-YYYY`, `DD/MM/YYYY`, or `YYYY-MM-DD`.</li>
-                <li><a href="/api/public/templates/student_import_template.csv" download className="underline hover:text-blue-900">Download student template</a></li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={handleDownloadTemplate}
+                    disabled={isDownloadingTemplate}
+                    className="underline hover:text-blue-900 disabled:opacity-50"
+                  >
+                    {isDownloadingTemplate ? 'Downloading…' : 'Download student template'}
+                  </button>
+                </li>
               </ul>
             ) : (
               <ul className="list-disc list-inside text-sm text-blue-700 space-y-1">
-                <li>Ensure your CSV has headers (e.g., `firstName`, `lastName`, `email`, `primaryPhone`).</li>
-                <li>Required fields: `firstName`, `lastName`, `email`, `primaryPhone`, `dateOfBirth`, `gender`, `joiningDate`, `highestQualification`, `totalExperience`.</li>
+                <li>Ensure your CSV has headers (e.g., `firstName`, `lastName`, `email`, `Phone Number`).</li>
+                <li>Required fields: `firstName`, `lastName`, `email`, `Phone Number`, `dateOfBirth`, `gender`, `qualification`.</li>
                 <li>Recommended fields: `subjects` (comma-separated), `specialization`, `employeeId`.</li>
                 <li>Date format should be `DD-MM-YYYY`, `DD/MM/YYYY`, or `YYYY-MM-DD`.</li>
-                <li><a href="/api/public/templates/teacher_import_template.csv" download className="underline hover:text-blue-900">Download teacher template</a></li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={handleDownloadTemplate}
+                    disabled={isDownloadingTemplate}
+                    className="underline hover:text-blue-900 disabled:opacity-50"
+                  >
+                    {isDownloadingTemplate ? 'Downloading…' : 'Download teacher template'}
+                  </button>
+                </li>
               </ul>
             )}
             {/* ------------------------------- */}

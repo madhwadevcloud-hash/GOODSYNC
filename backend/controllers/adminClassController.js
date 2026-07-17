@@ -369,29 +369,70 @@ exports.saveTestScoring = async (req, res) => {
     const schoolConnection = await getSchoolConnectionWithFallback(schoolCode);
     const testsCollection = schoolConnection.collection('testdetails');
 
-    // Update each test with scoring configuration
+    // Update each test with scoring configuration.
+    // Each test is handled independently so that one bad/invalid entry
+    // never blocks the rest of the batch from being saved.
     let updatedCount = 0;
-    for (const testScoring of scoring) {
-      const { testId, maxMarks, weightage } = testScoring;
-      
-      const result = await testsCollection.updateOne(
-        { _id: new ObjectId(testId) },
-        { 
-          $set: { 
-            maxMarks: maxMarks,
-            weightage: weightage,
-            updatedAt: new Date(),
-            updatedBy: req.user.userId
-          }
-        }
-      );
+    const failedTests = [];
 
-      if (result.modifiedCount > 0) {
+    for (const testScoring of scoring) {
+      const { testId, testName, maxMarks, weightage } = testScoring;
+
+      try {
+        // Validate testId
+        if (!testId || !ObjectId.isValid(testId)) {
+          failedTests.push({ testId, testName, reason: 'Invalid test reference' });
+          continue;
+        }
+
+        // Validate maxMarks: must be a positive number.
+        // Intentionally NO upper cap here — schools commonly use totals
+        // greater than 100 (e.g. 150, 200), so any positive value is allowed.
+        const numericMaxMarks = Number(maxMarks);
+        if (maxMarks === undefined || maxMarks === null || isNaN(numericMaxMarks) || numericMaxMarks <= 0) {
+          failedTests.push({ testId, testName, reason: 'Max marks must be a positive number' });
+          continue;
+        }
+
+        // Validate weightage: must be a number between 0 and 100 (it represents
+        // this test's percentage share of the class total, not its marks).
+        const numericWeightage = Number(weightage);
+        if (weightage === undefined || weightage === null || isNaN(numericWeightage) || numericWeightage < 0 || numericWeightage > 100) {
+          failedTests.push({ testId, testName, reason: 'Weightage must be between 0 and 100' });
+          continue;
+        }
+
+        const result = await testsCollection.updateOne(
+          { _id: new ObjectId(testId) },
+          {
+            $set: {
+              maxMarks: numericMaxMarks,
+              weightage: numericWeightage,
+              updatedAt: new Date(),
+              updatedBy: req.user.userId
+            }
+          }
+        );
+
+        if (result.matchedCount === 0) {
+          failedTests.push({ testId, testName, reason: 'Test not found' });
+          continue;
+        }
+
+        // Count as saved whenever the document matched, even if the values
+        // were identical to what was already stored (modifiedCount would be
+        // 0 in that case, but the configuration is still correctly saved).
         updatedCount++;
+      } catch (testError) {
+        console.error(`Error updating test ${testId}:`, testError);
+        failedTests.push({ testId, testName, reason: testError.message });
       }
     }
 
     console.log(`✅ Updated ${updatedCount} tests with scoring configuration`);
+    if (failedTests.length > 0) {
+      console.warn(`⚠️ ${failedTests.length} test(s) failed to save:`, failedTests);
+    }
 
     // Save grading system configuration if provided
     if (gradingSystem && Array.isArray(gradingSystem) && academicYear) {
@@ -410,12 +451,20 @@ exports.saveTestScoring = async (req, res) => {
       console.log(`✅ Saved grading scale for academic year ${academicYear}`);
     }
 
+    // Only report failure if literally nothing could be saved; partial
+    // success (some tests saved, a few failed) still returns success so the
+    // admin's valid changes aren't discarded along with the invalid ones.
+    const overallSuccess = updatedCount > 0 || scoring.length === 0;
+
     res.json({
-      success: true,
-      message: `Successfully updated scoring${gradingSystem ? ' and grading system' : ''} for tests`,
+      success: overallSuccess,
+      message: failedTests.length > 0
+        ? `Saved ${updatedCount} of ${scoring.length} test(s). ${failedTests.length} could not be saved.`
+        : `Successfully updated scoring${gradingSystem ? ' and grading system' : ''} for tests`,
       data: {
         updatedCount: updatedCount,
-        totalTests: scoring.length
+        totalTests: scoring.length,
+        failedTests: failedTests
       }
     });
 

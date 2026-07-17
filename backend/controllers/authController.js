@@ -43,37 +43,68 @@ exports.logout = async (req, res) => {
   }
 };
 
-exports.getDemoCredentials = async (req, res) => {
+// NOTE: The old public "demo credentials" endpoint has been removed.
+// It leaked real user emails to anyone who called it, unauthenticated.
+// Never expose any endpoint that reveals account identifiers/credentials
+// without authentication.
+
+// Dedicated Super Admin login. Only ever checks the SuperAdmin collection —
+// it will never authenticate an admin/teacher/student, even if the same
+// email exists in the regular Users collection. Meant to be mounted behind
+// its own strict rate limiter and a non-public URL.
+exports.superAdminLogin = async (req, res) => {
   try {
-    // SECURITY: Return demo credentials from database (not environment variables)
-    // This provides access to admin credentials created by super admin
-    const User = require('../models/User');
-    
-    // Look for admin user created by super admin (not super admin itself)
-    const adminUser = await User.findOne({ 
-      role: 'admin',
-      isActive: true 
-    }).select('email name role');
-    
-    if (!adminUser) {
-      return res.status(404).json({
-        success: false,
-        message: 'No admin credentials available'
-      });
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email and password are required' });
     }
-    
+
+    // Sanitize email to prevent NoSQL/Regex injection
+    const sanitizedEmail = String(email || '').trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    const user = await SuperAdmin.findOne({ email: { $regex: new RegExp(`^${sanitizedEmail}$`, 'i') } });
+
+    // Use one generic error message and always compare against a bcrypt hash
+    // (even a dummy one) so response timing doesn't reveal whether the email exists.
+    const dummyHash = '$2a$10$C6UzMDM.H6dfI/f/IKcEeO7t7iA9O/9r6t6lqW2y1ZQ2i9d1e1a1O';
+    const isMatch = await bcrypt.compare(password, user ? user.password : dummyHash);
+
+    if (!user || !isMatch) {
+      console.log('[SUPERADMIN LOGIN FAIL] Invalid credentials');
+      return res.status(401).json({ message: 'Invalid email or password' });
+    }
+
+    if (!user.isActive) {
+      console.log('[SUPERADMIN LOGIN FAIL] Account deactivated: [EMAIL_HIDDEN]');
+      return res.status(403).json({ message: 'Account has been deactivated. Contact system administrator.' });
+    }
+
+    user.lastLogin = new Date();
+    await user.save();
+
+    const token = jwt.sign(
+      { userId: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '12h' } // shorter session for the most sensitive account
+    );
+
+    console.log('[SUPERADMIN LOGIN SUCCESS]');
     return res.status(200).json({
       success: true,
-      data: {
-        email: adminUser.email,
-        name: adminUser.name,
-        role: adminUser.role,
-        note: 'Admin credentials created by super admin'
+      message: 'Login successful',
+      token,
+      user: {
+        _id: user._id,
+        email: user.email,
+        role: user.role,
+        permissions: user.permissions,
+        lastLogin: user.lastLogin
       }
     });
   } catch (error) {
-    console.error('Demo credentials error:', error.message);
-    res.status(500).json({ success: false, message: 'Request failed' });
+    console.error('[SUPERADMIN LOGIN ERROR]', error);
+    res.status(500).json({ message: 'Login failed. Please try again.' });
   }
 };
 
@@ -101,56 +132,17 @@ exports.login = async (req, res) => {
     // Sanitize email to prevent NoSQL/Regex injection
     const sanitizedEmail = String(email || '').trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-    // First try to find in SuperAdmin collection
-    user = await SuperAdmin.findOne({ email: { $regex: new RegExp(`^${sanitizedEmail}$`, 'i') } });
-
-    if (user) {
-      console.log(`🔍 Found in SuperAdmin collection: [EMAIL_HIDDEN]`);
-      console.log(`👤 User role: ${user.role}`);
-
-      const isMatch = await bcrypt.compare(password, user.password);
-      if (!isMatch) {
-        console.log(`[LOGIN FAIL] Wrong password for superadmin: [EMAIL_HIDDEN]`);
-        return res.status(401).json({ message: 'Invalid email or password' });
-      }
-
-      if (!user.isActive) {
-        console.log(`[LOGIN FAIL] SuperAdmin is deactivated: [EMAIL_HIDDEN]`);
-        return res.status(403).json({ message: 'Account has been deactivated. Contact system administrator.' });
-      }
-
-      // Validate that selected role matches user's actual role for SuperAdmin
-      if (selectedRole && selectedRole !== user.role) {
-        console.log(`[LOGIN FAIL] Role mismatch - Selected: ${selectedRole}, Actual: ${user.role} for superadmin: [EMAIL_HIDDEN]`);
-        return res.status(401).json({ message: 'Invalid email or password' });
-      }
-
-      // Update last login
-      user.lastLogin = new Date();
-      await user.save();
-
-      const token = jwt.sign(
-        { userId: user._id, role: user.role },
-        process.env.JWT_SECRET,
-        { expiresIn: '24h' }
-      );
-
-      console.log(`[LOGIN SUCCESS] Super Admin: ${email}`);
-      return res.status(200).json({
-        success: true,
-        message: 'Login successful',
-        token,
-        user: {
-          _id: user._id,
-          email: user.email,
-          role: user.role,
-          permissions: user.permissions,
-          lastLogin: user.lastLogin
-        }
-      });
+    // SECURITY: Super Admin accounts can NEVER authenticate through this
+    // general-purpose endpoint, even with a correct password. Super Admin
+    // login only happens through the dedicated /auth/superadmin-login
+    // endpoint, reachable exclusively via a separate, non-public URL.
+    const superAdminExists = await SuperAdmin.findOne({ email: { $regex: new RegExp(`^${sanitizedEmail}$`, 'i') } }).select('_id');
+    if (superAdminExists) {
+      console.log(`[LOGIN BLOCKED] SuperAdmin email attempted general login: [EMAIL_HIDDEN]`);
+      return res.status(401).json({ message: 'Invalid email or password' });
     }
 
-    // If not found in SuperAdmin, try regular Users collection
+    // Try regular Users collection
     user = await User.findOne({ email: { $regex: new RegExp(`^${sanitizedEmail}$`, 'i') } }).read('primaryPreferred');
     console.log(`🔍 Querying users database for user: [EMAIL_HIDDEN]`);
 
@@ -220,8 +212,8 @@ exports.login = async (req, res) => {
 
 // Forgot password (school users, e.g. students, teachers, admins, parents).
 // Looks the account up by email/user ID within the given school, generates
-// a brand-new secret password (the same way every other user's password is
-// generated/stored - see UserGenerator), and emails it to the user.
+// a password reset link (either using token collection for students, or school database fields for admins),
+// and emails it to the user.
 exports.forgotPassword = async (req, res) => {
   try {
     const { identifier, schoolCode } = req.body;
@@ -233,75 +225,70 @@ exports.forgotPassword = async (req, res) => {
       });
     }
 
-    console.log(
-      `🔑 Forgot-password request for ${identifier} (${schoolCode})`
+    console.log(`🔑 Forgot-password request for ${identifier} (${schoolCode})`);
+
+    // Fetch user from school database to check their role
+    const user = await UserGenerator.getUserByIdOrEmail(
+      schoolCode.trim().toUpperCase(),
+      identifier.trim()
     );
 
-    // Find student
-    const student =
-    await UserGenerator.getUserByIdOrEmail(
-        schoolCode.trim().toUpperCase(),
-        identifier.trim().toUpperCase()
-    );
-
-    // Generic response (don't reveal whether account exists)
-    if (!student || student.role !== "student") {
+    if (!user) {
       return res.status(200).json({
         success: true,
-        message:
-          "If the account exists, a password reset link has been sent."
+        message: "If the account exists, a password reset link has been sent."
       });
     }
 
-    if (!student.email) {
+    const allowedRoles = ['admin', 'teacher', 'student', 'parent'];
+    if (!allowedRoles.includes(user.role)) {
+      return res.status(403).json({ success: false, message: 'Password reset is not supported for this role.' });
+    }
+
+    if (!user.email) {
       return res.status(200).json({
         success: true,
-        message:
-          "If the account exists, a password reset link has been sent."
+        message: "If the account exists, a password reset link has been sent."
       });
     }
 
-    // Remove previous unused tokens
-    await PasswordResetToken.deleteMany({
-      studentId: student.userId,
-      used: false
-    });
+    // --- Unified Reset Link Generation ---
+    const resetToken = crypto.randomBytes(20).toString('hex');
+    const resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+    const resetPasswordExpire = Date.now() + 10 * 60 * 1000;
+    
+    const connection = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
+    const collectionName = user.collection || 
+      (user.role === 'teacher' ? 'teachers' : 
+       user.role === 'student' ? 'students' : 
+       user.role === 'parent' ? 'parents' : 'admins');
 
-    const rawToken = crypto.randomBytes(32).toString("hex");
-
-    await PasswordResetToken.create({
-      studentId: student.userId,
-      schoolCode: schoolCode.toUpperCase(),
-      token: rawToken,
-      expiresAt: new Date(Date.now() + 30 * 60 * 1000),
-      used: false
-    });
-
-    const resetLink =
-      `${process.env.FRONTEND_URL}/student/reset-password?token=${rawToken}`;
-
-    await sendPasswordResetEmail({
-      to: student.email,
-      name:
-        student.name?.displayName ||
-        student.name?.firstName ||
-        student.userId,
-      resetLink
-    });
-
-    console.log(
-      `📧 Password reset email sent to ${student.userId}`
+    await connection.collection(collectionName).updateOne(
+       { _id: user._id },
+       { $set: { resetPasswordToken, resetPasswordExpire } }
     );
 
-    return res.status(200).json({
-      success: true,
-      message:
-        "If the account exists, a password reset link has been sent."
+    const frontendUrl = process.env.FRONTEND_URL || req.headers.origin || 'http://localhost:5173';
+    const resetUrl = `${frontendUrl}/reset-password/${resetToken}?schoolCode=${schoolCode}`;
+    
+    const message = `
+      <h1>You have requested a password reset</h1>
+      <p>Please go to this link to reset your password:</p>
+      <a href="${resetUrl}" clicktracking="off">${resetUrl}</a>
+      <br/><br/>
+      <p>If you did not request this, please ignore this email.</p>
+    `;
+
+    await sendEmail({
+      email: user.email,
+      subject: 'Goodsync ERP Password Reset',
+      html: message
     });
+
+    return res.status(200).json({ success: true, message: 'If the account exists, a password reset link has been sent.' });
 
   } catch (err) {
-    console.error("[FORGOT PASSWORD]", err);
-
+    console.error("[FORGOT PASSWORD ERROR]", err);
     return res.status(500).json({
       success: false,
       message: "Unable to process request."
@@ -309,11 +296,11 @@ exports.forgotPassword = async (req, res) => {
   }
 };
 
+// Reset password handler
 exports.resetPassword = async (req, res) => {
-
   try {
-
-    const { token, password } = req.body;
+    const token = req.params.token || req.body.token;
+    const { password, schoolCode } = req.body;
 
     if (!token || !password) {
       return res.status(400).json({
@@ -322,96 +309,112 @@ exports.resetPassword = async (req, res) => {
       });
     }
 
-    const passwordRegex =
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?#&]).{8,}$/;
-
-    if (!passwordRegex.test(password)) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Password must contain uppercase, lowercase, number and special character."
-      });
-    }
-
-    const resetToken = await PasswordResetToken.findOne({
-      token,
+    // Try to find the token in the student PasswordResetToken collection first
+    const studentResetTokenObj = await PasswordResetToken.findOne({
+      token: token,
       used: false,
       expiresAt: { $gt: new Date() }
     });
 
-    if (!resetToken) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid or expired reset link."
-      });
-    }
-
-    const connection =
-      await SchoolDatabaseManager.getSchoolConnection(
-        resetToken.schoolCode
+    if (studentResetTokenObj) {
+      // --- Student Reset Logic (from main branch) ---
+      const connection = await SchoolDatabaseManager.getSchoolConnection(studentResetTokenObj.schoolCode);
+      
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
+      
+      const updateResult = await connection.collection('users').updateOne(
+        { userId: studentResetTokenObj.studentId },
+        { 
+          $set: { 
+            password: hashedPassword,
+            passwordChangeRequired: false,
+            updatedAt: new Date()
+          },
+          $unset: {
+            temporaryPassword: ""
+          }
+        }
       );
 
-    const studentsCollection =
-      connection.collection("students");
+      if (updateResult.matchedCount === 0) {
+        return res.status(404).json({ success: false, message: "Student account not found." });
+      }
 
-    const student =
-      await studentsCollection.findOne({
-        userId: resetToken.studentId
-      });
+      // Mark token as used
+      studentResetTokenObj.used = true;
+      await studentResetTokenObj.save();
 
-    if (!student) {
-      return res.status(400).json({
-        success: false,
-        message: "Student not found."
+      return res.status(200).json({
+        success: true,
+        message: "Password reset successful."
       });
     }
 
-    const hashedPassword =
-      await bcrypt.hash(password, 10);
+    // --- Otherwise, try database-backed Reset Logic (from our branch) ---
+    if (!schoolCode) {
+      return res.status(400).json({ success: false, message: "School code is required for password reset." });
+    }
 
-    await studentsCollection.updateOne(
-      {
-        userId: student.userId
-      },
-      {
-        $set: {
-          password: hashedPassword,
-          passwordChangeRequired: false,
-          updatedAt: new Date()
-        },
-        $unset: {
-          temporaryPassword: ""
-        }
-      }
-    );
+    const resetPasswordToken = crypto.createHash('sha256').update(token).digest('hex');
+    const connection = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
+    const collections = ['admins', 'teachers', 'students', 'parents', 'users'];
+    let matchedUser;
 
-    // Remove every reset token for this student
-    await PasswordResetToken.deleteMany({
-      studentId: student.userId
-    });
+    for (const coll of collections) {
+       const found = await connection.collection(coll).findOne({
+          resetPasswordToken,
+          resetPasswordExpire: { $gt: Date.now() }
+       });
+       if (found) {
+          matchedUser = found;
+          matchedUser.collection = coll;
+          break;
+       }
+    }
 
-    console.log(
-      `✅ Password reset completed for ${student.userId}`
+    if (!matchedUser) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired token' });
+    }
+
+    const allowedRoles = ['admin', 'teacher', 'student', 'parent'];
+    if (!allowedRoles.includes(matchedUser.role)) {
+      return res.status(403).json({ success: false, message: 'Password reset is not supported for this role.' });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+    
+    const collectionName = matchedUser.collection || 
+      (matchedUser.role === 'teacher' ? 'teachers' : 
+       matchedUser.role === 'student' ? 'students' : 
+       matchedUser.role === 'parent' ? 'parents' : 'admins');
+
+    await connection.collection(collectionName).updateOne(
+       { _id: matchedUser._id },
+       { 
+          $set: { 
+            password: hashedPassword,
+            passwordChangeRequired: false,
+            updatedAt: new Date()
+          },
+          $unset: { 
+            resetPasswordToken: "", 
+            resetPasswordExpire: "",
+            temporaryPassword: ""
+          }
+       }
     );
 
     return res.status(200).json({
       success: true,
-      message:
-        "Password reset successful."
+      message: 'Password reset successfully'
     });
 
-  } catch (err) {
-
-    console.error("[RESET PASSWORD]", err);
-
-    return res.status(500).json({
-      success: false,
-      message:
-        "Unable to reset password."
-    });
-
+  } catch (error) {
+    console.error("[RESET PASSWORD ERROR]", error);
+    res.status(500).json({ success: false, message: 'Server error' });
   }
-
 };
 
 // School-specific login (supports both email and user ID)
@@ -602,161 +605,5 @@ exports.schoolLogin = async (req, res) => {
       message: 'Login failed. Please try again.',
       error: error.message
     });
-  }
-};
-
-// @desc    Forgot password (Admin only)
-// @route   POST /api/auth/forgot-password
-// @access  Public
-exports.forgotPassword = async (req, res) => {
-  try {
-    const { identifier, schoolCode } = req.body;
-
-    if (!identifier) {
-      return res.status(400).json({ success: false, message: 'Please provide an email' });
-    }
-
-    let user;
-    if (schoolCode) {
-      const UserGenerator = require('../utils/userGenerator');
-      user = await UserGenerator.getUserByIdOrEmail(schoolCode, identifier);
-    } else {
-      user = await User.findOne({ email: identifier });
-    }
-
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'There is no user with that email' });
-    }
-
-    if (user.role !== 'admin') {
-      return res.status(403).json({ success: false, message: 'Password reset is only available for admins.' });
-    }
-
-    const resetToken = crypto.randomBytes(20).toString('hex');
-    user.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
-    user.resetPasswordExpire = Date.now() + 10 * 60 * 1000;
-    
-    if (schoolCode) {
-       const SchoolDatabaseManager = require('../utils/schoolDatabaseManager');
-       const connection = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
-       const collectionName = user.collection || 'admins';
-       await connection.collection(collectionName).updateOne(
-          { _id: user._id },
-          { $set: { resetPasswordToken: user.resetPasswordToken, resetPasswordExpire: user.resetPasswordExpire } }
-       );
-    } else {
-       await user.save();
-    }
-
-    const frontendUrl = process.env.FRONTEND_URL || req.headers.origin || 'http://localhost:5173';
-    const resetUrl = `${frontendUrl}/reset-password/${resetToken}`;
-    
-    const message = `
-      <h1>You have requested a password reset</h1>
-      <p>Please go to this link to reset your password:</p>
-      <a href="${resetUrl}" clicktracking="off">${resetUrl}</a>
-      <br/><br/>
-      <p>If you did not request this, please ignore this email.</p>
-    `;
-
-    try {
-      await sendEmail({
-        email: user.email,
-        subject: 'Goodsync ERP Password Reset',
-        html: message
-      });
-
-      res.status(200).json({ success: true, message: 'Email sent' });
-    } catch (err) {
-      console.log(err);
-      
-      if (schoolCode) {
-         const SchoolDatabaseManager = require('../utils/schoolDatabaseManager');
-         const connection = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
-         const collectionName = user.collection || 'admins';
-         await connection.collection(collectionName).updateOne(
-            { _id: user._id },
-            { $unset: { resetPasswordToken: "", resetPasswordExpire: "" } }
-         );
-      } else {
-         user.resetPasswordToken = undefined;
-         user.resetPasswordExpire = undefined;
-         await user.save();
-      }
-
-      return res.status(500).json({ success: false, message: 'Email could not be sent' });
-    }
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: 'Server error' });
-  }
-};
-
-// @desc    Reset password
-// @route   POST /api/auth/reset-password/:token
-// @access  Public
-exports.resetPassword = async (req, res) => {
-  try {
-    const resetPasswordToken = crypto.createHash('sha256').update(req.params.token).digest('hex');
-    const { schoolCode } = req.body;
-    
-    let user;
-    if (schoolCode) {
-      const SchoolDatabaseManager = require('../utils/schoolDatabaseManager');
-      const connection = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
-      const collections = ['admins', 'users'];
-      for (const coll of collections) {
-         const found = await connection.collection(coll).findOne({
-            resetPasswordToken,
-            resetPasswordExpire: { $gt: Date.now() }
-         });
-         if (found) {
-            user = found;
-            user.collection = coll;
-            break;
-         }
-      }
-    } else {
-      user = await User.findOne({
-        resetPasswordToken,
-        resetPasswordExpire: { $gt: Date.now() }
-      });
-    }
-
-    if (!user) {
-      return res.status(400).json({ success: false, message: 'Invalid or expired token' });
-    }
-
-    if (user.role !== 'admin') {
-      return res.status(403).json({ success: false, message: 'Password reset is only available for admins.' });
-    }
-
-    const salt = await bcrypt.genSalt(10);
-    user.password = await bcrypt.hash(req.body.password, salt);
-    
-    if (schoolCode) {
-      const SchoolDatabaseManager = require('../utils/schoolDatabaseManager');
-      const connection = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
-      const collectionName = user.collection || 'admins';
-      await connection.collection(collectionName).updateOne(
-         { _id: user._id },
-         { 
-            $set: { password: user.password },
-            $unset: { resetPasswordToken: "", resetPasswordExpire: "" }
-         }
-      );
-    } else {
-      user.resetPasswordToken = undefined;
-      user.resetPasswordExpire = undefined;
-      await user.save();
-    }
-
-    res.status(200).json({
-      success: true,
-      message: 'Password reset successfully'
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: 'Server error' });
   }
 };

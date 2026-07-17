@@ -641,8 +641,9 @@ class UserGenerator {
           },
 
           teacherDetails: {
-            designation: userData.designation || 'Teacher',
-            employeeId: userId,
+            designation: userData.designation || userData.teacherDetails?.designation || 'Teacher',
+            department: userData.department || userData.teacherDetails?.department || '',
+            employeeId: userData.teacherDetails?.employeeId || userId,
             qualification: userData.qualification || userData.teacherDetails?.qualification || userData.teacherDetails?.highestQualification || '',
             experience: Number(userData.experience) || Number(userData.teacherDetails?.experience) || Number(userData.teacherDetails?.totalExperience) || 0,
             subjects: userData.teacherDetails?.subjects || userData.subjects || [],
@@ -1306,9 +1307,23 @@ class UserGenerator {
         if (updateData.subjects !== undefined && Array.isArray(updateData.subjects)) {
           updateFields[`${rolePrefix}.subjects`] = updateData.subjects.map(s => String(s).trim()).filter(Boolean);
         }
+        // CRITICAL FIX: designation/department entered by the admin were being silently
+        // dropped on update because there was no mapping for them here.
+        const designationUpdate = updateData.designation || updateData.teacherDetails?.designation;
+        if (designationUpdate !== undefined) updateFields[`${rolePrefix}.designation`] = designationUpdate;
+        const departmentUpdate = updateData.department || updateData.teacherDetails?.department;
+        if (departmentUpdate !== undefined) updateFields[`${rolePrefix}.department`] = departmentUpdate;
+        if (updateData.specialization !== undefined) updateFields[`${rolePrefix}.specialization`] = updateData.specialization;
+        if (updateData.joiningDate !== undefined) {
+          const parsedJoiningDate = updateData.joiningDate ? new Date(updateData.joiningDate) : null;
+          updateFields[`${rolePrefix}.joiningDate`] = parsedJoiningDate;
+          updateFields[`${rolePrefix}.joinDate`] = parsedJoiningDate;
+        }
         // Add teacher personal data updates
         if (updateData.dateOfBirth !== undefined) updateFields['personal.dateOfBirth'] = updateData.dateOfBirth ? new Date(updateData.dateOfBirth) : null;
         if (updateData.gender !== undefined) updateFields['personal.gender'] = updateData.gender;
+        if (updateData.bloodGroup !== undefined) updateFields['personal.bloodGroup'] = updateData.bloodGroup;
+        if (updateData.nationality !== undefined) updateFields['personal.nationality'] = updateData.nationality;
       }
 
       updateFields.updatedAt = new Date();
