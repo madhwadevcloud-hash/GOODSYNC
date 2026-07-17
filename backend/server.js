@@ -17,6 +17,8 @@ require('dotenv').config();
 const dns = require('dns');
 dns.setServers(['8.8.8.8', '1.1.1.1']);
 
+// AWS SSM Secrets Loader
+const { loadSecrets } = require('./config/secrets');
 
 const express = require('express');
 const mongoose = require('mongoose');
@@ -406,7 +408,7 @@ const adminClassRoutes = require('./routes/adminClasses');
 const classesRoutes = require('./routes/classes');
 const messagesRoutes = require('./routes/messages');
 const feesRoutes = require('./routes/fees');
-const reportsRoutes = require('./routes/reports');
+const reportsRoutes = require('./reports');
 const promotionRoutes = require('./routes/promotion');
 const academicYearRoutes = require('./routes/academicYear');
 const migrationRoutes = require('./routes/migration');
@@ -429,13 +431,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Serve ID card templates statically
 app.use('/idcard-templates', express.static(path.join(__dirname, 'idcard-templates')));
 
-// SECURITY: Test endpoint removed - was logging headers without authentication
-
-
-// SECURITY: Debug endpoints removed - they were exposing sensitive data without authentication
-// These endpoints were accessible without authentication and could leak school data
-
-// Use other routes
+// Serve other routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/schools', schoolRoutes);
@@ -474,16 +470,14 @@ app.use('/api/calendar-events', calendarEventsRoutes);
 // --- Define Export/Import Routes Directly ---
 
 // Generate Template Route
-// GET /api/export-import/:schoolCode/template?role=student
 app.get('/api/export-import/:schoolCode/template',
   auth,               // 1. Authenticate the user
-  setMainDbContext,   // 2. Set DB context (might not be strictly needed if controller fetches schoolId again)
+  setMainDbContext,   // 2. Set DB context
   requireAdminAccess, // 3. Check if user is admin/superadmin
   exportImportController.generateTemplate // 4. Call the controller function
 );
 
 // Import Users Route
-// POST /api/export-import/:schoolCode/import
 app.post('/api/export-import/:schoolCode/import',
   auth,               // 1. Authenticate
   setMainDbContext,   // 2. Set DB context
@@ -493,7 +487,6 @@ app.post('/api/export-import/:schoolCode/import',
 );
 
 // Export Users Route
-// GET /api/export-import/:schoolCode/export?role=student&format=csv
 app.get('/api/export-import/:schoolCode/export',
   auth,               // 1. Authenticate
   setMainDbContext,   // 2. Set DB context
@@ -526,28 +519,36 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
-// MongoDB connection URI
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/institute_erp';
 
-// Ensure JWT_SECRET is set before starting server logic that might use it
-if (!process.env.JWT_SECRET) {
-  console.error('❌ SECURITY ERROR: JWT_SECRET environment variable is required for secure operation.');
-  console.error('❌ Please set JWT_SECRET environment variable with a strong, random secret.');
-  console.error('❌ Server cannot start without JWT_SECRET for security reasons.');
-  process.exit(1);
-}
+// --- ASYNCHRONOUS SERVER STARTUP BLOCK ---
+async function startServer() {
+  try {
+    // 1. Load production secrets dynamically from AWS SSM Parameter Store first
+    await loadSecrets();
 
-mongoose.connect(MONGODB_URI, {
-  maxPoolSize: 50,
-  serverSelectionTimeoutMS: 5000,
-  socketTimeoutMS: 45000,
-  bufferCommands: false
-})
-  .then(async () => {
+    // 2. Validate that JWT_SECRET is present (either from AWS SSM or local .env)
+    if (!process.env.JWT_SECRET) {
+      console.error('❌ SECURITY ERROR: JWT_SECRET environment variable is required for secure operation.');
+      console.error('❌ Please set JWT_SECRET environment variable with a strong, random secret.');
+      console.error('❌ Server cannot start without JWT_SECRET for security reasons.');
+      process.exit(1);
+    }
+
+    // 3. Resolve the MongoDB Connection URI
+    const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/institute_erp';
+
+    // 4. Connect to MongoDB Atlas with performance optimizations
+    await mongoose.connect(MONGODB_URI, {
+      maxPoolSize: 50,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+      bufferCommands: false
+    });
+
     console.log('✅ Connected to MongoDB Atlas with optimizations');
     console.log('📊 Connection pool size: 50');
 
-    // Initialize Database Manager
+    // Initialize Multi-Tenant Database Manager
     await DatabaseManager.initialize();
     console.log('✅ Database Manager initialized');
 
@@ -556,20 +557,25 @@ mongoose.connect(MONGODB_URI, {
 
     console.log('🚀 Server ready for multi-tenant operations');
 
-    // Start server only after successful DB connection and initialization
+    // 5. Start the HTTP / Socket.IO listener
     server.listen(PORT, () => {
       console.log(`🌐 Server running on port ${PORT}`);
       console.log(`🏫 Multi-tenant school ERP system ready`);
       console.log(`🔌 Socket.IO server ready for real-time communication`);
 
-      // Start temp folder cleanup task (runs every 30 seconds)
+      // Start temp folder cleanup task (runs every 60 seconds)
       startTempFolderCleanup();
     });
-  })
-  .catch((error) => {
-    console.error('❌ MongoDB connection error:', error);
-    process.exit(1); // Exit if DB connection fails
-  });
+
+  } catch (error) {
+    console.error('❌ Server startup failure:', error);
+    process.exit(1); // Force terminate if startup pipeline breaks
+  }
+}
+
+// Execute the async startup logic
+startServer();
+// --- END SERVER STARTUP BLOCK ---
 
 
 // Temp folder cleanup function
@@ -578,7 +584,6 @@ function cleanupTempFolder() {
 
   // Check if temp directory exists
   if (!fs.existsSync(tempDir)) {
-    // --- HOSTING FIX: Create temp dir if it doesn't exist ---
     try {
       fs.mkdirSync(tempDir, { recursive: true });
       console.log('ℹ️ Created temp directory for uploads.');
@@ -586,14 +591,12 @@ function cleanupTempFolder() {
       console.error('❌ Failed to create temp directory:', mkdirError);
       return;
     }
-    // --- END FIX ---
   }
 
   try {
     const files = fs.readdirSync(tempDir);
 
     if (files.length === 0) {
-      // console.log('✅ Temp folder is already clean (0 files)');
       return;
     }
 
@@ -609,13 +612,10 @@ function cleanupTempFolder() {
       try {
         const stats = fs.statSync(filePath);
 
-        // Only delete files, not directories
         if (stats.isFile()) {
-          // Only delete files older than 5 minutes to avoid EPERM errors
           const fileAge = stats.mtimeMs;
           if (fileAge < fiveMinutesAgo) {
             try {
-              // Try to release file handle before deletion (Windows compatibility)
               fs.closeSync(fs.openSync(filePath, 'r'));
             } catch (e) {
               // Ignore if file handle release fails
@@ -628,9 +628,7 @@ function cleanupTempFolder() {
           }
         }
       } catch (err) {
-        // Only log EPERM errors as warnings, not errors
         if (err.code === 'EPERM') {
-          // File is still in use, skip it silently
           skippedCount++;
         } else {
           console.error(`❌ Error deleting ${file}:`, err.message);
@@ -654,7 +652,7 @@ function startTempFolderCleanup() {
   // Run immediately on startup
   cleanupTempFolder();
 
-  //Then run every 60 seconds (less aggressive for Windows)
+  // Then run every 60 seconds
   setInterval(() => {
     cleanupTempFolder();
   }, 60000); // 60 seconds
@@ -663,7 +661,6 @@ function startTempFolderCleanup() {
 // 404 handler - MUST come before error handler
 app.use('*', (req, res, next) => {
   console.log('❌ 404 - Route not found:', req.originalUrl);
-  // Always return JSON, never HTML
   res.status(404).json({
     success: false,
     message: 'Route not found',
@@ -676,7 +673,6 @@ app.use('*', (req, res, next) => {
 app.use((err, req, res, next) => {
   console.error('❌ Unhandled error:', err);
 
-  // CORS error handling
   if (err.message && err.message.includes('CORS')) {
     return res.status(403).json({
       success: false,
@@ -685,10 +681,8 @@ app.use((err, req, res, next) => {
     });
   }
 
-  // SECURITY: Only expose stack traces in development, never in production
   const isDevelopment = process.env.NODE_ENV === 'development';
   
-  // Always return JSON, never HTML
   res.status(err.status || 500).json({
     success: false,
     message: err.message || 'Internal server error',
@@ -709,5 +703,3 @@ process.on('SIGINT', async () => {
     process.exit(1);
   }
 });
-
-// Note: server start moved to after successful DB connect
