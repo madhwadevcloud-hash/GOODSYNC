@@ -1,3 +1,4 @@
+// backend/routes/schoolUsers.js
 const express = require('express');
 const router = express.Router();
 const schoolUserController = require('../controllers/schoolUserController');
@@ -7,7 +8,42 @@ const authMiddleware = require('../middleware/auth');
 const exportImportController = require('../controllers/exportImportController');
 const { setSchoolContext } = require('../middleware/schoolContext');
 const { enforceJwtTenancy } = require('../middleware/tenancy');
+const { uploadToS3 } = require('../utils/s3Uploader'); // <-- Import S3 uploader
 // --- END FIX ---
+
+/**
+ * ADAPTER MIDDLEWARE: Handles a single file upload in memory (via Multer),
+ * uploads it to Amazon S3, and adapts the req.file object for downstream controllers.
+ */
+const handleSingleS3Upload = (folderName) => async (req, res, next) => {
+  if (!req.file) {
+    return next();
+  }
+
+  try {
+    console.log(`📡 Uploading single file (${req.file.originalname}) to S3 folder: "${folderName}"`);
+    
+    // Upload to S3
+    const s3Result = await uploadToS3(req.file, folderName);
+
+    // Overwrite req.file properties so controllers read S3 metadata seamlessly
+    req.file = {
+      ...req.file,
+      path: s3Result.url,       // Overwrite local disk path with the S3 URL
+      filename: s3Result.key,   // Overwrite filename with S3 unique Key
+      location: s3Result.url    // Fallback property
+    };
+
+    console.log('✅ S3 single upload complete. req.file adapted.');
+    next();
+  } catch (error) {
+    console.error('❌ S3 Single Upload Error:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: `Failed to upload file to storage: ${error.message}` 
+    });
+  }
+};
 
 // --- HOSTING FIX: Wrap in a function to accept 'upload' from server.js ---
 module.exports = (upload) => {
@@ -31,14 +67,13 @@ module.exports = (upload) => {
     router.get('/:schoolCode/users/:userId', schoolUserController.getUserById);
 
     // Update user
-    // --- HOSTING FIX: Add 'upload.single' for profile picture uploads ---
+    // --- HOSTING FIX: Use memory upload + S3 adapter middleware ---
     router.put(
         '/:schoolCode/users/:userId',
-        upload.single('profileImage'), // <-- Use injected upload
-        schoolUserController.updateUser
+        upload.single('profileImage'),           // 1. Parse image buffer in memory
+        handleSingleS3Upload('profile-images'),  // 2. Upload to S3 & mock req.file
+        schoolUserController.updateUser         // 3. Controller runs completely unmodified!
     );
-
-    // Profile update route removed - function not implemented
 
     // Reset user password
     router.post('/:schoolCode/users/:userId/reset-password', schoolUserController.resetUserPassword);
@@ -66,11 +101,12 @@ module.exports = (upload) => {
 
 
     // --- IMPORT/EXPORT ROUTES ---
-    // --- HOSTING FIX: Use the injected 'upload' variable ---
+    // --- HOSTING FIX: Use memory upload + S3 adapter middleware ---
     router.post(
         '/:schoolCode/import/users',
-        upload.single('file'), // 'file' must match the FormData key
-        exportImportController.importUsers
+        upload.single('file'),                  // 1. Parse CSV/Excel in memory
+        handleSingleS3Upload('imports'),        // 2. Upload template securely to S3
+        exportImportController.importUsers      // 3. Controller reads S3 URL from req.file.path
     );
 
     router.get(
@@ -86,4 +122,3 @@ module.exports = (upload) => {
 
     return router;
 };
-
