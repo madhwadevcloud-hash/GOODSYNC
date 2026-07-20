@@ -8,28 +8,31 @@ type RoleKey = "admin" | "teacher" | "student";
 
 const initialRoleMeta: Record<
   RoleKey,
-  { title: string; subtitle: string; icon: React.ReactNode; demoEmail: string; demoPass: string }
+  { title: string; subtitle: string; icon: React.ReactNode; demoEmail: string; demoPass: string; demoSchoolCode: string; }
 > = {
   admin: {
     title: "Admin",
     subtitle: "System wizard",
     icon: <Settings className="w-5 h-5" />,
-    demoEmail: "",
-    demoPass: "",
+    demoEmail: "admin@tt.in",
+    demoPass: "Admin@123",
+    demoSchoolCode: "VK"
   },
   teacher: {
     title: "Teacher",
     subtitle: "Knowledge master",
     icon: <GraduationCap className="w-5 h-5" />,
-    demoEmail: "",
-    demoPass: "",
+    demoEmail: "TTRI@tt.in",
+    demoPass: "TRI@2121",
+    demoSchoolCode: "VK"
   },
   student: {
     title: "Students & Parents",
     subtitle: "Student & Parent Portal",
     icon: <Users className="w-5 h-5" />,
-    demoEmail: "",
-    demoPass: "",
+    demoEmail: "student@tt.in",
+    demoPass: "Student@123",
+    demoSchoolCode: "VK"
   },
 };
 
@@ -55,12 +58,12 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation() as any;
 
-  // Auto-fill demo creds when role changes (none configured by default)
+  // Auto-fill demo creds when role changes
   const onPickRole = (role: RoleKey) => {
     setSelectedRole(role);
     setIdentifier(roleMeta[role].demoEmail);
     setPassword(roleMeta[role].demoPass);
-    setSchoolCode('');
+    setSchoolCode(roleMeta[role].demoSchoolCode || '');
   };
 
   const roleCards = useMemo(
