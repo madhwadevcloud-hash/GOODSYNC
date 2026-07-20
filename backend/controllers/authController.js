@@ -256,21 +256,21 @@ exports.forgotPassword = async (req, res) => {
     const resetToken = crypto.randomBytes(20).toString('hex');
     const resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
     const resetPasswordExpire = Date.now() + 10 * 60 * 1000;
-    
+
     const connection = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
-    const collectionName = user.collection || 
-      (user.role === 'teacher' ? 'teachers' : 
-       user.role === 'student' ? 'students' : 
-       user.role === 'parent' ? 'parents' : 'admins');
+    const collectionName = user.collection ||
+      (user.role === 'teacher' ? 'teachers' :
+        user.role === 'student' ? 'students' :
+          user.role === 'parent' ? 'parents' : 'admins');
 
     await connection.collection(collectionName).updateOne(
-       { _id: user._id },
-       { $set: { resetPasswordToken, resetPasswordExpire } }
+      { _id: user._id },
+      { $set: { resetPasswordToken, resetPasswordExpire } }
     );
 
     const frontendUrl = process.env.FRONTEND_URL || req.headers.origin || 'http://localhost:5173';
     const resetUrl = `${frontendUrl}/reset-password/${resetToken}?schoolCode=${schoolCode}`;
-    
+
     const message = `
       <h1>You have requested a password reset</h1>
       <p>Please go to this link to reset your password:</p>
@@ -319,14 +319,14 @@ exports.resetPassword = async (req, res) => {
     if (studentResetTokenObj) {
       // --- Student Reset Logic (from main branch) ---
       const connection = await SchoolDatabaseManager.getSchoolConnection(studentResetTokenObj.schoolCode);
-      
+
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(password, salt);
-      
+
       const updateResult = await connection.collection('users').updateOne(
         { userId: studentResetTokenObj.studentId },
-        { 
-          $set: { 
+        {
+          $set: {
             password: hashedPassword,
             passwordChangeRequired: false,
             updatedAt: new Date()
@@ -362,15 +362,15 @@ exports.resetPassword = async (req, res) => {
     let matchedUser;
 
     for (const coll of collections) {
-       const found = await connection.collection(coll).findOne({
-          resetPasswordToken,
-          resetPasswordExpire: { $gt: Date.now() }
-       });
-       if (found) {
-          matchedUser = found;
-          matchedUser.collection = coll;
-          break;
-       }
+      const found = await connection.collection(coll).findOne({
+        resetPasswordToken,
+        resetPasswordExpire: { $gt: Date.now() }
+      });
+      if (found) {
+        matchedUser = found;
+        matchedUser.collection = coll;
+        break;
+      }
     }
 
     if (!matchedUser) {
@@ -384,26 +384,26 @@ exports.resetPassword = async (req, res) => {
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
-    
-    const collectionName = matchedUser.collection || 
-      (matchedUser.role === 'teacher' ? 'teachers' : 
-       matchedUser.role === 'student' ? 'students' : 
-       matchedUser.role === 'parent' ? 'parents' : 'admins');
+
+    const collectionName = matchedUser.collection ||
+      (matchedUser.role === 'teacher' ? 'teachers' :
+        matchedUser.role === 'student' ? 'students' :
+          matchedUser.role === 'parent' ? 'parents' : 'admins');
 
     await connection.collection(collectionName).updateOne(
-       { _id: matchedUser._id },
-       { 
-          $set: { 
-            password: hashedPassword,
-            passwordChangeRequired: false,
-            updatedAt: new Date()
-          },
-          $unset: { 
-            resetPasswordToken: "", 
-            resetPasswordExpire: "",
-            temporaryPassword: ""
-          }
-       }
+      { _id: matchedUser._id },
+      {
+        $set: {
+          password: hashedPassword,
+          passwordChangeRequired: false,
+          updatedAt: new Date()
+        },
+        $unset: {
+          resetPasswordToken: "",
+          resetPasswordExpire: "",
+          temporaryPassword: ""
+        }
+      }
     );
 
     return res.status(200).json({
@@ -455,7 +455,7 @@ exports.schoolLogin = async (req, res) => {
     const SchoolDatabaseManager = require('../utils/schoolDatabaseManager');
     const connection = await SchoolDatabaseManager.getSchoolConnection(schoolCode);
     const userCollection = connection.collection(user.collection);
-    const userWithPassword = await userCollection.findOne({ 
+    const userWithPassword = await userCollection.findOne({
       $or: [
         { userId: user.userId },
         { _id: user._id }
@@ -516,7 +516,7 @@ exports.schoolLogin = async (req, res) => {
 
     // Update last login
     await userCollection.updateOne(
-      { 
+      {
         $or: [
           { userId: user.userId },
           { _id: user._id }
@@ -538,8 +538,8 @@ exports.schoolLogin = async (req, res) => {
 
     if (!accessMatrix) {
       const accessMatricesPlural = connection.collection('access_matrices');
-      accessMatrix = await accessMatricesPlural.findOne({ schoolCode: schoolCode.toUpperCase() }) || 
-                    await accessMatricesPlural.findOne({ _id: 'school_permissions' });
+      accessMatrix = await accessMatricesPlural.findOne({ schoolCode: schoolCode.toUpperCase() }) ||
+        await accessMatricesPlural.findOne({ _id: 'school_permissions' });
     }
 
     // Generate JWT token
