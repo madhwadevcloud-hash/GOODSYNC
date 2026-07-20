@@ -1,3 +1,4 @@
+// backend/routes/idCardTemplates.js
 const express = require('express');
 const router = express.Router();
 
@@ -23,6 +24,41 @@ const {
 
 const { auth } = require('../middleware/auth');
 const { setSchoolContext } = require('../middleware/schoolContext');
+const { uploadToS3 } = require('../utils/s3Uploader'); // <-- Import S3 uploader
+
+/**
+ * ADAPTER MIDDLEWARE: Handles a single file upload in memory (via Multer),
+ * uploads it to Amazon S3, and adapts the req.file object for downstream controllers.
+ */
+const handleSingleS3Upload = (folderName) => async (req, res, next) => {
+  if (!req.file) {
+    return next();
+  }
+
+  try {
+    console.log(`📡 Uploading template image (${req.file.originalname}) to S3 folder: "${folderName}"`);
+    
+    // Upload to S3
+    const s3Result = await uploadToS3(req.file, folderName);
+
+    // Overwrite req.file properties so controllers read S3 metadata seamlessly
+    req.file = {
+      ...req.file,
+      path: s3Result.url,       // Overwrite local disk path with the S3 URL
+      filename: s3Result.key,   // Overwrite filename with S3 unique Key
+      location: s3Result.url    // Fallback property
+    };
+
+    console.log('✅ S3 template image upload complete. req.file adapted.');
+    next();
+  } catch (error) {
+    console.error('❌ S3 Single Upload Error:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: `Failed to upload file to storage: ${error.message}` 
+    });
+  }
+};
 
 // --- HOSTING FIX: Wrap in a function to accept 'upload' from server.js ---
 module.exports = (upload) => {
@@ -44,13 +80,20 @@ module.exports = (upload) => {
   // Get a specific template
   router.get('/:templateId', getTemplate);
 
-  // --- HOSTING FIX: Use the injected 'upload.single()' middleware ---
+  // --- HOSTING FIX: Use memory upload + S3 adapter middleware ---
   // Create a new template
-  router.post('/', upload.single('templateImage'), createTemplate);
+  router.post('/', 
+    upload.single('templateImage'),            // 1. Parse image in memory
+    handleSingleS3Upload('id-card-templates'),  // 2. Upload to S3 & mock req.file
+    createTemplate                             // 3. Controller runs completely unmodified!
+  );
 
   // Update a template
-  // Added upload middleware, as this route will also need to handle image changes
-  router.put('/:templateId', upload.single('templateImage'), updateTemplate);
+  router.put('/:templateId', 
+    upload.single('templateImage'), 
+    handleSingleS3Upload('id-card-templates'), 
+    updateTemplate
+  );
   // --- END FIX ---
 
   // Delete a template (soft delete)
@@ -61,4 +104,3 @@ module.exports = (upload) => {
 
   return router;
 };
-
