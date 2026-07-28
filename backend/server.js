@@ -408,7 +408,7 @@ const adminClassRoutes = require('./routes/adminClasses');
 const classesRoutes = require('./routes/classes');
 const messagesRoutes = require('./routes/messages');
 const feesRoutes = require('./routes/fees');
-const reportsRoutes = require('./reports');
+const reportsRoutes = require('./routes/reports');
 const promotionRoutes = require('./routes/promotion');
 const academicYearRoutes = require('./routes/academicYear');
 const migrationRoutes = require('./routes/migration');
@@ -417,6 +417,7 @@ const chalanRoutes = require('./routes/chalanRoutes');
 const studentPortalRoutes = require('./routes/studentPortal');
 const teacherAssignmentRoutes = require('./routes/teacherAssignments');
 const calendarEventsRoutes = require('./routes/calendarEvents');
+const demoRequestRoutes = require('./routes/demoRequests');
 
 // Route imports - some routes need upload middleware
 const schoolRoutes = require('./routes/schools');
@@ -465,6 +466,7 @@ app.use('/api/chalans', chalanRoutes);
 app.use('/api/permissions', permissionsRoutes);
 app.use('/api/teacher-assignments', teacherAssignmentRoutes);
 app.use('/api/calendar-events', calendarEventsRoutes);
+app.use('/api/demo-requests', demoRequestRoutes);
 
 
 // --- Define Export/Import Routes Directly ---
