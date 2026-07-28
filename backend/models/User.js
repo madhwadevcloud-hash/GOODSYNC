@@ -600,6 +600,9 @@ userSchema.pre('save', function (next) {
 
 // Enhanced Indexes for Performance
 userSchema.index({ role: 1, isActive: 1 });
+userSchema.index({ schoolCode: 1, role: 1, isActive: 1 });
+userSchema.index({ schoolCode: 1, role: 1, 'studentDetails.academicYear': 1 });
+userSchema.index({ schoolCode: 1, role: 1, 'academicInfo.academicYear': 1 });
 userSchema.index({ schoolCode: 1, 'schoolAccess.status': 1 });
 userSchema.index({ lastLogin: 1 });
 userSchema.index({ 'activeSessions.isActive': 1 });
@@ -609,6 +612,8 @@ userSchema.index({
   'studentDetails.academic.currentClass': 1,
   'studentDetails.academic.currentSection': 1
 });
+userSchema.index({ 'academicInfo.class': 1, 'academicInfo.section': 1 });
+userSchema.index({ 'studentDetails.currentClass': 1, 'studentDetails.currentSection': 1 });
 userSchema.index({ 'studentDetails.admissionNumber': 1 }, { sparse: true });
 userSchema.index({ schoolId: 1, role: 1 });
 
