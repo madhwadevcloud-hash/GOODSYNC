@@ -2,18 +2,28 @@ const mongoose = require('mongoose');
 
 class SchoolDatabaseManager {
   static connections = new Map();
+  static connectionPromises = new Map();
 
   // Get or create connection to a school's database
   static async getSchoolConnection(schoolCode) {
+    if (!schoolCode) return null;
     const dbName = `school_${schoolCode.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
 
     if (this.connections.has(dbName)) {
       const existingConnection = this.connections.get(dbName);
       if (existingConnection.readyState === 1) {
         return existingConnection;
-      } else {
-        // Remove stale connection
+      } else if (existingConnection.readyState !== 2) {
+        // Remove dead connection
         this.connections.delete(dbName);
+      }
+    }
+
+    if (this.connectionPromises.has(dbName)) {
+      try {
+        return await this.connectionPromises.get(dbName);
+      } catch (e) {
+        this.connectionPromises.delete(dbName);
       }
     }
 
@@ -43,36 +53,43 @@ class SchoolDatabaseManager {
 
     console.log(`🔗 Connecting to: ${dbName} using URI: ${connectionUri}`);
     
-    const connection = mongoose.createConnection(connectionUri, {
-      maxPoolSize: 10,
-      serverSelectionTimeoutMS: 10000,
-      socketTimeoutMS: 45000,
-      bufferCommands: false
-    });
-
-    try {
-      await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error(`Connection timeout for ${dbName} after 30 seconds`));
-        }, 30000);
-
-        connection.once('open', () => {
-          clearTimeout(timeout);
-          resolve();
-        });
-
-        connection.once('error', (error) => {
-          console.error(`❌ Connection error event for ${dbName}:`, error);
-          clearTimeout(timeout);
-          reject(error);
-        });
+    const connectPromise = (async () => {
+      const connection = mongoose.createConnection(connectionUri, {
+        maxPoolSize: 10,
+        serverSelectionTimeoutMS: 8000,
+        socketTimeoutMS: 45000,
+        bufferCommands: false
       });
 
-      this.connections.set(dbName, connection);
-      console.log(`✅ Connected to school database: ${dbName}`);
-      // Trigger background indexing for common collections non-blocking
-      this.ensureIndexes(connection).catch(() => {});
-      return connection;
+      try {
+        await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error(`Connection timeout for ${dbName} after 15 seconds`));
+          }, 15000);
+
+          connection.once('open', () => {
+            clearTimeout(timeout);
+            resolve();
+          });
+
+          connection.once('error', (error) => {
+            console.error(`❌ Connection error event for ${dbName}:`, error);
+            clearTimeout(timeout);
+            reject(error);
+          });
+        });
+
+        this.connections.set(dbName, connection);
+        console.log(`✅ Connected to school database: ${dbName}`);
+        this.ensureIndexes(connection).catch(() => {});
+        return connection;
+      } finally {
+        this.connectionPromises.delete(dbName);
+      }
+    })();
+
+    this.connectionPromises.set(dbName, connectPromise);
+    return await connectPromise;
     } catch (error) {
       console.error(`❌ Failed to connect to school database ${dbName}:`, error.message);
 

@@ -565,68 +565,52 @@ exports.getAssignments = async (req, res) => {
     // Log the complete query for debugging
     console.log(`[GET ASSIGNMENTS] Complete query:`, JSON.stringify(query, null, 2));
 
-    // PRIMARY: Get assignments from school-specific database
     let schoolAssignments = [];
     let mainAssignments = [];
     let schoolTotal = 0;
     let mainTotal = 0;
 
+    let SchoolAssignment = null;
     if (schoolCode) {
       try {
         console.log(`[GET ASSIGNMENTS] 🔍 Fetching from school-specific database: school_${schoolCode}`);
         const schoolConn = await DatabaseManager.getSchoolConnection(schoolCode);
-        console.log(`[GET ASSIGNMENTS] Connection state: ${schoolConn.readyState}`);
-        
-        const SchoolAssignment = AssignmentMultiTenant.getModelForConnection(schoolConn);
-
-        // Apply pagination at DB level for school database
-        schoolAssignments = await SchoolAssignment.find(query)
-          .sort({ createdAt: -1 })
-          .skip(startIndex)
-          .limit(parseInt(limit))
-          .lean();
-
-        schoolTotal = await SchoolAssignment.countDocuments(query);
-
-        console.log(`[GET ASSIGNMENTS] ✅ Found ${schoolAssignments.length} assignments in school_${schoolCode}.assignments`);
-        
-        // Log sample assignment if found
-        if (schoolAssignments.length > 0) {
-          console.log(`[GET ASSIGNMENTS] Sample assignment:`, {
-            _id: schoolAssignments[0]._id,
-            title: schoolAssignments[0].title,
-            class: schoolAssignments[0].class,
-            section: schoolAssignments[0].section,
-            academicYear: schoolAssignments[0].academicYear,
-            schoolCode: schoolAssignments[0].schoolCode
-          });
+        if (schoolConn) {
+          SchoolAssignment = AssignmentMultiTenant.getModelForConnection(schoolConn);
         }
       } catch (error) {
-        console.error(`[GET ASSIGNMENTS] ❌ Error accessing school-specific database:`, error.message);
-        console.error(`[GET ASSIGNMENTS] Error stack:`, error.stack);
+        console.error(`[GET ASSIGNMENTS] ❌ Error connecting to school-specific database:`, error.message);
       }
     }
 
-    // SECONDARY: Also check main database for legacy assignments (if any exist)
-    if (schoolId) {
-      try {
-        console.log(`[GET ASSIGNMENTS] 🔍 Checking main database for legacy assignments`);
-        mainAssignments = await Assignment.find(query)
-          .sort({ createdAt: -1 })
-          .skip(startIndex)
-          .limit(parseInt(limit))
-          .lean();
+    // Execute queries concurrently for maximum performance
+    const [schoolRes, schoolCountRes, mainRes, mainCountRes] = await Promise.all([
+      SchoolAssignment
+        ? SchoolAssignment.find(query).sort({ createdAt: -1 }).skip(startIndex).limit(parseInt(limit)).lean().catch(err => {
+            console.error(`[GET ASSIGNMENTS] School find error:`, err.message);
+            return [];
+          })
+        : Promise.resolve([]),
+      SchoolAssignment
+        ? SchoolAssignment.countDocuments(query).catch(() => 0)
+        : Promise.resolve(0),
+      schoolId
+        ? Assignment.find(query).sort({ createdAt: -1 }).skip(startIndex).limit(parseInt(limit)).lean().catch(err => {
+            console.error(`[GET ASSIGNMENTS] Main find error:`, err.message);
+            return [];
+          })
+        : Promise.resolve([]),
+      schoolId
+        ? Assignment.countDocuments(query).catch(() => 0)
+        : Promise.resolve(0)
+    ]);
 
-        mainTotal = await Assignment.countDocuments(query);
-        console.log(`[GET ASSIGNMENTS] Found ${mainAssignments.length} legacy assignments in main database`);
-        
-        if (mainAssignments.length > 0) {
-          console.log(`[GET ASSIGNMENTS] ⚠️ WARNING: Found ${mainAssignments.length} assignments in main database. These should be in school_${schoolCode}.assignments`);
-        }
-      } catch (error) {
-        console.error(`[GET ASSIGNMENTS] Error accessing main database:`, error.message);
-      }
-    }
+    schoolAssignments = schoolRes || [];
+    schoolTotal = schoolCountRes || 0;
+    mainAssignments = mainRes || [];
+    mainTotal = mainCountRes || 0;
+
+    console.log(`[GET ASSIGNMENTS] ✅ Found ${schoolAssignments.length} in school DB, ${mainAssignments.length} in main DB`);
 
     // Merge assignments from both databases and remove duplicates
     const allAssignments = [...schoolAssignments, ...mainAssignments];
