@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Home, Plus, School, TrendingUp, ShieldCheck, LogOut, X } from 'lucide-react';
+import { Home, Plus, School, TrendingUp, ShieldCheck, LogOut, X, CalendarCheck } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../../../auth/AuthContext';
 
@@ -17,6 +17,7 @@ export function Navigation({ onClose }: NavigationProps) {
     { id: 'dashboard', label: 'Dashboard', icon: Home },
     { id: 'add-school', label: 'Add New School', icon: Plus },
     { id: 'promotion', label: 'Promotion Requests', icon: TrendingUp },
+    { id: 'demo-requests', label: 'Demo Requests', icon: CalendarCheck },
   ];
 
   const handleLogout = () => {

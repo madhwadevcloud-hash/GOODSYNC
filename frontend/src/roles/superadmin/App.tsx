@@ -12,6 +12,7 @@ import { SchoolLogin } from '../../pages/SchoolLogin';
 import { ChangePasswordDialog } from './components/ChangePasswordDialog';
 import { useAuth } from '../../auth/AuthContext';
 import { SuperAdminPromotionTab } from './components/PromotionTab';
+import { DemoRequests } from './components/DemoRequests';
 import { TrendingUp, Menu, X } from 'lucide-react';
 
 function AppContent() {
@@ -70,6 +71,8 @@ function AppContent() {
             <SuperAdminPromotionTab />
           </div>
         );
+      case 'demo-requests':
+        return <DemoRequests />;
       case 'school-login':
         return (
           <SchoolLogin

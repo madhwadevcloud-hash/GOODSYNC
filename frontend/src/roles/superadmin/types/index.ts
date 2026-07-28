@@ -84,6 +84,7 @@ export type ViewType =
   | 'school-details'
   | 'edit-school'
   | 'promotion'
+  | 'demo-requests'
   | 'school-login';
 
 export interface User {
