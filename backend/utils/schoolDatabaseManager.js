@@ -70,6 +70,8 @@ class SchoolDatabaseManager {
 
       this.connections.set(dbName, connection);
       console.log(`✅ Connected to school database: ${dbName}`);
+      // Trigger background indexing for common collections non-blocking
+      this.ensureIndexes(connection).catch(() => {});
       return connection;
     } catch (error) {
       console.error(`❌ Failed to connect to school database ${dbName}:`, error.message);
@@ -384,6 +386,25 @@ class SchoolDatabaseManager {
     } catch (error) {
       console.error(`❌ Error creating school database ${dbName}:`, error);
       throw error;
+    }
+  }
+
+  // Ensure key compound indexes are built asynchronously in tenant databases
+  static async ensureIndexes(connection) {
+    try {
+      const students = connection.collection('students');
+      await students.createIndex({ isActive: 1, "studentDetails.academic.academicYear": 1 }, { background: true });
+      await students.createIndex({ isActive: 1, "studentDetails.academic.currentClass": 1, "studentDetails.academic.currentSection": 1 }, { background: true });
+      await students.createIndex({ isActive: 1, "academicInfo.class": 1, "academicInfo.section": 1 }, { background: true });
+      await students.createIndex({ createdAt: -1 }, { background: true });
+
+      const teachers = connection.collection('teachers');
+      await teachers.createIndex({ isActive: 1, createdAt: -1 }, { background: true });
+
+      const attendance = connection.collection('attendances');
+      await attendance.createIndex({ date: -1, class: 1, section: 1 }, { background: true });
+    } catch (err) {
+      // Non-fatal background indexing handler
     }
   }
 }

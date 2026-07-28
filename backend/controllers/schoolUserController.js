@@ -17,27 +17,27 @@ const {
 // -----------------------------------------------------------------
 
 
-// Helper function to resolve school identifier (name or code) to school code
+// In-memory cache for resolved school codes to eliminate redundant DB lookups
+const schoolCodeCache = new Map();
+
 const resolveSchoolCode = async (schoolIdentifier) => {
-  console.log(`🔍 Resolving school identifier: ${schoolIdentifier}`);
+  if (!schoolIdentifier) return '';
+  const key = String(schoolIdentifier).toLowerCase();
+  if (schoolCodeCache.has(key)) {
+    return schoolCodeCache.get(key);
+  }
 
   // First, try to find school by code (direct match)
-  let school = await School.findOne({ code: schoolIdentifier.toUpperCase() });
+  let school = await School.findOne({ code: schoolIdentifier.toUpperCase() }).lean();
 
   if (!school) {
     // If not found by code, try to find by name
-    school = await School.findOne({ name: { $regex: new RegExp(`^${schoolIdentifier}$`, 'i') } });
+    school = await School.findOne({ name: { $regex: new RegExp(`^${schoolIdentifier}$`, 'i') } }).lean();
   }
 
-  if (!school) {
-    // If no school record exists but we're working with a simple identifier,
-    // assume it's a valid school code if it matches expected pattern
-    console.log(`⚠️ School record not found for ${schoolIdentifier}, treating as direct school code`);
-    return schoolIdentifier.toLowerCase();
-  }
-
-  console.log(`✅ Resolved to school: ${school.name} (code: ${school.code})`);
-  return school.code.toLowerCase();
+  const resolvedCode = school ? school.code.toLowerCase() : schoolIdentifier.toLowerCase();
+  schoolCodeCache.set(key, resolvedCode);
+  return resolvedCode;
 };
 
 // Add a new user to a school

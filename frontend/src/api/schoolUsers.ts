@@ -35,8 +35,7 @@ export const schoolUserAPI = {
         `/school-users/${schoolCode}/users`,
         {
           params: {
-            ...(academicYear ? { academicYear } : {}),
-            _t: Date.now()
+            ...(academicYear ? { academicYear } : {})
           },
           headers: {
             'Authorization': `Bearer ${token}`
